@@ -1,0 +1,1295 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Conversational BI - Complete Code Guide</title>
+<style>
+  :root {
+    --bg: #ffffff; --soft: #f5f6f7; --text: #22252a; --muted: #5d636b; --line: #e1e4e8;
+    --accent: #14803a; --accent-bg: #e8f5ec; --warn-bg: #fff6e0; --warn: #8a5a00;
+    --code-bg: #1e2127; --code-fg: #e6e9ee; --info-bg: #eaf2fb; --info: #1d4f8c;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16181c; --soft: #1e2126; --text: #e6e9ee; --muted: #9aa1ab; --line: #2d3138;
+      --accent: #4cc477; --accent-bg: #16301f; --warn-bg: #3a2f12; --warn: #f0c36b;
+      --code-bg: #0e1013; --code-fg: #e6e9ee; --info-bg: #14263b; --info: #8bbcf0;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.65 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .layout { display: flex; max-width: 1280px; margin: 0 auto; }
+  nav.toc { position: sticky; top: 0; align-self: flex-start; height: 100vh; overflow-y: auto; width: 280px; flex: none; padding: 24px 16px; border-right: 1px solid var(--line); font-size: 14px; }
+  nav.toc h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 18px 0 6px; }
+  nav.toc a { display: block; color: var(--text); text-decoration: none; padding: 3px 8px; border-radius: 6px; }
+  nav.toc a:hover { background: var(--soft); }
+  main { flex: 1; min-width: 0; padding: 32px 40px 80px; max-width: 920px; }
+  h1 { font-size: 34px; line-height: 1.2; margin: 0 0 8px; }
+  h2.sec { font-size: 26px; margin: 56px 0 12px; padding-top: 12px; border-top: 2px solid var(--line); }
+  h3 { font-size: 20px; margin: 32px 0 8px; }
+  h4 { font-size: 16px; margin: 20px 0 4px; }
+  p, li { max-width: 74ch; }
+  .lead { font-size: 18px; color: var(--muted); }
+  code { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: .9em; background: var(--soft); padding: 1px 6px; border-radius: 4px; }
+  pre { background: var(--code-bg); color: var(--code-fg); padding: 14px 16px; border-radius: 8px; overflow-x: auto; font-size: 13.5px; line-height: 1.55; margin: 12px 0; }
+  pre code { background: none; padding: 0; color: inherit; font-size: inherit; }
+  .file { display: inline-block; font-family: ui-monospace, Consolas, monospace; font-size: 13px; background: var(--accent-bg); color: var(--accent); padding: 2px 10px; border-radius: 999px; margin-bottom: 6px; }
+  .box { border-radius: 8px; padding: 12px 16px; margin: 16px 0; border-left: 4px solid; }
+  .box.tip { background: var(--accent-bg); border-color: var(--accent); }
+  .box.warn { background: var(--warn-bg); border-color: var(--warn); }
+  .box.info { background: var(--info-bg); border-color: var(--info); }
+  .box p { margin: 4px 0; }
+  .box strong.t { display: block; margin-bottom: 2px; }
+  table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 15px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { background: var(--soft); }
+  .flow { display: flex; flex-direction: column; gap: 6px; margin: 16px 0; }
+  .flow .step { display: flex; gap: 12px; align-items: flex-start; background: var(--soft); border-radius: 8px; padding: 10px 14px; }
+  .flow .n { flex: none; width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: #fff; font-weight: 700; display: grid; place-items: center; font-size: 13px; }
+  .flow .step p { margin: 0; }
+  .diagram { background: var(--soft); border-radius: 8px; padding: 16px; overflow-x: auto; }
+  .diagram pre { background: none; color: var(--text); padding: 0; margin: 0; }
+  details { margin: 10px 0; }
+  summary { cursor: pointer; font-weight: 600; }
+  .meta { color: var(--muted); font-size: 14px; }
+  @media (max-width: 860px) {
+    nav.toc { display: none; }
+    main { padding: 20px 16px 60px; }
+  }
+  @media print {
+    nav.toc { display: none; }
+    main { max-width: none; padding: 0; }
+    pre { white-space: pre-wrap; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<nav class="toc" aria-label="Contents">
+  <strong>Contents</strong>
+  <h2>Start here</h2>
+  <a href="#big-picture">1. The big picture</a>
+  <a href="#glossary">2. Words you will meet</a>
+  <a href="#map">3. Project map</a>
+  <a href="#run">4. Run it on your machine</a>
+  <a href="#mastra">5. Mastra in 5 minutes</a>
+  <h2>Server code</h2>
+  <a href="#contracts">6. contracts.ts</a>
+  <a href="#registry">7. registry.ts</a>
+  <a href="#conversations">8. conversations.ts</a>
+  <a href="#genie-client">9. genie/client.ts</a>
+  <a href="#agent-client">10. genie/agentClient.ts</a>
+  <a href="#collector">11. collector.ts</a>
+  <a href="#tool-ask">12. The Genie tools</a>
+  <a href="#chartspec">13. chartSpec.ts</a>
+  <a href="#agents">14. The agents</a>
+  <a href="#suggest">15. suggest.ts</a>
+  <a href="#mastra-index">16. mastra/index.ts</a>
+  <h2>Login code</h2>
+  <a href="#auth-overview">17. How login works</a>
+  <a href="#auth-token">18. tokenProvider.ts</a>
+  <a href="#auth-oauth">19. oauth.ts</a>
+  <a href="#auth-sessions">20. sessions.ts</a>
+  <h2>UI code</h2>
+  <a href="#ui-overview">21. UI overview</a>
+  <a href="#ui-types">22. types.ts</a>
+  <a href="#ui-api">23. api.ts</a>
+  <a href="#ui-app">24. App.tsx</a>
+  <a href="#ui-components">25. components.tsx</a>
+  <a href="#ui-charts">26. charts/ (the chart libraries)</a>
+  <a href="#ui-css">27. styles.css, index.html, Vite</a>
+  <h2>Wrap up</h2>
+  <a href="#trace">28. One question, start to finish</a>
+  <a href="#change">29. How to change things</a>
+  <a href="#config">30. Settings</a>
+  <a href="#build">31. Build, test, deploy</a>
+  <a href="#debug">32. Logging and debugging</a>
+  <a href="#gotchas">33. Gotchas and known limits</a>
+  <a href="#week">34. Your first week</a>
+  <a href="#open">35. Open questions</a>
+</nav>
+
+<main>
+<h1>Conversational BI: the complete code guide</h1>
+<p class="lead">You type a business question in plain English. The app asks a data tool called Genie, writes a short answer, draws a chart and shows the table and SQL behind it. This one page explains how the whole app works, assuming you have never used Mastra, React or OAuth before.</p>
+<p class="meta">Last verified against the files on disk on 2026-11-02. The project had no git repository at that time, so there is no commit id. Where this guide and the code disagree, trust the code.</p>
+
+<div class="box info"><strong class="t">How to read this</strong>
+<p><strong>Everyone:</strong> read sections 1 and 2, then 28 (one question, start to finish).</p>
+<p><strong>New developers:</strong> add sections 3 to 5, run the app (section 4), then read sections 6 to 27 in order, and 33 before you change anything.</p>
+<p><strong>People who ship or run it:</strong> sections 30 to 33 and 35.</p>
+<p>The code is TypeScript (JavaScript with types). You do not need to know it deeply. Each snippet has a plain explanation under it, and snippets are shortened from the real files.</p>
+</div>
+
+<!-- ======================================================= -->
+<h2 class="sec" id="big-picture">1. The big picture</h2>
+
+<p>The app is a chat for business questions about <strong>reinsurance placements and reinsurer capacity</strong>. There are two programs:</p>
+<ul>
+  <li><strong>The server</strong> (folder <code>server/</code>), built with a framework called <strong>Mastra</strong>. It holds the "brains": AI agents, the connection to Databricks, and login.</li>
+  <li><strong>The UI</strong> (folder <code>ui/</code>), built with <strong>React</strong>. It is the chat page you see in the browser.</li>
+</ul>
+<p>In production one server process serves both the API and the built UI (port 1976 with <code>npm start</code>). In development the UI runs on port 5173 and passes requests through to the server on port 4111.</p>
+
+<h3>What happens when you ask a question</h3>
+<div class="flow">
+  <div class="step"><span class="n">1</span><p>You type "Chart FOT premium by region" in the browser and press Send.</p></div>
+  <div class="step"><span class="n">2</span><p>The UI sends it to the server at <code>/bi/chat</code>.</p></div>
+  <div class="step"><span class="n">3</span><p>The server hands the question to the <strong>supervisor agent</strong>, an AI (Claude by default) with instructions like "you coordinate specialists".</p></div>
+  <div class="step"><span class="n">4</span><p>The supervisor delegates to a <strong>Genie agent</strong>, one per data area. That agent calls Databricks Genie, which writes SQL, runs it and returns rows. For a chart request, Genie returns the chart data as one cell of JSON.</p></div>
+  <div class="step"><span class="n">5</span><p><strong>Plain code, not an AI,</strong> turns that JSON into a real table and a chart description.</p></div>
+  <div class="step"><span class="n">6</span><p>The supervisor writes a short answer. While this happens, the server streams live progress ("Running the query...") to the browser.</p></div>
+  <div class="step"><span class="n">7</span><p>The server sends one final package: the answer, the table, the chart description and the SQL. A moment later it may send follow-up question ideas. The UI draws everything.</p></div>
+</div>
+
+<div class="diagram"><pre>
+ Browser (React UI)             Server (Mastra)                              Databricks
+ ------------------             ----------------                             ----------
+  chat box --POST /bi/chat--&gt;  supervisor agent (Claude)
+                                   |-- delegates --&gt; Genie agent --tool--&gt; Genie  (writes + runs SQL)
+                                   |                       |
+                                   |                       +-- chart JSON --&gt; chartSpec.ts (plain code)
+  progress,  &lt;--live stream--   writes the short answer
+  answer, chart,                 collector box carries rows, SQL, chart past the AI
+  table, SQL
+</pre></div>
+
+<div class="box tip"><strong class="t">Key idea</strong>
+<p>The AI never makes up numbers. All figures come from Genie's real query results. The AI only decides who to ask and explains the result. Tables and charts are built by plain code from the real rows.</p>
+</div>
+
+<!-- ======================================================= -->
+<h2 class="sec" id="glossary">2. Words you will meet</h2>
+<table>
+<tr><th>Word</th><th>Plain meaning</th></tr>
+<tr><td><strong>LLM</strong></td><td>Large language model, the AI that reads and writes text. Claude by default.</td></tr>
+<tr><td><strong>Agent</strong></td><td>An LLM plus instructions plus tools. Instructions say who it is. Tools are things it can do besides talking.</td></tr>
+<tr><td><strong>Tool</strong></td><td>A normal function the LLM may choose to call, such as "ask Genie a question". The framework runs it and gives the result back.</td></tr>
+<tr><td><strong>Supervisor / sub-agent</strong></td><td>A supervisor is an agent whose job is to delegate to other agents (sub-agents). Here each Genie space has one sub-agent.</td></tr>
+<tr><td><strong>Mastra</strong></td><td>A TypeScript framework for agents, tools, memory and an HTTP server in one place.</td></tr>
+<tr><td><strong>Databricks</strong></td><td>The data platform where the data lives.</td></tr>
+<tr><td><strong>Genie / Genie space</strong></td><td>A Databricks feature: ask a question in English, it writes SQL and returns rows. A "Genie space" is one Genie set up for one group of tables. <em>Agent mode</em> is a newer, Beta Genie API that streams its reasoning.</td></tr>
+<tr><td><strong>SQL</strong></td><td>The language for asking questions of a database.</td></tr>
+<tr><td><strong>Route / API</strong></td><td>A web address a program can call. <code>/bi/chat</code> is a route on our server.</td></tr>
+<tr><td><strong>SSE (Server-Sent Events)</strong></td><td>One long HTTP response that pushes many small messages, so the user sees progress instead of waiting.</td></tr>
+<tr><td><strong>Collector</strong></td><td>A per-request box where tools drop rows, SQL and the chart so they can reach the browser without passing through the AI.</td></tr>
+<tr><td><strong>Chart spec</strong></td><td>The app's own neutral description of a chart (type, axes, data). Drawn in the browser by one of three chart libraries.</td></tr>
+<tr><td><strong>Token</strong></td><td>A secret string that proves who you are to Databricks. Sent in a header on each call.</td></tr>
+<tr><td><strong>PAT</strong></td><td>Personal access token. One fixed token for one person. Used for dev only; everyone shares one identity.</td></tr>
+<tr><td><strong>OAuth</strong></td><td>The standard "Log in with X" flow. You sign in on Databricks's page; our app receives a token that acts as you.</td></tr>
+<tr><td><strong>PKCE</strong></td><td>An extra safety step in OAuth so a stolen login code is useless on its own.</td></tr>
+<tr><td><strong>Session / cookie</strong></td><td>The server remembers who you are with a random id stored in a browser cookie. <code>HttpOnly</code> means page scripts cannot read it.</td></tr>
+<tr><td><strong>Unity Catalog</strong></td><td>Databricks' system for deciding who may read which data. Because Genie runs with your token, it applies to you.</td></tr>
+<tr><td><strong>SQLite / LibSQL</strong></td><td>A database kept in one file. Mastra uses it for storage files.</td></tr>
+<tr><td><strong>Zod</strong></td><td>A library for describing the shape of data and checking it.</td></tr>
+<tr><td><strong>React / Vite</strong></td><td>React builds web pages from components. Vite runs and builds the React app.</td></tr>
+<tr><td><strong>Recharts / Plotly / D3</strong></td><td>The three chart libraries the UI can use. Only one is switched on at a time.</td></tr>
+<tr><td><strong>FOT</strong></td><td>A business term. In the code it is both a placement status (between "Provide Quote" and "Authorization") and the name of a premium measure ("FOT premium"). The code never spells it out; ask a domain expert.</td></tr>
+<tr><td><strong>Underwriting year</strong></td><td>The year a placement was written. "Year" in a question means this.</td></tr>
+</table>
+
+<!-- ======================================================= -->
+<h2 class="sec" id="map">3. Project map</h2>
+<pre><code>conversational-bi/
+  package.json, run.mjs           the launcher: npm run setup / build / start
+  README.md                       short summary and settings table
+  docs/                           this guide (code-guide.html) and older Markdown docs
+  docs/onboarding/                the same material as separate Markdown files
+  server/                         the Mastra app (the brains)
+    .env.example                  setting names (copy to .env, never commit .env)
+    scripts/smoke-genie.ts        manual test: call Genie directly
+    src/
+      contracts.ts                shared data shapes
+      genie/
+        registry.ts               list of Genie spaces
+        client.ts                 Genie Conversation API client (default)
+        agentClient.ts            Genie Agent mode client (Beta)
+        conversations.ts          remembers Genie conversation ids and last results
+      auth/
+        tokenProvider.ts          shared-token mode (dev)
+        oauth.ts                  Databricks login steps
+        sessions.ts               logged-in users + token refresh
+      mastra/
+        index.ts                  the server: routes, wiring
+        collector.ts              side channel for rows / SQL / chart
+        chartSpec.ts              Genie chart JSON to a chart spec
+        suggest.ts                writes follow-up questions
+        agents/index.ts           supervisor, Genie agents, follow-up agent
+        tools/askGenie.ts         tools: ask Genie, load the full result
+  ui/                             the React chat page
+    index.html                    page shell + fonts
+    vite.config.ts                dev server and proxy
+    src/
+      main.tsx                    starts React
+      App.tsx                     login page + chat page
+      api.ts                      calls to the server
+      components.tsx              table, feedback, thinking log, answer details
+      types.ts                    shared data shapes (UI copy)
+      charts/                     index.ts (the switch) + one file per chart library
+      styles.css                  look and feel</code></pre>
+<p>Tests sit next to the code as <code>*.test.ts</code>: <code>auth/auth.test.ts</code>, <code>genie/client.test.ts</code>, <code>genie/agentClient.test.ts</code> and <code>mastra/chartSpec.test.ts</code>. There are no UI tests.</p>
+
+<!-- ======================================================= -->
+<h2 class="sec" id="run">4. Run it on your machine</h2>
+
+<h3>What you need</h3>
+<ul>
+  <li><strong>Node.js.</strong> The README says version 20 or newer. No version file exists, so the target version is unknown.</li>
+  <li><strong>An Anthropic API key</strong> (or an OpenAI-compatible endpoint, see section 30).</li>
+  <li><strong>A Databricks workspace</strong> with a Genie space, and either a personal access token (dev) or an OAuth app connection (per-user login).</li>
+</ul>
+
+<h3>Way 1: like production (one process)</h3>
+<pre><code>npm run setup     # installs both apps, creates server/.env from .env.example
+# edit server/.env: host, Genie space ids, ANTHROPIC_API_KEY, DATABRICKS_TOKEN
+npm run build     # builds the UI, then the server
+npm start         # then open http://localhost:1976</code></pre>
+<p><code>npm start</code> runs the <em>built</em> server. After any code change, run <code>npm run build</code> again, otherwise old code keeps running. It stops with a message if <code>server/.env</code> or the build is missing.</p>
+
+<h3>Way 2: for development (two processes, hot reload)</h3>
+<pre><code># terminal 1                    # terminal 2
+cd server                        cd ui
+npm run dev                      npm run dev
+# Mastra on :4111 (+ Studio)     # UI on http://localhost:5173, proxies /bi and /auth to the server</code></pre>
+
+<h3>Tests and checks</h3>
+<pre><code>cd server
+npm test                          # unit tests (vitest)
+npm run typecheck                 # src/ only
+npx tsx scripts/smoke-genie.ts "your question"   # Genie alone, no AI agents
+cd ../ui
+npm run typecheck                 # npm run build also type-checks</code></pre>
+
+<h3>Common errors</h3>
+<table>
+<tr><th>What you see</th><th>Cause and fix</th></tr>
+<tr><td><code>server/.env is missing</code></td><td>Run <code>npm run setup</code>.</td></tr>
+<tr><td><code>Not built yet</code></td><td>Run <code>npm run build</code>.</td></tr>
+<tr><td><code>DATABRICKS_SERVER_HOSTNAME is not set</code></td><td>Set it in <code>server/.env</code>.</td></tr>
+<tr><td><code>DATABRICKS_TOKEN is not set</code></td><td>Set it, or set <code>DATABRICKS_CLIENT_ID</code> to use login instead.</td></tr>
+<tr><td>Charts missing or the page goes blank after a change</td><td>The server is still running an old build. Stop it, run <code>npm run build</code>, start again (see section 33).</td></tr>
+<tr><td><code>EBUSY: resource busy or locked</code> during the server build (seen on Windows)</td><td>A running server, or a file watcher or sync tool, holds <code>server/.mastra/output</code>. Stop the server, delete that folder, build again.</td></tr>
+<tr><td>Everyone is logged out after a restart</td><td>Expected. Sessions are in memory.</td></tr>
+</table>
+
+<!-- ======================================================= -->
+<h2 class="sec" id="mastra">5. Mastra in 5 minutes</h2>
+<p>Mastra gives you a few building blocks. This app uses exactly these.</p>
+
+<h3>Agent</h3>
+<pre><code>new Agent({
+  id: 'suggest_agent',
+  instructions: 'You suggest follow-up questions ...',   // the system prompt
+  model: model(),                                        // which LLM
+  tools: { ... },                                        // what it can call (optional)
+})</code></pre>
+<p>Think of an agent as a worker with a job description (<code>instructions</code>), a brain (<code>model</code>) and a toolbox (<code>tools</code>).</p>
+
+<h3>Tool</h3>
+<pre><code>createTool({
+  id: 'ask-placement',
+  description: 'Ask the Databricks Genie space ...',  // the LLM reads this to decide when to use it
+  inputSchema: z.object({ question: z.string() }),
+  outputSchema: z.object({ summary: z.string(), ... }),
+  execute: async ({ question }, { requestContext }) =&gt; { ...real code... },
+})</code></pre>
+<p>A tool is a normal function plus a label. The <code>description</code> and <code>inputSchema</code> are how the LLM learns what the tool does. <code>execute</code> is the real code that runs.</p>
+
+<h3>Supervisor pattern</h3>
+<pre><code>new Agent({ ..., agents: { ...genieAgents } })</code></pre>
+<p>When you give an agent an <code>agents</code> list, Mastra lets it call each sub-agent like a tool. Each sub-agent's <code>description</code> tells the supervisor when to use it.</p>
+
+<h3>Memory</h3>
+<p>The supervisor has <code>Memory</code> backed by a small file database (LibSQL, file <code>bi-memory.db</code>). Each chat has a thread id. This is how a follow-up like "and for last year?" works.</p>
+
+<h3>Mastra instance and routes</h3>
+<p><code>new Mastra({ agents, storage, server })</code> is the root object. We add our own web routes with <code>registerApiRoute</code>. Mastra runs the web server.</p>
+
+<h3>RequestContext</h3>
+<p>A small bag of values that travels with one request, so tools deep inside sub-agents can read things like the thread id, the session id and the collector.</p>
+
+<!-- ======================================================= -->
+<h2 class="sec" id="contracts">6. contracts.ts: the shared data shapes</h2>
+<span class="file">server/src/contracts.ts</span>
+<p>This file describes the shapes of data that move between parts of the app. Reading it first teaches you the vocabulary of the system.</p>
+
+<h3>GenieResult: what one Genie call returns</h3>
+<pre><code>export const GenieResultSchema = z.object({
+  spaceId: z.string(),
+  question: z.string(),
+  summary: z.string(),                     // Genie's text answer
+  sql: z.string().nullable(),
+  columns: z.array(z.string()),
+  rows: z.array(z.array(z.unknown())),     // capped (GENIE_ROW_CAP, default 200)
+  totalRows: z.number(),
+  thinking: z.array(z.string()),           // Genie's reasoning steps
+  suggestedQuestions: z.array(z.string()), // Genie's recommended follow-ups
+  statementId: z.string().nullable(),      // used to load the full result (Agent mode)
+  conversationId: z.string(),
+  messageId: z.string(),
+  error: z.string().nullable(),
+});
+export type GenieResult = z.infer&lt;typeof GenieResultSchema&gt;;</code></pre>
+<ul>
+  <li><code>z.object({...})</code> declares an object with named fields. <code>.nullable()</code> means "this, or nothing".</li>
+  <li><code>rows</code> is a list of rows, each a list of values: <code>[["APAC","492.2"],["EMEA","310.7"]]</code>. <code>columns</code> holds the names in the same order.</li>
+  <li><code>conversationId</code> and <code>messageId</code> are Genie's own ids, needed for follow-ups and for the Helpful / Not helpful buttons.</li>
+  <li>The last line turns the schema into a TypeScript type, so one definition gives both the check and the type.</li>
+</ul>
+
+<h3>ChartSpec: a chart, described without a library</h3>
+<pre><code>export const ChartSpecSchema = z.object({
+  type: z.enum(['bar', 'line', 'scatter']),
+  title: z.string(),
+  x: z.string(),                                    // field names, keys of each data row
+  y: z.string(),
+  color: z.string().optional(),                     // series field
+  xType: z.enum(['category', 'time', 'number']),    // time: ISO date strings, sorted ascending
+  data: z.array(z.record(z.string(), z.unknown())), // y (and x for scatter) are numbers
+});</code></pre>
+<p>This is deliberately neutral. The server does not know which chart library the browser uses (section 26).</p>
+
+<h3>FinalAnswer: what the UI finally receives</h3>
+<pre><code>export const FinalAnswerSchema = z.object({
+  answer: z.string(),
+  columns: z.array(z.string()),
+  rows: z.array(z.array(z.unknown())),
+  totalRows: z.number(),                  // rows.length &lt; totalRows =&gt; the UI shows a preview
+  chartSpec: ChartSpecSchema.nullable(),  // null =&gt; UI shows table only
+  sources: z.array(z.object({ spaceId, spaceName, question, sql, messageId, conversationId })),
+  suggestedQuestions: z.array(z.string()),
+});</code></pre>
+<p>The final package: the written answer, the table, an optional chart, a list of <em>sources</em> (which Genie question was asked and what SQL ran), and suggested follow-ups.</p>
+
+<h3>ChatEvent: the live messages</h3>
+<pre><code>export type ChatEvent =
+  | { type: 'step'; step: 'genie'; status: 'start' | 'done'; detail?: string }
+  | { type: 'thinking'; text: string }   // one line of Genie's progress or reasoning
+  | { type: 'text'; delta: string }
+  | { type: 'final'; result: FinalAnswer }
+  | { type: 'suggestions'; questions: string[] }  // sent after final
+  | { type: 'error'; message: string };</code></pre>
+<table>
+<tr><th>type</th><th>meaning</th><th>UI reaction</th></tr>
+<tr><td><code>step</code></td><td>A Genie tool started or finished</td><td>shows "Querying Genie..."</td></tr>
+<tr><td><code>thinking</code></td><td>One line of Genie's progress</td><td>adds a line to the "Genie is thinking" panel</td></tr>
+<tr><td><code>text</code></td><td>A few more words of the answer</td><td>appends them (typing effect)</td></tr>
+<tr><td><code>final</code></td><td>Everything is done, here is the data</td><td>shows chart, table, SQL</td></tr>
+<tr><td><code>suggestions</code></td><td>Follow-up ideas, a moment later</td><td>shows follow-up buttons</td></tr>
+<tr><td><code>error</code></td><td>Something broke</td><td>shows the message</td></tr>
+</table>
+
+<h3>Interfaces: promises about behaviour</h3>
+<pre><code>export interface GenieClient {
+  ask(args: {...}): Promise&lt;GenieResult&gt;;
+  feedback(args: ...): Promise&lt;void&gt;;
+  fetchFullResult?(args: { statementId: string; cap: number; sessionId?: string }): Promise&lt;...&gt;;
+}
+export interface TokenProvider { getToken(ctx?: { sessionId?: string }): Promise&lt;string&gt; }
+export type GenieSpace = { key: string; name: string; description: string; spaceId: string };</code></pre>
+<p>An <strong>interface</strong> says "anything with these functions will do". That is why the app can swap "shared token" for "per-user token", or the Conversation client for the Agent-mode client, without changing the code that uses them. It also makes tests easy: tests pass in a fake. <code>fetchFullResult</code> is optional because only Agent mode has it.</p>
+
+<div class="box warn"><strong class="t">Keep two files in step</strong>
+<p><code>ui/src/types.ts</code> is a hand-kept copy of these shapes. Nothing checks that they match. If you change <code>contracts.ts</code>, change <code>types.ts</code> too.</p></div>
+
+<!-- ======================================================= -->
+<h2 class="sec" id="registry">7. registry.ts: the list of Genie spaces</h2>
+<span class="file">server/src/genie/registry.ts</span>
+<pre><code>export const genieSpaces: GenieSpace[] = [
+  {
+    key: 'placement',
+    name: 'Lab – Placement Core',
+    description: 'Insurance placement analytics: placement count, layer count, total limit and total FOT premium by ... Owns ALL placement, status, layer and FOT premium questions, including chart requests. ...',
+    spaceId: process.env.DATABRICKS_GENIE_SPACE_ID ?? '&lt;fallback-id&gt;',
+  },
+  { key: 'capacity', name: 'Lab – Capacity &amp; Reinsurer', description: '...', spaceId: process.env.DATABRICKS_GENIE_CAPACITY_SPACE_ID ?? '&lt;fallback-id&gt;' },
+];
+export const getSpaceByKey = (key: string) =&gt; genieSpaces.find((s) =&gt; s.key === key);
+export const getSpaceById = (id: string) =&gt; genieSpaces.find((s) =&gt; s.spaceId === id);</code></pre>
+<ul>
+  <li>A plain list with two spaces today: <code>placement</code> and <code>capacity</code>.</li>
+  <li><code>key</code> is a short internal name. It becomes part of agent and tool names (<code>genie_placement</code>, <code>ask-placement</code>).</li>
+  <li><code>description</code> matters: the supervisor reads it to decide which space to ask.</li>
+  <li><code>process.env.X ?? 'fallback'</code> means "use setting X from <code>.env</code>, and if it is missing use the fallback". The real file has fixed fallback ids; they are not repeated here. See section 33.</li>
+</ul>
+<div class="box tip"><strong class="t">Why this is the magic of the design</strong>
+<p>Agents, tools and most of the supervisor's instructions are built by looping over this list. Add an entry and a new Genie specialist appears. (One exception: the supervisor's routing lines also name the spaces by hand. See section 29.)</p></div>
+
+<!-- ======================================================= -->
+<h2 class="sec" id="conversations">8. conversations.ts: remembering Genie's thread</h2>
+<span class="file">server/src/genie/conversations.ts</span>
+<pre><code>const store = new Map&lt;string, string&gt;();
+const k = (threadId: string, spaceId: string) =&gt; `${threadId}::${spaceId}`;
+export const getConversationId = (threadId, spaceId) =&gt; store.get(k(threadId, spaceId));
+export const setConversationId = (threadId, spaceId, conversationId) =&gt; void store.set(k(threadId, spaceId), conversationId);
+
+// Latest result per (thread, space), so a later turn can load the full result of a query that was only previewed.
+const lastResults = new Map&lt;string, GenieResult&gt;();</code></pre>
+<p>Genie keeps its own conversation so follow-ups make sense. We must send the same Genie <code>conversationId</code> on the next question in the same chat. This tiny file is the notebook that remembers it, plus the last result per chat and space (for loading the full result later).</p>
+<ul>
+  <li>A <code>Map</code> is a lookup table: key in, value out. The key joins the chat thread and the space.</li>
+  <li>It lives in <strong>memory</strong>. After a restart Genie starts a fresh conversation, while the supervisor's own memory (on disk) still remembers the chat.</li>
+</ul>
+
+<!-- ======================================================= -->
+<h2 class="sec" id="genie-client">9. genie/client.ts: talking to Genie (default mode)</h2>
+<span class="file">server/src/genie/client.ts</span>
+<p>This file talks to the Genie <strong>Conversation API</strong>. It is a normal class with no AI in it. It is used unless <code>GENIE_MODE=agent</code>.</p>
+
+<h3>Settings at the top</h3>
+<pre><code>const ROW_CAP = Number(process.env.GENIE_ROW_CAP ?? 200);
+const TIMEOUT_MS = Number(process.env.GENIE_TIMEOUT_MS ?? 180_000);</code></pre>
+<p>At most 200 rows are kept (to protect the browser and the AI), and we give up after 3 minutes. Both are changeable in <code>.env</code>.</p>
+
+<h3>The constructor</h3>
+<pre><code>constructor(
+  private readonly tokens: TokenProvider,
+  host = process.env.DATABRICKS_SERVER_HOSTNAME,
+  private readonly fetchFn: typeof fetch = fetch,
+  private readonly pollDelaysMs = [1000, 1500, 2000, 3000, 5000],
+) { if (!host) throw new Error('DATABRICKS_SERVER_HOSTNAME is not set'); ... }</code></pre>
+<ul>
+  <li><code>tokens</code>: where to get the login token (works with either login mode).</li>
+  <li><code>fetchFn</code>: the function that does web requests. Tests pass a fake, so no real network is needed.</li>
+  <li><code>pollDelaysMs</code>: waits between "are you done yet?" checks: 1s, 1.5s, 2s, 3s, then 5s.</li>
+</ul>
+
+<h3>call(): one authenticated web request</h3>
+<pre><code>const res = await this.fetchFn(`${this.base}${path}`, {
+  method,
+  headers: { Authorization: `Bearer ${await this.tokens.getToken({ sessionId })}`, 'Content-Type': 'application/json' },
+  body: body === undefined ? undefined : JSON.stringify(body),
+});
+if (!res.ok) throw new Error(`Genie ${method} ${path} failed: ${res.status} ...`);</code></pre>
+<p>Every request carries <code>Authorization: Bearer &lt;token&gt;</code>. With OAuth, <code>sessionId</code> picks <em>your</em> token, so Genie runs as you.</p>
+
+<h3>ask(): the main function</h3>
+<div class="flow">
+  <div class="step"><span class="n">1</span><p><strong>Start.</strong> With a conversation id, post the question into it. Without one, call <code>start-conversation</code>. Either way you get a <code>conversation_id</code> and a <code>message_id</code>.</p></div>
+  <div class="step"><span class="n">2</span><p><strong>Poll.</strong> Ask for the message's status until it is <code>COMPLETED</code>. Each status change (for example "Running the query...") and each new reasoning step is passed to <code>onProgress</code>, which becomes a live "thinking" line in the browser. <code>FAILED</code>, <code>CANCELLED</code>, <code>QUERY_RESULT_EXPIRED</code> or 3 minutes of waiting returns an error result.</p></div>
+  <div class="step"><span class="n">3</span><p><strong>Read attachments.</strong> A <em>text</em> attachment is Genie's written answer. A <em>query</em> attachment holds the SQL and its reasoning. Attachments may also carry suggested questions.</p></div>
+  <div class="step"><span class="n">4</span><p><strong>Fetch the rows</strong> from the query's <code>query-result</code> endpoint. Keep the first 200 rows but remember the real total.</p></div>
+  <div class="step"><span class="n">5</span><p><strong>Return a GenieResult.</strong> <code>statementId</code> is always null in this mode.</p></div>
+</div>
+<div class="box warn"><strong class="t">ask() never throws</strong>
+<p>Everything sits in a <code>try/catch</code>. On any failure you get a normal <code>GenieResult</code> with <code>error</code> filled in, so the AI agent can explain the error in words instead of the request crashing.</p></div>
+<div class="box info"><strong class="t">Gotcha</strong>
+<p>Genie can return numbers as <em>text</em> ("492.2"). Later code converts them where it matters (charts, table alignment).</p></div>
+
+<h3>feedback()</h3>
+<p>Sends your Helpful / Not helpful rating (<code>POSITIVE</code> or <code>NEGATIVE</code>) to Genie so the space's owners can see how it performs.</p>
+
+<!-- ======================================================= -->
+<h2 class="sec" id="agent-client">10. genie/agentClient.ts: Genie Agent mode (Beta)</h2>
+<span class="file">server/src/genie/agentClient.ts</span>
+<p>Used when <code>GENIE_MODE=agent</code>. It calls <code>POST /api/2.0/genie/agents/{space}/responses</code> and reads a stream of events. Unlike polling, it shows Genie's <em>actual</em> reasoning, each SQL call and the final text. A comment in the file marks this API as <strong>Beta</strong>.</p>
+
+<h3>How it reads the stream</h3>
+<ul>
+  <li><code>sseData()</code> at the bottom turns the response body into a series of parsed JSON events.</li>
+  <li><code>response.created</code> gives the conversation and message ids.</li>
+  <li><code>response.output_item.done</code> hands each finished item to <code>onItem()</code>. <code>response.failed</code> and <code>error</code> set <code>result.error</code>.</li>
+</ul>
+
+<h3>onItem(): one stream item</h3>
+<table>
+<tr><th>Item type</th><th>What it does</th></tr>
+<tr><td><code>reasoning</code></td><td>Adds the text to <code>thinking</code> and shows it live.</td></tr>
+<tr><td><code>function_call</code></td><td>Shows "Running query: ...". Keeps the SQL if nothing else supplied it.</td></tr>
+<tr><td><code>function_call_output</code></td><td>Remembers the <code>statementId</code>. If the output holds chart JSON (<code>chartJsonOf</code>), stores it as a one-cell result, the same shape the default client returns for charts.</td></tr>
+<tr><td><code>message</code></td><td>The part with metadata carries the SQL, columns and preview rows. Other parts are prose, cleaned of Databricks citation links and chart placeholders.</td></tr>
+</table>
+
+<h3>Two things only this client does</h3>
+<ul>
+  <li><strong>Re-load cut-off chart JSON.</strong> The stream cuts long query output at about 600 characters, so a chart's JSON often arrives incomplete. If the SQL mentions <code>chart_json</code> and no table arrived, <code>ask()</code> loads the one-cell result by statement id.</li>
+  <li><strong>fetchFullResult().</strong> Pages through the SQL Statement API until <code>cap</code> rows. This is what lets a user say "show me all the rows" (section 12). It throws "Result is too large to load inline" if the result is stored as external links.</li>
+</ul>
+<p>Feedback still goes through the Conversation client (<code>this.chat.feedback</code>).</p>
+
+<!-- ======================================================= -->
+<h2 class="sec" id="collector">11. collector.ts: a side channel for data</h2>
+<span class="file">server/src/mastra/collector.ts</span>
+<pre><code>export type Collector = { results: GenieResult[]; chart: ChartSpec | null; emit?: (e: ChatEvent) =&gt; void };
+export const newCollector = (): Collector =&gt; ({ results: [], chart: null });
+
+export const getCollector = (rc) =&gt; {
+  const c = rc?.get('collector') as Collector | undefined;
+  if (!c) throw new Error('collector missing from request context');
+  return c;
+};
+export const getThreadId = (rc) =&gt; (rc?.get('threadId') as string) ?? 'default';</code></pre>
+
+<h3>The problem it solves</h3>
+<p>The AI only handles <em>text</em>. But the browser needs real rows, real SQL and a real chart. Pushing 200 rows through the AI would be slow, costly, and the AI might alter them.</p>
+
+<h3>The solution</h3>
+<p>For each question the server creates an empty <strong>collector</strong> (a box). Tools drop the full data into it as they run. When the AI finishes, the server opens the box and sends the contents to the browser. The AI sees only a short summary.</p>
+<div class="diagram"><pre>
+ Genie tool  --full rows, SQL, chart--&gt;  [ collector box ]  --&gt; server reads it at the end --&gt; browser
+     |
+     +--short summary only--&gt;  the AI
+
+ Genie tool  --collector.emit(thinking line)--&gt;  straight to the browser, live
+</pre></div>
+<p>The box is passed inside <code>RequestContext</code>, and it is the <em>same</em> box (a reference), so a change made deep in a sub-agent's tool is visible to the route that created it. <code>emit</code> pushes live events to the browser from inside a tool.</p>
+
+<!-- ======================================================= -->
+<h2 class="sec" id="tool-ask">12. askGenie.ts: the two Genie tools</h2>
+<span class="file">server/src/mastra/tools/askGenie.ts</span>
+<p>Both are <strong>factories</strong>: functions that build a tool. Calling each once per space gives each Genie agent its own pair.</p>
+
+<h3>ask-&lt;key&gt;: ask a data question</h3>
+<pre><code>const result = await client.ask({
+  spaceId: space.spaceId,
+  question,
+  conversationId: getConversationId(threadId, space.spaceId),
+  sessionId: requestContext?.get('sessionId') as string | undefined,
+  onProgress: (text) =&gt; collector.emit?.({ type: 'thinking', text }),
+});
+if (result.conversationId) setConversationId(threadId, space.spaceId, result.conversationId);
+const fromJson = parseGenieChartJson(result.columns, result.rows);
+collector.chart = fromJson?.chart ?? null;</code></pre>
+<ol>
+  <li>Find which chat this is, and call Genie, reusing the earlier conversation id and the user's session id.</li>
+  <li>Send each progress line to the browser as a <code>thinking</code> event.</li>
+  <li>Remember the conversation id for follow-ups.</li>
+  <li>If the result is chart JSON, swap in the real table and set <code>collector.chart</code> (section 13). If not, <code>collector.chart</code> becomes <code>null</code>: <strong>the chart always belongs to the latest result</strong>, so a later non-chart answer clears an earlier chart.</li>
+  <li>A one-cell result that is not recognised chart JSON is logged as a warning, to help diagnose.</li>
+  <li>Save the full result in the collector, and as the "last result" for this chat.</li>
+  <li>Return a <strong>trimmed</strong> object to the AI: summary, SQL, columns, only 20 sample rows, <code>totalRows</code>, <code>shownRows</code>, <code>truncated</code>, <code>chartReady</code>, <code>error</code>.</li>
+</ol>
+
+<h3>fetch-full-&lt;key&gt;: load every row</h3>
+<p>The table normally shows a preview (200 rows). When the user asks for everything, this tool loads the previous query's complete result through <code>client.fetchFullResult</code>, up to <code>GENIE_FULL_ROW_CAP</code> (default 5000). It works only in Agent mode, because it needs a <code>statementId</code>. In the default mode it answers "The full result is not available for the previous query." The supervisor is told to <em>ask the user first</em> and never load more on its own.</p>
+
+<!-- ======================================================= -->
+<h2 class="sec" id="chartspec">13. chartSpec.ts: Genie's chart JSON to a chart</h2>
+<span class="file">server/src/mastra/chartSpec.ts</span>
+<p>Charts are built in code, never by an AI. When a user asks for a chart, the supervisor passes the word "chart" to Genie. Genie then returns a single <code>chart_json</code> cell: <code>{type, title, x, y, series, data:[{...}]}</code>.</p>
+
+<h3>parseGenieChartJson(columns, rows)</h3>
+<ol>
+  <li>Check the shape: one column, one row, a string that parses as JSON with a <code>data</code> array and string <code>x</code> and <code>y</code>. If not, return <code>null</code> (it is not chart data).</li>
+  <li>Check that <code>x</code> and <code>y</code> are real columns. Build the real table from <code>data</code>.</li>
+  <li>Map the type: <code>column</code> or <code>bar</code> becomes <code>bar</code>; <code>line</code> and <code>scatter</code> stay. Anything else, or a non-numeric y, gives <strong>no chart</strong> (table only) and a warning in the log.</li>
+  <li>If a <code>series</code> field exists, it becomes the chart's <code>color</code>.</li>
+</ol>
+
+<h3>buildChartSpec(...)</h3>
+<pre><code>const xType = type === 'scatter' ? 'number'
+  : type === 'line' &amp;&amp; rows.every((row) =&gt; isDate(row[xi])) ? 'time' : 'category';</code></pre>
+<ul>
+  <li><code>xType</code> is <code>number</code> for scatter, <code>time</code> for a line whose x values all look like dates (<code>2024-03</code> or <code>2024-03-14</code>), and <code>category</code> otherwise. A <strong>bar</strong> with dates is treated as categories.</li>
+  <li>Numbers sent as text are converted to real numbers (the y column, and x for scatter).</li>
+  <li>For <code>time</code>, the rows are sorted by date so a line does not zigzag.</li>
+</ul>
+<p>Tests: <code>chartSpec.test.ts</code> covers a coloured bar, line and scatter mapping, dated lines, an unsupported type and non-chart input.</p>
+
+<!-- ======================================================= -->
+<h2 class="sec" id="agents">14. agents/index.ts: the agents</h2>
+<span class="file">server/src/mastra/agents/index.ts</span>
+<p>The heart of the Mastra part. One function, <code>createAgents(client)</code>, builds all the agents. There is <strong>no chart agent</strong>: charts are plain code (section 13).</p>
+
+<h3>Which AI model</h3>
+<pre><code>const model = () =&gt; {
+  const baseUrl = process.env.LLM_BASE_URL;
+  if (baseUrl) return { id: `litellm/${process.env.LLM_MODEL ?? 'gpt-5.1'}`, url: baseUrl, apiKey: process.env.LLM_API_KEY };
+  return `anthropic/${process.env.ANTHROPIC_MODEL ?? 'claude-sonnet-5-5'}`;
+};</code></pre>
+<p>Two modes: a custom OpenAI-compatible endpoint (for example a proxy) when <code>LLM_BASE_URL</code> is set, or Anthropic by default. The Anthropic key is read from <code>ANTHROPIC_API_KEY</code> by the AI layer (not by this repo's own code).</p>
+
+<h3>Agent 1: the Genie agents (one per space)</h3>
+<ul>
+  <li>Id <code>genie_&lt;key&gt;</code>. Exactly two tools: <code>ask-&lt;key&gt;</code> and <code>fetch-full-&lt;key&gt;</code>.</li>
+  <li>Its instructions: pass a clear, self-contained question; never invent numbers; report key figures and one caveat; state an error plainly; if the result is truncated, state <code>totalRows</code> and <code>shownRows</code>; use the full-result tool <em>only</em> when asked to; for a chart request put the request in the question and report <code>chartReady</code>; never describe how a chart looks.</li>
+</ul>
+
+<h3>Agent 2: the supervisor (<code>bi_supervisor</code>)</h3>
+<pre><code>const supervisor = new Agent({
+  id: 'bi_supervisor',
+  instructions: `...`,
+  model: model(),
+  agents: { ...genieAgents },
+  memory: new Memory({ storage: new LibSQLStore({ id: 'bi-memory', url: 'file:./bi-memory.db' }) }),
+  defaultOptions: { maxSteps: 12 },
+});</code></pre>
+<ul>
+  <li><code>agents</code> is what makes it a supervisor. <code>memory</code> keeps chat history in <code>bi-memory.db</code>.</li>
+  <li><code>maxSteps: 12</code> is a safety limit so one question cannot loop forever.</li>
+</ul>
+<h4>Its instructions, in plain words</h4>
+<ol>
+  <li><strong>Routing.</strong> Placement, status, layer, total limit and FOT premium go to <code>genie_placement</code>. Reinsurer, capacity, authorized or signed, declines to quote and quoted premium go to <code>genie_capacity</code>. If both are needed, ask both. If unclear, ask the user one short question.</li>
+  <li><strong>Never invent numbers.</strong> "Year" means underwriting year. Statuses are in workflow order (Request Quote, Provide Quote, FOT, Authorization, Signed). Trends go years ascending, rankings by value descending. Money in tables and answers is USD millions with one decimal.</li>
+  <li><strong>Charts come from Genie.</strong> When a chart, or a clearly useful ranking, comparison or trend, is wanted, ask Genie for the data <em>as a chart</em> in the same question, using the word "chart". Only bar or column, line and scatter are drawn; for pie, sankey and so on, say it is not supported yet. If <code>chartReady</code> is false, say in one sentence that no chart was available and the table is shown.</li>
+  <li><strong>Answer style.</strong> Short plain prose, no markdown tables or lists. Lead with the insight. Never repeat what the UI already shows. Never mention agents or tools.</li>
+  <li><strong>Truncation.</strong> If the table is only a preview, say so and ask before loading the rest.</li>
+  <li>Small talk gets a direct answer.</li>
+</ol>
+
+<h3>Agent 3: the follow-up agent (<code>suggest_agent</code>)</h3>
+<p>Writes up to three short, self-contained follow-up questions (under 90 characters, answerable from the data described). Used by <code>suggest.ts</code>.</p>
+
+<div class="box tip"><strong class="t">Prompts are code</strong>
+<p>These instruction strings are the easiest place to change behaviour, and nothing tests them. Small wording changes can change behaviour. After any edit, try real questions end to end.</p></div>
+
+<!-- ======================================================= -->
+<h2 class="sec" id="suggest">15. suggest.ts: follow-up questions</h2>
+<span class="file">server/src/mastra/suggest.ts</span>
+<pre><code>const out = await agent.generate(`User question: ${question}\nAnswer: ${answer}\n...Suggest follow-up questions.`,
+  { structuredOutput: { schema: Suggestions } });
+return (out.object?.questions ?? []).map((q) =&gt; q.trim()).filter(Boolean).slice(0, 3);</code></pre>
+<p>Best effort: any failure is logged as <code>[suggest] failed</code> and returns an empty list, so the user just sees no suggestions. It runs only when Genie supplied none and at least one result had no error (checked in <code>mastra/index.ts</code>).</p>
+
+<!-- ======================================================= -->
+<h2 class="sec" id="mastra-index">16. mastra/index.ts: the server itself</h2>
+<span class="file">server/src/mastra/index.ts</span>
+<p>This file wires everything together and defines all the web routes. It is the one file to read in full.</p>
+
+<h3>Setup at the top</h3>
+<pre><code>import 'dotenv/config';                 // loads .env into process.env
+const oauth = oauthEnabled();           // is DATABRICKS_CLIENT_ID set?
+const tokens = new FallbackTokenProvider(oauth, new PatTokenProvider(), new SessionTokenProvider());
+const genie = process.env.GENIE_MODE === 'agent' ? new DatabricksGenieAgentClient(tokens) : new DatabricksGenieClient(tokens);
+const { supervisor, genieAgents, suggestAgent } = createAgents(genie);</code></pre>
+<p>Top to bottom: pick the login mode, create a token provider that picks the right way to get tokens, create the Genie client (Agent mode or default), then create the agents with it.</p>
+
+<h3>authenticate(): who is calling?</h3>
+<pre><code>async function authenticate(c: any) {
+  if (!oauth) return { user: 'dev' };
+  const sessionId = readSessionId(c.req.header('cookie'));
+  const session = getSession(sessionId);
+  if (!sessionId || !session) return c.json({ error: 'Please log in.', relogin: true }, 401);
+  try { await tokens.getToken({ sessionId }); }          // refreshes if needed
+  catch (e) { if (e instanceof AuthError) return c.json({ error: e.message, relogin: true }, 401); throw e; }
+  return { sessionId, user: session.user };
+}</code></pre>
+<p>It returns either the caller or a ready-made 401 response. Routes check <code>who instanceof Response</code> and return it. In shared-token mode everyone is the user <code>dev</code>. This is the app's guard.</p>
+
+<h3>The chat route: POST /bi/chat</h3>
+<div class="flow">
+  <div class="step"><span class="n">1</span><p>Authenticate. Check <code>threadId</code> and <code>message</code> exist (400 if not). Prefix the thread id with the user name, so threads are per user.</p></div>
+  <div class="step"><span class="n">2</span><p>Create a fresh <code>collector</code> and a <code>RequestContext</code> holding the collector, thread id and session id. Set <code>collector.emit</code> so tools can stream progress.</p></div>
+  <div class="step"><span class="n">3</span><p>Open a <code>ReadableStream</code> and call <code>supervisor.stream(message, ...)</code> with memory scoped to the thread and the request's abort signal.</p></div>
+  <div class="step"><span class="n">4</span><p>Loop over the stream. <code>text-delta</code> becomes a <code>text</code> event. <code>tool-call</code> and <code>tool-result</code> for a tool whose name contains "genie" become <code>step</code> events. An <code>error</code> chunk throws.</p></div>
+  <div class="step"><span class="n">5</span><p>Build the <code>FinalAnswer</code> from the collector: the latest result that has columns, the chart spec, one source per Genie message, and Genie's own follow-ups. Send it as a <code>final</code> event.</p></div>
+  <div class="step"><span class="n">6</span><p>If Genie gave no follow-ups and at least one result had no error, ask <code>suggestFollowUps</code> and send a <code>suggestions</code> event.</p></div>
+  <div class="step"><span class="n">7</span><p>Any exception is sent as an <code>error</code> event. <code>finally</code> closes the stream.</p></div>
+</div>
+<pre><code>const sse = (e: ChatEvent) =&gt; `data: ${JSON.stringify(e)}\n\n`;   // one SSE message</code></pre>
+<p>The response headers are <code>Content-Type: text/event-stream</code> and <code>Cache-Control: no-cache</code>.</p>
+
+<h3>The feedback route: POST /bi/feedback</h3>
+<p>Authenticates, rejects an unknown <code>spaceId</code> (400), and forwards the rating to Genie. A Genie failure returns 502 with the message.</p>
+
+<h3>The auth routes</h3>
+<table>
+<tr><th>Route</th><th>What it does</th></tr>
+<tr><td><code>GET /auth/me</code></td><td>Says whether you are signed in. In shared-token mode always yes, as <code>dev</code>.</td></tr>
+<tr><td><code>GET /auth/login</code></td><td>Redirects to Databricks sign-in (or to <code>/</code> if OAuth is off).</td></tr>
+<tr><td><code>GET /auth/callback</code></td><td>Finishes sign-in, creates a session, sets the cookie (8 hours), redirects to <code>/</code>. On failure redirects to <code>/?login_error=...</code>.</td></tr>
+<tr><td><code>POST /auth/logout</code></td><td>Destroys the session and clears the cookie.</td></tr>
+</table>
+
+<h3>serveUi: hosting the web page</h3>
+<p>Middleware on <code>/*</code>. When <code>UI_DIST</code> is set, it serves the built UI files from that folder. It skips non-GET requests and paths starting with <code>/api</code>, <code>/bi</code>, <code>/auth/</code> or <code>/swagger</code>, blocks paths that climb out with <code>..</code>, and falls back to <code>index.html</code> so reloading any path works. This is why new routes should live under <code>/bi/</code> or <code>/auth/</code>.</p>
+
+<h3>The Mastra instance</h3>
+<pre><code>export const mastra = new Mastra({
+  agents: { supervisor, suggestAgent, ...genieAgents },
+  storage: new LibSQLStore({ id: 'mastra-storage', url: 'file:./mastra.db' }),
+  server: {
+    port: Number(process.env.PORT ?? 4111),
+    cors: { origin: ['http://localhost:5173'], allowMethods: ['GET', 'POST', 'OPTIONS'], allowHeaders: ['Content-Type'] },
+    middleware: [{ path: '/*', handler: serveUi }],
+    apiRoutes: [chatRoute, feedbackRoute, ...authRoutes],
+  },
+});</code></pre>
+<p>CORS (the browser rule about which addresses may call the server) allows only the dev UI address. In production the UI comes from the same address, so it is not needed.</p>
+
+<div class="box warn"><strong class="t">Error handling to know about</strong>
+<p>Request bodies are barely checked. <code>threadId</code> and <code>message</code> are checked for presence; the feedback <code>rating</code> is not checked; invalid JSON is not handled in the route code. The zod schemas in <code>contracts.ts</code> are not applied to requests. Errors inside the stream return HTTP 200 (the response has already started) and are sent as an <code>error</code> event, but are not written to the server log.</p></div>
+
+<!-- ======================================================= -->
+<h2 class="sec" id="auth-overview">17. How login works (before reading the code)</h2>
+<p>There are two modes, chosen once at start by one setting:</p>
+<table>
+<tr><th>Mode</th><th>When</th><th>Who is the user</th><th>Whose permissions Genie uses</th></tr>
+<tr><td>Shared token</td><td><code>DATABRICKS_CLIENT_ID</code> not set</td><td>Always <code>dev</code></td><td>The one shared token's (<code>DATABRICKS_TOKEN</code>). Dev only.</td></tr>
+<tr><td>OAuth</td><td><code>DATABRICKS_CLIENT_ID</code> set</td><td>The signed-in Databricks user</td><td>That user's own token</td></tr>
+</table>
+
+<div class="diagram"><pre>
+ Browser                         Server (/auth/*)                       Databricks
+ -------                         ----------------                       ----------
+ click Log in  --GET /auth/login--&gt; make random state + verifier, keep in memory
+               &lt;-- redirect to /oidc/v1/authorize (sends only a hash of the verifier)
+ sign in on Databricks  -----------------------------------------------&gt;
+               &lt;-- redirect to /auth/callback?code=...&amp;state=...
+               --GET /auth/callback--&gt; look up verifier by state (single use)
+                                        --POST /oidc/v1/token (code + verifier)--&gt;
+                                        &lt;-- access token + refresh token
+                                        --GET user name (SCIM Me)--&gt;
+                                        create session in memory
+               &lt;-- Set-Cookie bi_sid (HttpOnly, 8h), redirect to /
+</pre></div>
+<p><strong>PKCE</strong> in one line: the app invents a random secret per login, sends only its hash first, and shows the real secret at the end to prove it is the same app. The app is a "public client" with no client secret.</p>
+<div class="box info"><strong class="t">Access control</strong>
+<p>The app has <strong>no roles or permissions of its own</strong>. What a user sees depends on their Databricks account, because Genie runs with their token and Unity Catalog permissions apply. The only separation the app adds is per-user chat threads. In shared-token mode all users are <code>dev</code> and share threads.</p></div>
+
+<!-- ======================================================= -->
+<h2 class="sec" id="auth-token">18. tokenProvider.ts: the shared token (dev mode)</h2>
+<span class="file">server/src/auth/tokenProvider.ts</span>
+<pre><code>export class PatTokenProvider implements TokenProvider {
+  constructor(private readonly token = process.env.DATABRICKS_TOKEN) {}
+  async getToken(): Promise&lt;string&gt; {
+    if (!this.token) throw new Error('DATABRICKS_TOKEN is not set');
+    return this.token;
+  }
+}</code></pre>
+<p>The simplest <code>TokenProvider</code>: always return the one token from <code>.env</code>. Because it follows the same interface as the login provider, the rest of the code does not care which is in use.</p>
+
+<!-- ======================================================= -->
+<h2 class="sec" id="auth-oauth">19. oauth.ts: the login steps</h2>
+<span class="file">server/src/auth/oauth.ts</span>
+
+<h3>Configuration</h3>
+<pre><code>export const oauthConfig = () =&gt; ({
+  host: `https://${(process.env.DATABRICKS_SERVER_HOSTNAME ?? '')...}`,
+  clientId: process.env.DATABRICKS_CLIENT_ID ?? '',
+  redirectUri: process.env.DATABRICKS_REDIRECT_URI ?? `http://localhost:${port}/auth/callback`,
+  scopes: 'all-apis offline_access',
+});
+export const oauthEnabled = () =&gt; Boolean(process.env.DATABRICKS_CLIENT_ID);</code></pre>
+<p>The scope <code>offline_access</code> is what gives a refresh token. The redirect address must match exactly what is registered in the Databricks account console.</p>
+
+<h3>The pending list</h3>
+<p>A redirect to Databricks and back is a new request, so the PKCE verifier is kept in a <code>Map</code> keyed by <code>state</code>. Entries expire after 10 minutes and are deleted when used once.</p>
+
+<h3>challengeOf() and buildLoginUrl()</h3>
+<p><code>challengeOf</code> is the SHA-256 hash of the verifier (the "fingerprint"). <code>buildLoginUrl</code> makes a random state and verifier, stores them, and returns the Databricks authorize URL with <code>code_challenge</code> and <code>code_challenge_method=S256</code>.</p>
+
+<h3>exchangeCode(), refreshTokens(), tokenRequest()</h3>
+<ul>
+  <li><code>exchangeCode(code, state)</code> looks up and removes the pending entry (error if unknown or older than 10 minutes), then asks the token endpoint to swap the code plus verifier for tokens.</li>
+  <li><code>refreshTokens(refreshToken)</code> asks for a new access token.</li>
+  <li><code>tokenRequest</code> is the shared helper. It returns <code>{ accessToken, refreshToken, expiresAt }</code> and throws on HTTP errors.</li>
+</ul>
+
+<h3>fetchUserName()</h3>
+<p>Reads the user's name from the SCIM <code>Me</code> endpoint. The name is optional, so any failure falls back to <code>'user'</code>.</p>
+
+<!-- ======================================================= -->
+<h2 class="sec" id="auth-sessions">20. sessions.ts: logged-in users</h2>
+<span class="file">server/src/auth/sessions.ts</span>
+
+<h3>Storing sessions</h3>
+<pre><code>const sessions = new Map&lt;string, Session&gt;();     // in server memory
+export const createSession = (tokens, user) =&gt; { const id = randomBytes(32).toString('base64url'); sessions.set(id, { ...tokens, user }); return id; };</code></pre>
+<p>A session holds the access token, refresh token, expiry time and user name. It lives in memory, so <strong>a server restart signs everyone out</strong>, and two server copies would not share sessions.</p>
+
+<h3>The cookie</h3>
+<pre><code>`${COOKIE}=${value}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${maxAgeSec}${secure ? '; Secure' : ''}`</code></pre>
+<p>The cookie is named <code>bi_sid</code> and lasts 8 hours. <code>HttpOnly</code> hides it from page scripts. <code>Secure</code> is added only when the request URL is <code>https</code>.</p>
+
+<h3>SessionTokenProvider.getToken(): always hand out a valid token</h3>
+<ul>
+  <li>Returns the access token if it is valid for more than 60 seconds.</li>
+  <li>Otherwise refreshes it with the refresh token. If several calls notice expiry at once, it refreshes <strong>once</strong> and shares the result.</li>
+  <li>If there is no refresh token or the refresh fails, it deletes the session and throws <code>AuthError</code>, which the chat route turns into a 401 with <code>relogin: true</code>.</li>
+</ul>
+
+<h3>FallbackTokenProvider</h3>
+<p>One line of logic: in OAuth mode use the session provider, otherwise use the shared token provider.</p>
+<p>Tests in <code>auth.test.ts</code> cover the PKCE challenge, the authorize URL, single-use state, errors, cookie parsing, refresh, shared refresh for concurrent calls, and ending a session when refresh fails. The README notes the real Databricks login has only been tested with a placeholder client id.</p>
+
+<!-- ======================================================= -->
+<h2 class="sec" id="ui-overview">21. UI overview</h2>
+<p>The browser app is small: one page, no router, no state library, no component library. React 19 with plain <code>useState</code>.</p>
+<table>
+<tr><th>File</th><th>Role</th></tr>
+<tr><td><code>main.tsx</code></td><td>Mounts <code>&lt;App /&gt;</code> in <code>StrictMode</code> and loads the CSS.</td></tr>
+<tr><td><code>App.tsx</code></td><td><code>App</code> (checks sign-in), <code>LoginPage</code>, <code>Chat</code> (the main screen).</td></tr>
+<tr><td><code>components.tsx</code></td><td><code>DataTable</code>, <code>Feedback</code>, <code>Thinking</code>, <code>Details</code>, <code>ChartBoundary</code>.</td></tr>
+<tr><td><code>api.ts</code></td><td><code>getMe</code>, <code>logout</code>, <code>streamChat</code>, <code>sendFeedback</code>.</td></tr>
+<tr><td><code>types.ts</code></td><td>Types for events, answers, chart spec and messages.</td></tr>
+<tr><td><code>charts/</code></td><td>Chart renderers and the one-line switch (section 26).</td></tr>
+<tr><td><code>styles.css</code></td><td>All the CSS (about 80 lines).</td></tr>
+</table>
+
+<!-- ======================================================= -->
+<h2 class="sec" id="ui-types">22. types.ts</h2>
+<span class="file">ui/src/types.ts</span>
+<p>The browser's copy of the server shapes: <code>Source</code>, <code>ChartSpec</code>, <code>FinalAnswer</code>, <code>ChatEvent</code> and <code>Message</code>. A message is either a user message (<code>text</code>) or an assistant message (<code>text</code>, <code>steps</code>, <code>thinking</code>, <code>result</code>, <code>error</code>, <code>pending</code>). The first comment says "Mirrors server/src/contracts.ts (keep in sync)". Keep it true.</p>
+
+<!-- ======================================================= -->
+<h2 class="sec" id="ui-api">23. api.ts: calling the server</h2>
+<span class="file">ui/src/api.ts</span>
+
+<h3>getMe() and logout()</h3>
+<p><code>getMe</code> calls <code>/auth/me</code> and tells the app whether to show the login page. <code>logout</code> posts to <code>/auth/logout</code>.</p>
+
+<h3>streamChat(): reading the live stream</h3>
+<pre><code>const res = await fetch('/bi/chat', { method: 'POST', headers: {...}, body: JSON.stringify({ threadId, message }), signal });
+if (res.status === 401) throw new ReloginError(...);
+const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
+let buf = '';
+for (;;) {
+  const { value, done } = await reader.read();
+  if (done) break;
+  buf += value;
+  let i: number;
+  while ((i = buf.indexOf('\n\n')) &gt;= 0) {
+    const frame = buf.slice(0, i); buf = buf.slice(i + 2);
+    const data = frame.split('\n').filter((l) =&gt; l.startsWith('data:')).map((l) =&gt; l.slice(5).trim()).join('');
+    if (data) onEvent(JSON.parse(data) as ChatEvent);
+  }
+}</code></pre>
+<ul>
+  <li>It uses <code>fetch</code> and a stream reader, not the browser's <code>EventSource</code>, because <code>EventSource</code> cannot send a POST body.</li>
+  <li>The text arrives in arbitrary chunks, so it is collected in <code>buf</code> and split on blank lines. Each complete block is parsed and handed to <code>onEvent</code>.</li>
+  <li>A 401 becomes <code>ReloginError</code>, which sends the user back to the login page.</li>
+</ul>
+
+<h3>sendFeedback()</h3>
+<p>Posts the rating, with the space id, conversation id and message id, to <code>/bi/feedback</code>.</p>
+
+<!-- ======================================================= -->
+<h2 class="sec" id="ui-app">24. App.tsx: the pages</h2>
+<span class="file">ui/src/App.tsx</span>
+
+<h3>App (the top-level decision)</h3>
+<p>Calls <code>getMe()</code> once. While loading it shows "Loading…". If not signed in it shows <code>LoginPage</code>. Otherwise it shows <code>Chat</code>. It also reads <code>?login_error=</code> from the address and shows it on the login page. In shared-token mode <code>/auth/me</code> always says yes, so you go straight to the chat.</p>
+
+<h3>LoginPage</h3>
+<p>A card with a "Log in with Databricks" link to <code>/auth/login</code>, and any error message.</p>
+
+<h3>Chat: the state it keeps</h3>
+<table>
+<tr><th>State</th><th>Meaning</th></tr>
+<tr><td><code>threadId</code></td><td>Id of the current chat. Saved in <code>localStorage</code> as <code>bi-thread</code>.</td></tr>
+<tr><td><code>messages</code></td><td>The list of user and assistant messages.</td></tr>
+<tr><td><code>input</code></td><td>The text box.</td></tr>
+<tr><td><code>busy</code></td><td>True while a question runs. Disables the input.</td></tr>
+</table>
+
+<h3>patchLast(): update the newest assistant message</h3>
+<pre><code>const patchLast = (fn) =&gt;
+  setMessages((ms) =&gt; ms.map((m, i) =&gt; (i === ms.length - 1 &amp;&amp; m.role === 'assistant' ? { ...m, ...fn(m) } : m)));</code></pre>
+<p>Every stream event updates the last assistant message with this helper, without touching the others.</p>
+
+<h3>send(): what happens on Send</h3>
+<pre><code>await streamChat(threadId, text, (e) =&gt; {
+  if (e.type === 'text') patchLast((m) =&gt; ({ text: m.text + e.delta }));
+  else if (e.type === 'thinking') patchLast((m) =&gt; ({ thinking: [...m.thinking, e.text] }));
+  else if (e.type === 'step') patchLast(...);       // adds or removes a status line
+  else if (e.type === 'final') patchLast(() =&gt; ({ result: e.result, text: e.result.answer, steps: [], pending: false }));
+  else if (e.type === 'suggestions') patchLast((m) =&gt; (m.result ? { result: { ...m.result, suggestedQuestions: e.questions } } : {}));
+  else if (e.type === 'error') patchLast(() =&gt; ({ error: e.message, steps: [], pending: false }));
+});</code></pre>
+<p>It adds the user message and an empty assistant message, then runs <code>streamChat</code>. A <code>ReloginError</code> logs the user out. Other failures show "Something went wrong". <code>finally</code> clears the busy state.</p>
+
+<h3>The drawn layout</h3>
+<p>A dark sidebar (the "Xoriant" wordmark, New chat, and Log out in OAuth mode) and a page with a header, the messages, and the input form. With no messages it shows three starter buttons: "Chart FOT premium by region", "Which reinsurers left the most capacity unused?" and "How many placements are there by status in 2026?". "New chat" clears the messages and makes a new thread id.</p>
+
+<!-- ======================================================= -->
+<h2 class="sec" id="ui-components">25. components.tsx: table, feedback, thinking, details</h2>
+<span class="file">ui/src/components.tsx</span>
+
+<h3>ChartBoundary</h3>
+<pre><code>class ChartBoundary extends Component&lt;{ children: ReactNode }, { failed: boolean }&gt; {
+  state = { failed: false };
+  static getDerivedStateFromError() { return { failed: true }; }
+  componentDidCatch(error: Error) { console.error('[chart] could not draw:', error); }
+  render() { return this.state.failed ? null : this.props.children; }
+}</code></pre>
+<p>If a chart throws while drawing, this hides the chart and keeps the rest of the page alive. It must be a class, because React supports error boundaries only as classes. The user sees no chart and no message, so check the browser console.</p>
+
+<h3>DataTable</h3>
+<p>A sortable table. Click a header to sort (numbers sort as numbers, text as text; click again to reverse). Numeric values are right-aligned and formatted with thousands separators.</p>
+
+<h3>Feedback</h3>
+<p>Helpful and Not helpful buttons. They call <code>sendFeedback</code> and show "couldn't send" on failure.</p>
+
+<h3>Thinking</h3>
+<p>Genie's progress log. Open and live while the answer is being produced, collapsed afterwards as "Genie's thinking (N steps)".</p>
+
+<h3>Details</h3>
+<p>Draws, in order: the chart (inside <code>ChartBoundary</code>, with its title), a collapsed data table (labelled "preview: N of M rows" when truncated), one collapsed SQL block per source with the feedback buttons, and the suggested follow-ups as buttons (clicking one sends it as a new question).</p>
+
+<!-- ======================================================= -->
+<h2 class="sec" id="ui-charts">26. charts/: the chart libraries</h2>
+<span class="file">ui/src/charts/</span>
+<p>The server sends a neutral chart spec (section 6). The browser draws it with <strong>one</strong> of three libraries. The choice is one line in one file, so the code can be lifted into another environment and keep only the library that environment supports.</p>
+
+<table>
+<tr><th>File</th><th>What it is</th></tr>
+<tr><td><code>index.ts</code></td><td><strong>The switch.</strong></td></tr>
+<tr><td><code>RechartsChart.tsx</code></td><td>Recharts. Enabled by default.</td></tr>
+<tr><td><code>PlotlyChart.tsx</code></td><td>Plotly (the slim <code>plotly.js-basic-dist-min</code>).</td></tr>
+<tr><td><code>D3Chart.tsx</code></td><td>D3, drawing SVG by hand.</td></tr>
+<tr><td><code>shared.ts</code></td><td>Palette, height, <code>toSeries</code> (groups rows by the colour field), number format.</td></tr>
+<tr><td><code>plotly.d.ts</code></td><td>A type declaration so TypeScript accepts the Plotly bundle.</td></tr>
+</table>
+
+<pre><code>// ui/src/charts/index.ts
+export { Chart } from './RechartsChart';
+// export { Chart } from './PlotlyChart';
+// export { Chart } from './D3Chart';</code></pre>
+<p>Keep exactly one line active. <code>Details</code> imports <code>Chart</code> from <code>./charts</code>, so nothing else changes. All three renderers draw stacked bars, lines with points, scatter, a legend for multiple series, axis titles and tooltips.</p>
+
+<h3>Switching, and shipping just one</h3>
+<ol>
+  <li>To try another library, comment out the active line and uncomment another.</li>
+  <li>To ship one, delete the other two renderer files first (and <code>plotly.d.ts</code> if you keep Recharts or D3), then uninstall their packages in <code>ui/</code>.</li>
+  <li>Do not delete packages first: TypeScript checks every file in <code>ui/src</code>, even ones the switch does not import, so all three packages must stay installed until the files are gone.</li>
+</ol>
+<p>Rough bundle sizes seen when each was built: Recharts about 643 kB, Plotly about 1,457 kB, D3 about 306 kB. These change with versions.</p>
+
+<h3>How each draws</h3>
+<ul>
+  <li><strong>Recharts:</strong> pivots the rows into one row per x value with a key per series, then uses <code>BarChart</code>, <code>LineChart</code> or <code>ScatterChart</code>. Time axes use a numeric time scale with month-and-year labels.</li>
+  <li><strong>Plotly:</strong> builds one trace per series and calls <code>Plotly.react</code> in an effect, with <code>Plotly.purge</code> on cleanup. The axis type is <code>category</code>, <code>date</code> or <code>linear</code> from <code>xType</code>.</li>
+  <li><strong>D3:</strong> measures its container with a <code>ResizeObserver</code>, then redraws SVG: band, UTC time or linear x scale, a linear y scale, stacked rectangles for bars, lines and circles, and a legend on the right.</li>
+</ul>
+
+<!-- ======================================================= -->
+<h2 class="sec" id="ui-css">27. styles.css, index.html, Vite</h2>
+<ul>
+  <li><strong><code>styles.css</code></strong> is one file of plain CSS with variables at the top. Its first comment names the "Xoriant UI standard": green only for call-to-action buttons, League Spartan for headings, Mona Sans for body text, Poppins for buttons. The chart caption style lives here too.</li>
+  <li><strong><code>index.html</code></strong> is the page shell. It loads the fonts <strong>from Google Fonts at run time</strong>, so a network that blocks Google falls back to system fonts.</li>
+  <li><strong><code>vite.config.ts</code></strong> sets the dev server to port 5173 and proxies <code>/bi</code> and <code>/auth</code> to <code>http://localhost:4111</code> (override with <code>API_URL</code>). That is why you need no CORS settings locally.</li>
+  <li>The sidebar shows a text wordmark, not the logo file.</li>
+</ul>
+
+<!-- ======================================================= -->
+<h2 class="sec" id="trace">28. One question, start to finish</h2>
+<p>We follow the starter button <strong>"Chart FOT premium by region"</strong>.</p>
+
+<div class="diagram"><pre>
+ Browser (App.tsx)   /bi/chat route          Supervisor   genie_placement   ask-placement   Genie client   Databricks
+      |                   |                      |              |                |               |              |
+      |--POST {thread,msg}-&gt;|                    |              |                |               |              |
+      |                   |-authenticate, new collector         |                |               |              |
+      |                   |--stream(msg)--------&gt;|              |                |               |              |
+      |                   |                      |--delegate---&gt;|                |               |              |
+      |                   |                      |              |--ask(question)-&gt;|               |              |
+      |                   |                      |              |                |--client.ask---&gt;|--start, poll-&gt;|
+      |&lt;--thinking lines (collector.emit)---------------------------------------|&lt;--status-------|&lt;--rows--------|
+      |                   |                      |              |                |-parseGenieChartJson, save in collector
+      |                   |                      |              |&lt;-summary, chartReady=true       |              |
+      |                   |                      |&lt;--report-----|                |               |              |
+      |&lt;--text events------|&lt;--answer text--------|              |                |               |              |
+      |&lt;--final (rows, SQL, chartSpec, sources)   |              |                |               |              |
+      |&lt;--suggestions (maybe)                     |              |                |               |              |
+      |-- draw chart, table, SQL, follow-ups      |              |                |               |              |
+</pre></div>
+
+<div class="flow">
+  <div class="step"><span class="n">1</span><p><strong>Click.</strong> <code>Chat.send</code> adds the messages and calls <code>streamChat</code>, which sends <code>POST /bi/chat</code> with the thread id (from <code>localStorage</code>) and the text.</p></div>
+  <div class="step"><span class="n">2</span><p><strong>Server setup.</strong> <code>chatRoute</code> authenticates, prefixes the thread id with the user, creates the collector and opens the stream.</p></div>
+  <div class="step"><span class="n">3</span><p><strong>Supervisor.</strong> Its routing rules send FOT premium questions to <code>genie_placement</code>, and tell it to ask for the data "as a chart".</p></div>
+  <div class="step"><span class="n">4</span><p><strong>Tool.</strong> <code>ask-placement</code> calls the Genie client with the stored conversation id. The client starts or continues a conversation and waits, pushing "thinking" lines to the browser.</p></div>
+  <div class="step"><span class="n">5</span><p><strong>Chart JSON to chart.</strong> Genie returns one chart JSON cell. <code>parseGenieChartJson</code> builds the real table and a <code>ChartSpec</code>. Both go into the collector.</p></div>
+  <div class="step"><span class="n">6</span><p><strong>Short answer.</strong> The tool returns a small object to the AI. The supervisor writes a short answer, streamed as <code>text</code> events.</p></div>
+  <div class="step"><span class="n">7</span><p><strong>Final.</strong> The route reads the collector into a <code>FinalAnswer</code> and sends <code>final</code>, then maybe <code>suggestions</code>.</p></div>
+  <div class="step"><span class="n">8</span><p><strong>Draw.</strong> <code>Details</code> draws the chart through <code>charts/index.ts</code>, plus the table, SQL and follow-ups.</p></div>
+</div>
+
+<h3>Where it can fail</h3>
+<table>
+<tr><th>Where</th><th>What happens</th></tr>
+<tr><td>Login expired</td><td>401 with <code>relogin</code>; the UI shows the login page again.</td></tr>
+<tr><td>Genie error or timeout</td><td><code>GenieResult.error</code> is set; the AI reports it plainly.</td></tr>
+<tr><td>Chart type not supported</td><td>Table only; <code>[chart] not drawing</code> is logged.</td></tr>
+<tr><td>Exception inside the stream</td><td>An <code>error</code> event is sent and the stream closes.</td></tr>
+<tr><td>Chart cannot draw in the browser</td><td><code>ChartBoundary</code> hides it; the rest stays.</td></tr>
+</table>
+
+<!-- ======================================================= -->
+<h2 class="sec" id="change">29. How to change things</h2>
+
+<h3>Add a Genie space</h3>
+<ol>
+  <li>Add an entry to <code>genieSpaces</code> in <code>server/src/genie/registry.ts</code> (<code>key</code>, <code>name</code>, <code>description</code>, <code>spaceId</code>). Use a setting for the id, following the existing pattern, and add it to <code>server/.env.example</code>.</li>
+  <li>Write the <code>description</code> carefully; the supervisor routes by it.</li>
+  <li><strong>Also</strong> add routing words for it in the <code>ROUTING</code> block of the supervisor instructions in <code>agents/index.ts</code>, which names <code>genie_placement</code> and <code>genie_capacity</code> by hand. The README mentions only the first step.</li>
+  <li>The agent, its two tools and its registration are created automatically. Rebuild.</li>
+</ol>
+
+<h3>Add or change a chart type</h3>
+<ol>
+  <li>Server: map the new type name in <code>parseGenieChartJson</code> (<code>chartSpec.ts</code>) and extend <code>ChartSpecSchema</code> in <code>contracts.ts</code>.</li>
+  <li>Browser: extend <code>ChartSpec</code> in <code>types.ts</code> and draw it in all three renderers (or just the one you keep).</li>
+  <li>Update the "only bar or column, line and scatter are drawn" sentence in the supervisor instructions.</li>
+  <li>Add a test in <code>chartSpec.test.ts</code>.</li>
+</ol>
+
+<h3>Add an API route</h3>
+<pre><code>const pingRoute = registerApiRoute('/bi/ping', {
+  method: 'POST',
+  handler: async (c) =&gt; {
+    const who = await authenticate(c);
+    if (who instanceof Response) return who;
+    return c.json({ user: who.user });
+  },
+});
+// then add pingRoute to apiRoutes in the Mastra object</code></pre>
+<p>This is an example modelled on <code>feedbackRoute</code>, not code in the repo. Keep the path under <code>/bi/</code> or <code>/auth/</code>. If the browser calls it, add a function in <code>api.ts</code>. A new data shape goes in <code>contracts.ts</code> and <code>types.ts</code>. Rebuild before <code>npm start</code>.</p>
+
+<h3>Add something to the answer screen</h3>
+<ol>
+  <li>If the server must send new data, add it to <code>FinalAnswer</code> in both <code>contracts.ts</code> and <code>types.ts</code>, and fill it in the chat route.</li>
+  <li>Write a small component in <code>components.tsx</code> and use it inside <code>Details</code>.</li>
+  <li>Add a few lines to <code>styles.css</code>. Run <code>npm run typecheck</code> and <code>npm run build</code> in <code>ui/</code>.</li>
+</ol>
+
+<h3>Change how the assistant answers</h3>
+<p>Edit the instruction text in <code>agents/index.ts</code>. Several rules exist because the AI once did the opposite. Test with real questions.</p>
+
+<h3>Add a setting</h3>
+<p>Read it with <code>process.env.NAME ?? default</code>, add it to <code>server/.env.example</code>, and list it in section 30.</p>
+
+<!-- ======================================================= -->
+<h2 class="sec" id="config">30. Settings</h2>
+<p>Settings come from <code>server/.env</code> (loaded by <code>dotenv</code> and by <code>mastra start --env .env</code>) or the shell. Never commit <code>.env</code>. No per-environment config files exist in the repo. This table lists every setting found in the code. Use placeholders, never real values, in documents.</p>
+<table>
+<tr><th>Name</th><th>Secret?</th><th>Purpose</th><th>Default</th></tr>
+<tr><td><code>DATABRICKS_SERVER_HOSTNAME</code></td><td>no</td><td>Databricks host. Required</td><td>none (throws)</td></tr>
+<tr><td><code>DATABRICKS_TOKEN</code></td><td><strong>yes</strong></td><td>Shared token for dev mode</td><td>none</td></tr>
+<tr><td><code>DATABRICKS_CLIENT_ID</code></td><td>no</td><td>Turns on per-user OAuth when set</td><td>unset (dev mode)</td></tr>
+<tr><td><code>DATABRICKS_REDIRECT_URI</code></td><td>no</td><td>Overrides the OAuth callback address</td><td><code>http://localhost:&lt;PORT&gt;/auth/callback</code></td></tr>
+<tr><td><code>DATABRICKS_GENIE_SPACE_ID</code></td><td>no</td><td>Placement Genie space</td><td>a fallback id in code</td></tr>
+<tr><td><code>DATABRICKS_GENIE_CAPACITY_SPACE_ID</code></td><td>no</td><td>Capacity Genie space</td><td>a fallback id in code</td></tr>
+<tr><td><code>GENIE_MODE</code></td><td>no</td><td><code>agent</code> selects Agent mode (Beta)</td><td>unset (Conversation API)</td></tr>
+<tr><td><code>GENIE_ROW_CAP</code></td><td>no</td><td>Rows kept per result</td><td>200</td></tr>
+<tr><td><code>GENIE_TIMEOUT_MS</code></td><td>no</td><td>Max wait for Genie</td><td>180000</td></tr>
+<tr><td><code>GENIE_FULL_ROW_CAP</code></td><td>no</td><td>Max rows when loading the full result</td><td>5000</td></tr>
+<tr><td><code>ANTHROPIC_API_KEY</code></td><td><strong>yes</strong></td><td>Lets the AI layer call Claude</td><td>none</td></tr>
+<tr><td><code>ANTHROPIC_MODEL</code></td><td>no</td><td>Model name</td><td><code>claude-sonnet-5-5</code></td></tr>
+<tr><td><code>LLM_BASE_URL</code></td><td>no</td><td>Use an OpenAI-compatible endpoint instead of Anthropic</td><td>unset</td></tr>
+<tr><td><code>LLM_API_KEY</code></td><td><strong>yes</strong></td><td>Key for that endpoint</td><td>none</td></tr>
+<tr><td><code>LLM_MODEL</code></td><td>no</td><td>Model name for that endpoint</td><td><code>gpt-5.1</code></td></tr>
+<tr><td><code>PORT</code></td><td>no</td><td>Server port</td><td>4111 (dev), 1976 (<code>npm start</code>)</td></tr>
+<tr><td><code>UI_DIST</code></td><td>no</td><td>Folder of the built UI to serve</td><td>unset (set by <code>npm start</code>)</td></tr>
+<tr><td><code>API_URL</code></td><td>no</td><td>Where the Vite dev server proxies <code>/bi</code> and <code>/auth</code></td><td><code>http://localhost:4111</code></td></tr>
+</table>
+<ul>
+  <li><code>.env.example</code> also lists <code>DATABRICKS_HTTP_PATH</code>, <code>DATABRICKS_CATALOG</code>, <code>DATABRICKS_SCHEMA</code> and <code>DATABRICKS_PRODUCT_CATALOG</code>. The code does not use them.</li>
+  <li>These seven settings are read by the code but missing from <code>.env.example</code>: <code>DATABRICKS_GENIE_CAPACITY_SPACE_ID</code>, <code>DATABRICKS_REDIRECT_URI</code>, <code>GENIE_ROW_CAP</code>, <code>GENIE_TIMEOUT_MS</code>, <code>GENIE_FULL_ROW_CAP</code>, <code>PORT</code>, <code>UI_DIST</code>.</li>
+  <li>There is no feature-flag system. Two settings act like flags: <code>GENIE_MODE=agent</code> and <code>DATABRICKS_CLIENT_ID</code>. The chart library is a build-time choice (section 26).</li>
+  <li>Secrets live only on the server. The browser never gets them. How production secrets are supplied is not in the repo.</li>
+  <li>Register the OAuth app connection in the Azure Databricks account console: redirect URL <code>http://localhost:&lt;PORT&gt;/auth/callback</code> (or your override), scope All APIs, no client secret.</li>
+</ul>
+
+<!-- ======================================================= -->
+<h2 class="sec" id="build">31. Build, test, deploy</h2>
+<div class="box warn"><strong class="t">What the repo does not contain</strong>
+<p>No Dockerfile, Helm chart, CI or CD workflow, security-scan config or release notes. This section describes the build and tests, which the repo shows, and lists questions for deployment, which it does not.</p></div>
+
+<h3>The build</h3>
+<div class="diagram"><pre>
+ npm run build (root)
+   |
+   +--&gt; ui:     tsc --noEmit   (type check)
+   +--&gt; ui:     vite build     (output: ui/dist)
+   +--&gt; server: npx mastra build  (output: server/.mastra/output)
+</pre></div>
+<p>Run by <code>run.mjs</code>. If a step fails, it exits and later steps do not run. Both output folders are git-ignored. <code>npm start</code> runs <code>mastra start --env .env</code> in <code>server/</code> with <code>PORT</code> and <code>UI_DIST</code> set, after checking that <code>.env</code> and both builds exist. <strong>It runs the built copy, so rebuild after any change.</strong></p>
+
+<h3>Tests</h3>
+<table>
+<tr><th>Where</th><th>Command</th><th>Covers</th></tr>
+<tr><td><code>server/</code></td><td><code>npm test</code></td><td>Login (PKCE, sessions, refresh), both Genie clients, chart building</td></tr>
+<tr><td><code>server/</code></td><td><code>npm run typecheck</code></td><td>Types in <code>src/</code> only (not <code>scripts/</code>)</td></tr>
+<tr><td><code>ui/</code></td><td><code>npm run typecheck</code></td><td>Types</td></tr>
+</table>
+<p>The Genie client tests pass a fake <code>fetch</code>, so they never call Databricks. <strong>Not tested:</strong> the routes, the tools, the agents and their instructions, <code>suggest.ts</code>, and everything in <code>ui/</code>.</p>
+
+<h3>Questions to answer before shipping</h3>
+<ol>
+  <li>Where is the pipeline, and what does it run?</li>
+  <li>Are there security or dependency scans?</li>
+  <li>Which environments exist (dev, QC, prod) and how does code reach each?</li>
+  <li>How is the app packaged (container, plain Node)?</li>
+  <li>How are settings and secrets given to each environment?</li>
+  <li>Is there more than one server copy? Sessions and conversation ids are in memory, so more than one copy would break sign-in.</li>
+  <li>How is the release done and approved?</li>
+</ol>
+<h3>Things to check on any server you deploy to</h3>
+<ul>
+  <li>The server needs write access to its working folder for <code>mastra.db</code> and <code>bi-memory.db</code>.</li>
+  <li>Browsers load fonts from Google Fonts.</li>
+  <li>The OAuth redirect address must match the registered one.</li>
+  <li>The cookie gets <code>Secure</code> only for <code>https</code> request URLs. Check what a proxy in front forwards.</li>
+  <li>CORS allows only <code>http://localhost:5173</code>. Fine when the UI and API share an address.</li>
+</ul>
+
+<!-- ======================================================= -->
+<h2 class="sec" id="debug">32. Logging and debugging</h2>
+<p>Logging is plain <code>console</code> calls. There is no logging library, request id, tracing, metrics or dashboard config in the repo. These are all the log calls in the app code:</p>
+<table>
+<tr><th>Message starts with</th><th>When</th><th>File</th></tr>
+<tr><td><code>DATABRICKS_CLIENT_ID not set...</code> (warn)</td><td>At start, in dev mode</td><td><code>mastra/index.ts</code></td></tr>
+<tr><td><code>[chart] not drawing</code> (warn)</td><td>Unsupported chart type or non-numeric y</td><td><code>mastra/chartSpec.ts</code></td></tr>
+<tr><td><code>[genie] unparsed single-cell result</code> (warn)</td><td>A one-cell result that is not chart JSON. Prints up to 300 characters, which may be real data</td><td><code>tools/askGenie.ts</code></td></tr>
+<tr><td><code>[genie] could not load chart JSON</code> (warn)</td><td>The by-statement-id reload failed</td><td><code>genie/agentClient.ts</code></td></tr>
+<tr><td><code>[suggest] failed</code> (warn)</td><td>Follow-up writer failed; the answer still goes out</td><td><code>mastra/suggest.ts</code></td></tr>
+<tr><td><code>[chart] could not draw</code> (error, <strong>browser</strong> console)</td><td>A chart threw while drawing</td><td><code>ui/src/components.tsx</code></td></tr>
+</table>
+<p>Not logged: each request, each user, each Genie call, timings, token use. Errors in the chat stream reach the browser but not the server log.</p>
+
+<h3>Tools you have</h3>
+<ul>
+  <li><strong>Mastra Studio</strong> at http://localhost:4111 when you run <code>npm run dev</code> in <code>server/</code> (named in the README; not verified here).</li>
+  <li><strong>The "thinking" panel</strong> and the <strong>SQL block</strong> under every answer.</li>
+  <li><strong><code>smoke-genie.ts</code></strong> to call Genie alone, without the AI agents.</li>
+  <li><strong>Browser dev tools, Network tab:</strong> open the <code>/bi/chat</code> request and read the raw events.</li>
+</ul>
+
+<h3>Common problems</h3>
+<table>
+<tr><th>Problem</th><th>What to do</th></tr>
+<tr><td>No chart appears</td><td>In the Network tab, find the <code>final</code> event: is <code>chartSpec</code> null? If yes, look for <code>[chart] not drawing</code> or <code>[genie] unparsed single-cell result</code> in the server log. If not null but nothing draws, look for <code>[chart] could not draw</code> in the browser console. A server still running an old build is the usual cause.</td></tr>
+<tr><td>Answer is wrong or empty</td><td>Open the SQL block. Run the question with <code>smoke-genie.ts</code> to remove the AI agents. Read the thinking lines.</td></tr>
+<tr><td>Asked to log in again</td><td>Sessions are in memory; a restart ends them. Also check the callback address matches the registered one.</td></tr>
+<tr><td>Hangs, then "Genie timed out"</td><td>The default wait is 180 seconds (<code>GENIE_TIMEOUT_MS</code>).</td></tr>
+</table>
+<p>How logs are collected in other environments is not in the repo. Ask the platform team where server output goes, whether errors alert anyone, and whether warnings that may contain data can be stored safely.</p>
+
+<!-- ======================================================= -->
+<h2 class="sec" id="gotchas">33. Gotchas and known limits</h2>
+
+<h3>Build and run</h3>
+<ol>
+  <li><strong><code>npm start</code> runs old code until you rebuild.</strong> The server runs the built copy in <code>server/.mastra/output</code>. This happened for real: the UI was rebuilt for a new chart format, the server was not, the old server kept sending the old format, and the new chart code crashed on it. Rebuild both parts after any change. The UI now survives a bad chart (<code>ChartBoundary</code>).</li>
+  <li><strong>The server build can fail with <code>EBUSY</code> on Windows.</strong> A still-running server, or a tool watching or syncing the folder, locks <code>server/.mastra/output</code>. Stop the server, delete the folder, build again. Keep the project outside synced folders if you can.</li>
+  <li><strong>The UI type-checks every file, even unused chart renderers.</strong> All three chart packages stay installed until you delete the files you do not want.</li>
+  <li><strong>The server type check skips <code>scripts/</code>.</strong> <code>tsconfig.json</code> includes only <code>src/**/*.ts</code>.</li>
+</ol>
+
+<h3>Data</h3>
+<ol start="5">
+  <li><strong>Two copies of the data shapes</strong> (<code>contracts.ts</code> and <code>types.ts</code>), kept in step by hand.</li>
+  <li><strong>The table is a preview.</strong> Rows are cut to 200. Loading up to 5000 works only in Agent mode.</li>
+  <li><strong>Only the latest result is shown.</strong> If a question used both spaces, the table shows one. A later non-chart answer clears an earlier chart.</li>
+  <li><strong>Bars with dates use text categories</strong>, not a time axis. Only lines get one.</li>
+  <li><strong>A bad chart is silent.</strong> <code>ChartBoundary</code> hides it and logs to the browser console only.</li>
+</ol>
+
+<h3>State</h3>
+<ol start="10">
+  <li><strong>Everything important is in memory:</strong> sessions, PKCE state, Genie conversation ids, last results. A restart loses them, and two server copies cannot share them. After a restart the supervisor's memory (on disk) and Genie's conversation (in memory) no longer match.</li>
+  <li><strong>A page reload shows an empty chat but keeps the thread.</strong> The thread id is in <code>localStorage</code>; the messages are only in React state. Follow-ups still continue the old thread on the server.</li>
+</ol>
+
+<h3>Agents</h3>
+<ol start="12">
+  <li><strong>Routing rules live in two places</strong> (the registry descriptions, and the hand-written <code>ROUTING</code> block). A new space needs both.</li>
+  <li><strong>Agent behaviour is untested text.</strong> Try real questions after any edit.</li>
+  <li><strong>Charts depend on Genie's wording.</strong> The supervisor must use the word "chart". An unknown shape gives a table only.</li>
+  <li><strong>Agent mode is a Beta API</strong> and cuts long query output at about 600 characters, so chart JSON is reloaded by statement id.</li>
+</ol>
+
+<h3>Security</h3>
+<ol start="16">
+  <li><strong>Request bodies are barely checked</strong> (section 16).</li>
+  <li><strong>Stream errors return HTTP 200 and are not logged on the server.</strong></li>
+  <li><strong>The <code>[genie] unparsed single-cell result</code> warning may contain data.</strong></li>
+  <li><strong>Fallback Genie space ids are hard-coded</strong> in <code>registry.ts</code>. Decide whether that belongs in source.</li>
+  <li><strong>The cookie <code>Secure</code> flag depends on the request URL</strong>, which may be <code>http</code> behind a TLS-ending proxy.</li>
+  <li><strong>CORS is fixed to <code>http://localhost:5173</code>.</strong></li>
+  <li><strong>Shared-token mode makes every user <code>dev</code></strong>, with shared threads. Dev only.</li>
+</ol>
+
+<h3>Setup and docs</h3>
+<ol start="23">
+  <li><strong>Seven used settings are missing from <code>.env.example</code></strong> (section 30).</li>
+  <li><strong>Fonts come from Google Fonts.</strong></li>
+  <li><strong>The sidebar uses a text wordmark</strong>, not the logo file.</li>
+  <li><strong>The README still mentions a <code>chart_agent</code> that does not exist.</strong> Charts are plain code. Trust the code.</li>
+  <li><strong>Confirm the Genie spaces are attached to the right data.</strong> The README notes early tests returned placement data and read "corridor" as a region.</li>
+  <li><strong>LLM wording and chart choice can vary between runs.</strong> The figures come from Genie.</li>
+</ol>
+
+<!-- ======================================================= -->
+<h2 class="sec" id="week">34. Your first week</h2>
+<table>
+<tr><th>Day</th><th>Do this</th></tr>
+<tr><td>1</td><td>Read sections 1, 2 and 28. Run the app (section 4) and ask the three starter questions. Open a chart answer's SQL block and data table.</td></tr>
+<tr><td>2</td><td>Read <code>server/src/mastra/index.ts</code> top to bottom (about 213 lines), then <code>agents/index.ts</code> and <code>tools/askGenie.ts</code>. Read <code>App.tsx</code> and <code>components.tsx</code>.</td></tr>
+<tr><td>3</td><td>Read sections 13, 17 to 20, 26 and 30, and the tests in <code>auth.test.ts</code>.</td></tr>
+<tr><td>4</td><td>Read section 33. Run <code>npm test</code> and both type checks.</td></tr>
+<tr><td>5</td><td>Make your first change (below).</td></tr>
+</table>
+
+<h3>Starter tasks</h3>
+<ol>
+  <li><strong>Complete <code>server/.env.example</code>.</strong> Add the seven missing settings with empty values and a one-line comment each.</li>
+  <li><strong>Fix the README's <code>chart_agent</code> line</strong> (check with the team first).</li>
+  <li><strong>Add a test for the chart-clearing rule</strong> in <code>createAskGenieTool</code>, with a fake client, following <code>genie/client.test.ts</code>. It would be the first test of a tool.</li>
+  <li><strong>Add two tests for <code>cookie()</code></strong> in <code>auth/sessions.ts</code>: with and without <code>Secure</code>.</li>
+  <li><strong>Review sections 31 to 35 of this guide</strong> with the platform team and fill in the answers.</li>
+</ol>
+<p>Bigger ideas, not for week one: validate request bodies with the zod schemas, add a lint setup, add UI tests, log stream errors on the server.</p>
+
+<h3>Conventions seen in the code</h3>
+<ul>
+  <li>TypeScript <code>strict</code> on, ES modules on the server, <code>import type</code> for types.</li>
+  <li>Single quotes, semicolons, two-space indents. No lint or format tool is configured, so match the file you edit.</li>
+  <li>Comments explain <em>why</em> and sit above the code. Messages to users are short and plain.</li>
+  <li>Tests sit beside the code as <code>*.test.ts</code>. Fake <code>fetch</code> for anything that calls Databricks.</li>
+  <li>No secrets in browser code. Keep <code>contracts.ts</code> and <code>types.ts</code> in step.</li>
+</ul>
+<h3>Pull request checklist</h3>
+<ul>
+  <li>Type checks pass in <code>server/</code> and <code>ui/</code>, <code>npm test</code> passes, <code>npm run build</code> works.</li>
+  <li>Shape changes are in both <code>contracts.ts</code> and <code>types.ts</code>.</li>
+  <li>New settings are in <code>.env.example</code> and section 30.</li>
+  <li>No secrets, tokens, real hostnames or real ids in code or docs.</li>
+  <li>Agent instruction changes were tried on a real question.</li>
+</ul>
+
+<!-- ======================================================= -->
+<h2 class="sec" id="open">35. Open questions</h2>
+<p>These could not be answered from the repo. Where this guide had to choose, it follows the code.</p>
+<table>
+<tr><th>#</th><th>Question</th><th>Likely owner</th></tr>
+<tr><td>1</td><td>What are the branch, pull request and review rules? (No git repo, template or <code>CODEOWNERS</code> found.)</td><td>Team lead</td></tr>
+<tr><td>2</td><td>Who owns this app, and who answers questions?</td><td>Team lead</td></tr>
+<tr><td>3</td><td>How does the app reach dev, QC and prod? Are there scans? (No Dockerfile, Helm chart or CI found.)</td><td>Platform / DevOps</td></tr>
+<tr><td>4</td><td>Where do production secrets and settings come from?</td><td>Platform / DevOps</td></tr>
+<tr><td>5</td><td>Is production meant to run one server copy? (State is in memory.)</td><td>App owner, platform</td></tr>
+<tr><td>6</td><td>Where do logs, alerts and dashboards live?</td><td>Platform / DevOps</td></tr>
+<tr><td>7</td><td>Which Node version is required? (README says 20 or newer; nothing enforces it.)</td><td>Platform / DevOps</td></tr>
+<tr><td>8</td><td>Where does <code>mastra start</code> write <code>mastra.db</code> and <code>bi-memory.db</code>? (Relative paths; no <code>.db</code> file was found in <code>server/</code> when checked.)</td><td>App owner</td></tr>
+<tr><td>9</td><td>How is the app fronted in production (proxy, TLS)? This decides the cookie <code>Secure</code> flag.</td><td>Platform / DevOps</td></tr>
+<tr><td>10</td><td>Is the UI always served from the same address as the API? (CORS allows only the dev address.)</td><td>App owner</td></tr>
+<tr><td>11</td><td>Which Genie mode runs in production? Agent mode is Beta.</td><td>App owner</td></tr>
+<tr><td>12</td><td>Are the hard-coded fallback Genie space ids in <code>registry.ts</code> intended?</td><td>App owner, security</td></tr>
+<tr><td>13</td><td>Which Genie space is attached to the "corridor profitability" data?</td><td>Data owner</td></tr>
+<tr><td>14</td><td>What does "FOT" stand for?</td><td>Reinsurance domain expert</td></tr>
+<tr><td>15</td><td>Does the <code>stepOf</code> filter in <code>mastra/index.ts</code> (tool names containing "genie") match the tool names Mastra reports for sub-agents? (Not run live.)</td><td>App owner</td></tr>
+<tr><td>16</td><td>Where is <code>ANTHROPIC_API_KEY</code> read? (Not in the repo's code; presumably by the Mastra AI layer.)</td><td>App owner</td></tr>
+<tr><td>17</td><td>What does Mastra Studio show? (Only the README mentions it; not run.)</td><td>App owner</td></tr>
+<tr><td>18</td><td>Should a page reload restore the chat messages?</td><td>App owner</td></tr>
+<tr><td>19</td><td>Should <code>README.md</code> and the older Markdown files in <code>docs/</code> be updated or retired now that this guide exists?</td><td>Team lead</td></tr>
+</table>
+
+<h3>Who to ask, until owners are named</h3>
+<ul>
+  <li>Data and Genie questions: the team that owns the Databricks workspace and Genie spaces.</li>
+  <li>Deployment and logs: the platform or DevOps team.</li>
+  <li>Business meaning of terms like FOT: a reinsurance domain expert.</li>
+  <li>Everything else: your team lead.</li>
+</ul>
+
+<p class="meta" style="margin-top:48px">End of guide. The same material, split into separate Markdown files, is in <code>docs/onboarding/</code>.</p>
+</main>
+</div>
+</body>
+</html>

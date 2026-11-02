@@ -1,0 +1,67 @@
+// Shared contracts. Genie client, workflow and UI all build against these. Do not change without updating all three.
+import { z } from 'zod';
+
+export const GenieResultSchema = z.object({
+  spaceId: z.string(),
+  question: z.string(),
+  summary: z.string(),               // Genie's text answer
+  sql: z.string().nullable(),
+  columns: z.array(z.string()),
+  rows: z.array(z.array(z.unknown())), // capped (GENIE_ROW_CAP, default 200)
+  totalRows: z.number(),
+  thinking: z.array(z.string()),           // Genie's internal reasoning steps (query attachment "thoughts")
+  suggestedQuestions: z.array(z.string()), // Genie's recommended follow-up questions
+  statementId: z.string().nullable(),      // SQL statement id of the result, used to load the full result set (Agent mode)
+  conversationId: z.string(),
+  messageId: z.string(),
+  error: z.string().nullable(),
+});
+export type GenieResult = z.infer<typeof GenieResultSchema>;
+
+// Library-neutral chart description. The UI's chart renderer (ui/src/charts) draws it with whichever library is enabled.
+export const ChartSpecSchema = z.object({
+  type: z.enum(['bar', 'line', 'scatter']),
+  title: z.string(),
+  x: z.string(),                                    // field names, keys of each `data` row
+  y: z.string(),
+  color: z.string().optional(),                     // series field
+  xType: z.enum(['category', 'time', 'number']),    // time: ISO date strings, sorted ascending
+  data: z.array(z.record(z.string(), z.unknown())), // y (and x for scatter) are numbers
+});
+export type ChartSpec = z.infer<typeof ChartSpecSchema>;
+
+export const FinalAnswerSchema = z.object({
+  answer: z.string(),
+  columns: z.array(z.string()),
+  rows: z.array(z.array(z.unknown())),
+  totalRows: z.number(),                  // rows.length < totalRows => the UI is showing a preview
+  chartSpec: ChartSpecSchema.nullable(),  // null => UI shows table only
+  sources: z.array(z.object({ spaceId: z.string(), spaceName: z.string(), question: z.string(), sql: z.string().nullable(), messageId: z.string(), conversationId: z.string() })),
+  suggestedQuestions: z.array(z.string()),
+});
+export type FinalAnswer = z.infer<typeof FinalAnswerSchema>;
+
+// SSE events streamed by POST /bi/chat. One JSON object per `data:` line.
+export type ChatEvent =
+  | { type: 'step'; step: 'genie'; status: 'start' | 'done'; detail?: string }
+  | { type: 'thinking'; text: string }  // one line of Genie's progress/reasoning, streamed while it works
+  | { type: 'text'; delta: string }
+  | { type: 'final'; result: FinalAnswer }
+  | { type: 'suggestions'; questions: string[] }  // follow-ups, sent after `final` once the supervisor model has written them
+  | { type: 'error'; message: string };
+
+// Request body for POST /bi/chat and POST /bi/feedback
+export type ChatRequest = { threadId: string; message: string };
+export type FeedbackRequest = { spaceId: string; conversationId: string; messageId: string; rating: 'POSITIVE' | 'NEGATIVE' };
+
+// Genie client public API (server/src/genie/client.ts)
+export interface GenieClient {
+  ask(args: { spaceId: string; question: string; conversationId?: string; sessionId?: string; onProgress?: (line: string) => void }): Promise<GenieResult>;
+  feedback(args: FeedbackRequest & { sessionId?: string }): Promise<void>;
+  // Loads the complete result of an earlier query (the ask() result only carries a capped preview). Agent mode only.
+  fetchFullResult?(args: { statementId: string; cap: number; sessionId?: string }): Promise<{ columns: string[]; rows: unknown[][]; totalRows: number }>;
+}
+// Auth (server/src/auth/tokenProvider.ts)
+export interface TokenProvider { getToken(ctx?: { sessionId?: string }): Promise<string> }
+// Registry entry (server/src/genie/registry.ts)
+export type GenieSpace = { key: string; name: string; description: string; spaceId: string };

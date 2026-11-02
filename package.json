@@ -1,0 +1,10 @@
+{
+  "name": "conversational-bi",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "setup": "node run.mjs setup",
+    "build": "node run.mjs build",
+    "start": "node run.mjs start"
+  }
+}
