@@ -49,13 +49,11 @@ Notice `ANTHROPIC_API_KEY` is not read anywhere in the repo's own code. The Mast
 
 `server/.env.example` also lists `DATABRICKS_HTTP_PATH`, `DATABRICKS_CATALOG`, `DATABRICKS_SCHEMA` and `DATABRICKS_PRODUCT_CATALOG`. The README says they are "kept for reference; the current code does not use them". My search of the source agrees.
 
-## Missing from `server/.env.example`
+## The example file
 
-These are read by the code but not listed in the example file:
+`server/.env.example` lists every setting above, except `UI_DIST` and `API_URL`, which `npm start` and the UI dev server set. Required settings are blank. Optional settings are commented out with `#`.
 
-`DATABRICKS_GENIE_CAPACITY_SPACE_ID`, `DATABRICKS_REDIRECT_URI`, `GENIE_ROW_CAP`, `GENIE_TIMEOUT_MS`, `GENIE_FULL_ROW_CAP`, `PORT`, `UI_DIST`.
-
-(`API_URL` is for the UI dev server, so it would not belong there.) Adding them is a good starter task. See [16-first-week.md](16-first-week.md).
+**Do not leave an optional setting blank.** `NAME=` with nothing after it counts as set, and it replaces the default, because the code uses `process.env.NAME ?? default` (`server/src/genie/registry.ts`, `server/src/mastra/agents/index.ts`, `server/src/genie/client.ts`). For example `GENIE_ROW_CAP=` becomes `Number('')`, which is 0 rows, and `ANTHROPIC_MODEL=` gives a broken model name.
 
 ## Secrets
 
@@ -79,7 +77,7 @@ The chart library is a build-time choice, not a setting. See [07a-charts.md](07a
 - All settings come from `server/.env` or the shell. No per-environment files exist in the repo.
 - Real secrets: `DATABRICKS_TOKEN`, `ANTHROPIC_API_KEY`, `LLM_API_KEY`.
 - `DATABRICKS_CLIENT_ID` and `GENIE_MODE` change behaviour most.
-- Seven variables used by code are missing from `.env.example`.
+- Optional settings must stay commented out in `.env`, never blank.
 
 ## Where to look in the code
 - `server/.env.example`: the example file.

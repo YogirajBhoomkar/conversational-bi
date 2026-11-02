@@ -14,7 +14,7 @@ Each question says what I checked. Where the docs made a choice anyway, it says 
 | 1 | What are the branch, pull request and review rules? | No `.git`, no PR template, no `CODEOWNERS`, no contributing file | Team lead | [13-how-to-contribute.md](13-how-to-contribute.md) says "ask" |
 | 2 | What commit id should "last verified" use? | No git repository, so no `git log` or commit id | Team lead | [01-start-here.md](01-start-here.md) uses the date and says no commit id exists |
 | 3 | Who owns this app, and who answers questions? | Searched for owner names and contact files: none | Team lead | [16-first-week.md](16-first-week.md) lists roles, not people |
-| 4 | Should the new docs replace or sit beside the older `docs/` files? | The two sets overlap. `docs/code-guide.html` is out of date | Team lead | Kept separate under `docs/onboarding/` |
+| 4 | Should the new docs replace or sit beside the older `docs/` files? | The two sets overlap. `docs/code-guide.html` was rewritten from the current code; the five older Markdown files were only partly updated | Team lead | Kept separate under `docs/onboarding/` |
 
 ## Deployment and operations
 
@@ -49,7 +49,7 @@ Each question says what I checked. Where the docs made a choice anyway, it says 
 | # | Item | What I found | Choice made |
 |---|---|---|---|
 | 23 | `README.md` mentions a `chart_agent` | None exists in `server/src/mastra/agents/index.ts` | Docs follow the code |
-| 24 | `docs/code-guide.html` describes Vega-Lite charts | Charts are now library-neutral, drawn by Recharts, Plotly or D3 | Docs follow the code. Task 3 in [16-first-week.md](16-first-week.md) |
+| 24 | The five older Markdown files in `docs/` may still be out of date | They were only partly updated after the chart library change | Docs follow the code. Task 3 in [16-first-week.md](16-first-week.md) |
 
 ## Key takeaways
 - Most gaps are about people and environments, not code: owners, deployment, logging, secrets.

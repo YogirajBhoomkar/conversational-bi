@@ -32,14 +32,14 @@
 
 These were found by reading the code. Each is small and low-risk.
 
-**1. Complete `server/.env.example`.**
-Seven settings used by the code are missing: `DATABRICKS_GENIE_CAPACITY_SPACE_ID`, `DATABRICKS_REDIRECT_URI`, `GENIE_ROW_CAP`, `GENIE_TIMEOUT_MS`, `GENIE_FULL_ROW_CAP`, `PORT`, `UI_DIST`. Add them with empty values and a short comment each. See [10-config-and-secrets.md](10-config-and-secrets.md).
+**1. Make blank settings safe.**
+A blank `NAME=` replaces the default instead of using it (see [10-config-and-secrets.md](10-config-and-secrets.md)). Change the code that reads settings (for example in `server/src/genie/client.ts`) to treat an empty string as unset, and add a test.
 
 **2. Fix the README's `chart_agent` line.**
 `README.md` says the supervisor delegates to a `chart_agent`. It does not exist. Correct the sentence (check with the team first).
 
-**3. Update `docs/code-guide.html`.**
-Its chart section still describes Vega-Lite. Rewrite it to match `server/src/mastra/chartSpec.ts` and `ui/src/charts/`.
+**3. Retire or refresh the older Markdown docs.**
+`docs/01-big-picture.md` to `docs/05-settings-limits-and-cookbook.md` overlap with `docs/code-guide.html`. Check each against the code, then update or remove it (check with the team first).
 
 **4. Add a test for the chart-clearing rule.**
 `createAskGenieTool` clears `collector.chart` when a later answer is not a chart (`server/src/mastra/tools/askGenie.ts`). No test covers it. Add one with a fake client, using the pattern in `server/src/genie/client.test.ts`. This is also the first test of a tool, so mention that in the pull request.
@@ -68,6 +68,6 @@ The full list of unanswered questions is in [99-open-questions.md](99-open-quest
 
 ## Where to look in the code
 - `server/src/mastra/index.ts`: the main file.
-- `server/.env.example`: task 1.
-- `README.md`, `docs/code-guide.html`: tasks 2 and 3.
+- `server/src/genie/client.ts`, `server/src/mastra/agents/index.ts`: task 1.
+- `README.md`, `docs/01-big-picture.md` to `docs/05-settings-limits-and-cookbook.md`: tasks 2 and 3.
 - `server/src/mastra/tools/askGenie.ts`, `server/src/auth/sessions.ts`: tasks 4 and 5.

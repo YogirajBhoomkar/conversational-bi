@@ -67,7 +67,7 @@ In production one server process also serves the built browser app. So there is 
 
 ## The older docs
 
-The folder `docs/` also holds older files (`docs/README.md`, `docs/01-big-picture.md` to `docs/05-settings-limits-and-cookbook.md`, `docs/code-guide.html`). These onboarding docs were checked against the code directly. Where an older doc disagrees with the code, trust the code. One known case: `docs/code-guide.html` still describes Vega-Lite charts, which the code no longer uses. See [14-gotchas.md](14-gotchas.md).
+The folder `docs/` also holds older files (`docs/README.md`, `docs/01-big-picture.md` to `docs/05-settings-limits-and-cookbook.md`, `docs/code-guide.html`). These onboarding docs were checked against the code directly. Where an older doc disagrees with the code, trust the code. `docs/code-guide.html` is the single-file version of this material, rewritten from the current code. The Markdown files `docs/01-big-picture.md` to `docs/05-settings-limits-and-cookbook.md` are older. See [14-gotchas.md](14-gotchas.md).
 
 ## Key takeaways
 - It is a chat app: question in, short answer plus chart plus table plus SQL out.

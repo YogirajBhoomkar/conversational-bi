@@ -1080,7 +1080,7 @@ export { Chart } from './RechartsChart';
 </table>
 <ul>
   <li><code>.env.example</code> also lists <code>DATABRICKS_HTTP_PATH</code>, <code>DATABRICKS_CATALOG</code>, <code>DATABRICKS_SCHEMA</code> and <code>DATABRICKS_PRODUCT_CATALOG</code>. The code does not use them.</li>
-  <li>These seven settings are read by the code but missing from <code>.env.example</code>: <code>DATABRICKS_GENIE_CAPACITY_SPACE_ID</code>, <code>DATABRICKS_REDIRECT_URI</code>, <code>GENIE_ROW_CAP</code>, <code>GENIE_TIMEOUT_MS</code>, <code>GENIE_FULL_ROW_CAP</code>, <code>PORT</code>, <code>UI_DIST</code>.</li>
+  <li><code>.env.example</code> lists every setting above except <code>UI_DIST</code> and <code>API_URL</code>. Required settings are blank; optional ones are commented out with <code>#</code>. <strong>Never leave an optional setting blank</strong>: <code>NAME=</code> counts as set and replaces the default (<code>GENIE_ROW_CAP=</code> becomes 0 rows, <code>ANTHROPIC_MODEL=</code> breaks the model name).</li>
   <li>There is no feature-flag system. Two settings act like flags: <code>GENIE_MODE=agent</code> and <code>DATABRICKS_CLIENT_ID</code>. The chart library is a build-time choice (section 26).</li>
   <li>Secrets live only on the server. The browser never gets them. How production secrets are supplied is not in the repo.</li>
   <li>Register the OAuth app connection in the Azure Databricks account console: redirect URL <code>http://localhost:&lt;PORT&gt;/auth/callback</code> (or your override), scope All APIs, no client secret.</li>
@@ -1208,7 +1208,7 @@ export { Chart } from './RechartsChart';
 
 <h3>Setup and docs</h3>
 <ol start="23">
-  <li><strong>Seven used settings are missing from <code>.env.example</code></strong> (section 30).</li>
+  <li><strong>A blank setting is not the same as an unset one.</strong> <code>NAME=</code> in <code>.env</code> replaces the default instead of using it (section 30).</li>
   <li><strong>Fonts come from Google Fonts.</strong></li>
   <li><strong>The sidebar uses a text wordmark</strong>, not the logo file.</li>
   <li><strong>The README still mentions a <code>chart_agent</code> that does not exist.</strong> Charts are plain code. Trust the code.</li>
@@ -1229,7 +1229,7 @@ export { Chart } from './RechartsChart';
 
 <h3>Starter tasks</h3>
 <ol>
-  <li><strong>Complete <code>server/.env.example</code>.</strong> Add the seven missing settings with empty values and a one-line comment each.</li>
+  <li><strong>Make blank settings safe.</strong> Treat an empty string as unset where settings are read (for example <code>genie/client.ts</code>), and add a test.</li>
   <li><strong>Fix the README's <code>chart_agent</code> line</strong> (check with the team first).</li>
   <li><strong>Add a test for the chart-clearing rule</strong> in <code>createAskGenieTool</code>, with a fake client, following <code>genie/client.test.ts</code>. It would be the first test of a tool.</li>
   <li><strong>Add two tests for <code>cookie()</code></strong> in <code>auth/sessions.ts</code>: with and without <code>Secure</code>.</li>
@@ -1249,7 +1249,7 @@ export { Chart } from './RechartsChart';
 <ul>
   <li>Type checks pass in <code>server/</code> and <code>ui/</code>, <code>npm test</code> passes, <code>npm run build</code> works.</li>
   <li>Shape changes are in both <code>contracts.ts</code> and <code>types.ts</code>.</li>
-  <li>New settings are in <code>.env.example</code> and section 30.</li>
+  <li>New settings are in <code>.env.example</code> (commented out if optional) and section 30.</li>
   <li>No secrets, tokens, real hostnames or real ids in code or docs.</li>
   <li>Agent instruction changes were tried on a real question.</li>
 </ul>

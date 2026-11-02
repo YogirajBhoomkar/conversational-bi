@@ -104,7 +104,7 @@ These will move to `99-open-questions.md`.
 10. **Logging and monitoring.** I found only `console.warn` and `console.error` calls. Is there a log or tracing setup outside this repo?
 11. **Cookie `Secure` flag.** It is set only when the request URL is `https` (`server/src/mastra/index.ts`, `/auth/callback`). Behind a proxy that ends TLS, the server may see `http`. I cannot confirm how prod is fronted.
 12. **CORS is fixed to `http://localhost:5173`** (`server/src/mastra/index.ts`, `cors.origin`). Is the UI always served from the same origin in prod?
-13. **Existing `docs/` folder.** It overlaps with the new docs. `docs/code-guide.html` still describes Vega-Lite charts, which were removed. Should the new docs link to the old ones, replace them, or stay separate?
+13. **Existing `docs/` folder.** It overlaps with the new docs. At the time of planning `docs/code-guide.html` still described Vega-Lite charts (it has since been rewritten). Should the new docs link to the old ones, replace them, or stay separate?
 14. **Who to ask.** No owners are named in the repo. Doc 16 needs a "who to ask" section.
 
 ## Notes on how I will work

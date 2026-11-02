@@ -86,11 +86,11 @@ It is added only for `https` requests (`server/src/mastra/index.ts`). Behind a p
 **22. The README mentions a `chart_agent` that does not exist.**
 `README.md`, "How it fits together". The code builds charts in plain code (`server/src/mastra/chartSpec.ts`) and has no such agent. Trust the code.
 
-**23. `docs/code-guide.html` still describes Vega-Lite charts.**
-The old chart library was removed. Other files in `docs/` were updated. This one was not.
+**23. Older Markdown files in `docs/` may be out of date.**
+`docs/code-guide.html` was rewritten from the current code. The five older files (`docs/01-big-picture.md` to `docs/05-settings-limits-and-cookbook.md`) were only partly updated after the chart library change. Check them against the code before you rely on them.
 
-**24. Seven used settings are missing from `server/.env.example`.**
-See [10-config-and-secrets.md](10-config-and-secrets.md).
+**24. A blank setting is not the same as an unset one.**
+`NAME=` in `server/.env` makes the value an empty string, and `process.env.NAME ?? default` does not fall back for an empty string. `GENIE_ROW_CAP=` becomes 0 rows, and `ANTHROPIC_MODEL=` breaks the model name. `server/.env.example` keeps optional settings commented out for this reason. See [10-config-and-secrets.md](10-config-and-secrets.md).
 
 **25. Fonts come from Google Fonts.**
 `ui/index.html` loads them at run time. A network that blocks Google will fall back to the system font.
@@ -105,7 +105,7 @@ It does nothing for this Node project.
 - State is in memory. Restarts and extra copies break sessions.
 - Keep `contracts.ts` and `types.ts` in sync by hand.
 - Agent rules are untested text. Try real questions.
-- Trust the code over `README.md` and `docs/code-guide.html`.
+- Trust the code over `README.md` and the older files in `docs/`.
 
 ## Where to look in the code
 - `run.mjs`, `.gitignore`: build behaviour.
