@@ -30,7 +30,7 @@ Not logged: each request, each user, each Genie call, timings, token use. Errors
 | Tool | How | Shows |
 |---|---|---|
 | Mastra Studio | Run `npm run dev` in `server/`, open http://localhost:4111 (`README.md`) | Agents and their runs |
-| The "thinking" panel | In the chat UI while a question runs | Genie's progress lines (`ui/src/components.tsx`, `Thinking`) |
+| The scratchpad | In the chat UI while a question runs, and after (click to open) | The agents' working notes, each handover and tool call, and Genie's progress (`ui/src/components.tsx`, `Scratchpad`) |
 | The SQL block | Under every answer | The SQL Genie ran |
 | `smoke-genie.ts` | `npx tsx scripts/smoke-genie.ts "question"` in `server/` | The raw Genie result, without the AI agents |
 | Browser dev tools, Network tab | Open the `/bi/chat` request, look at the response | The raw stream of events |
@@ -47,7 +47,7 @@ I did not verify what Studio shows. That comes from the README.
 **The answer is wrong or empty.**
 1. Open the SQL block. Is the SQL what you expect?
 2. Run the question with `smoke-genie.ts` to take the AI agents out of the picture.
-3. Check the `thinking` lines for what Genie did.
+3. Open the scratchpad to see what each agent decided and what Genie did.
 
 **You are asked to log in again.**
 Sessions are in memory. A server restart ends them. Also check that the callback address matches the registered one.
@@ -74,5 +74,5 @@ See [99-open-questions.md](99-open-questions.md).
 ## Where to look in the code
 - `server/src/mastra/index.ts`: the stream `catch`.
 - `server/src/mastra/chartSpec.ts`, `tools/askGenie.ts`, `genie/agentClient.ts`, `suggest.ts`: the warnings.
-- `ui/src/components.tsx`: `ChartBoundary`, `Thinking`.
+- `ui/src/components.tsx`: `ChartBoundary`, `Scratchpad`.
 - `server/scripts/smoke-genie.ts`: the direct test.

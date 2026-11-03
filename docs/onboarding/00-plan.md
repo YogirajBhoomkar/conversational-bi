@@ -98,7 +98,7 @@ These will move to `99-open-questions.md`.
 4. **Hard-coded fallback Genie space IDs** in `server/src/genie/registry.ts`. They are used when the env variables are unset. Is that intended, and are these IDs safe to keep in source? (I will not copy them into the docs.)
 5. **Where do the SQLite files end up?** Code uses `file:./mastra.db` and `file:./bi-memory.db` (relative paths). README says they sit "next to the running server". I could not confirm where `mastra start` puts them, since the working folder differs between `mastra dev` and the built output.
 6. **Node version.** README says 20 or newer. There is no `engines` field or `.nvmrc`. Which version does the target environment run?
-7. **Which Genie mode runs in production?** `GENIE_MODE=agent` uses a Beta API (`server/src/genie/agentClient.ts`). Is it expected in prod?
+7. **Which Genie mode runs in production?** `GENIE_MODE=agent` uses the Agent mode API, which is GA since 27 Aug 2026 (`server/src/genie/agentClient.ts`). Is it expected in prod?
 8. **Env variables missing from `server/.env.example`.** The code reads `GENIE_ROW_CAP`, `GENIE_TIMEOUT_MS`, `GENIE_FULL_ROW_CAP`, `GENIE_CAPACITY_SPACE_ID` (as `DATABRICKS_GENIE_CAPACITY_SPACE_ID`), `DATABRICKS_REDIRECT_URI`, `PORT`, `UI_DIST`, `LLM_*` and `ANTHROPIC_*`. Some are not in the example file. I will list the ones I can confirm from code and flag the rest.
 9. **Session and conversation state is in memory** (`server/src/auth/sessions.ts`, `server/src/genie/conversations.ts`). It is lost on restart and cannot be shared by two server copies. Is production meant to run a single copy?
 10. **Logging and monitoring.** I found only `console.warn` and `console.error` calls. Is there a log or tracing setup outside this repo?

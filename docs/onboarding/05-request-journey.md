@@ -29,7 +29,7 @@ sequenceDiagram
   T->>C: client.ask(...)
   C->>D: start conversation, poll
   D-->>C: status updates, then rows
-  C-->>B: thinking events (via collector.emit)
+  C-->>B: progress lines (via collector.emit)
   C-->>T: GenieResult (one chart_json cell)
   T->>T: parseGenieChartJson, save to collector
   T-->>G: summary, chartReady=true
@@ -63,7 +63,7 @@ Notice that the collector travels inside the request context. That is how tools 
 
 **6. Specialist and tool.** The `genie_placement` agent calls the tool `ask-placement` (`server/src/mastra/tools/askGenie.ts`, `createAskGenieTool`). The tool looks up any earlier Genie conversation for this thread and space, so follow-up questions keep context (`server/src/genie/conversations.ts`).
 
-**7. Genie.** The tool calls `client.ask`. In the default mode (`server/src/genie/client.ts`) the client starts a conversation, then polls the message every 1 to 5 seconds until it is `COMPLETED`, fails, or 180 seconds pass. Each status change and each reasoning step goes to `onProgress`. The tool turns that into a `thinking` event with `collector.emit`. This is what the user sees as "Genie is thinking…".
+**7. Genie.** The tool calls `client.ask`. In the default mode (`server/src/genie/client.ts`) the client starts a conversation, then polls the message every 1 to 5 seconds until it is `COMPLETED`, fails, or 180 seconds pass. Each status change and each reasoning step goes to `onProgress`. The tool sends each line to the scratchpad with `collector.emit`, under the Ask Genie entry that is running.
 
 **8. Chart JSON becomes a chart spec.** For a chart question, Genie returns one cell holding JSON. `parseGenieChartJson` (`server/src/mastra/chartSpec.ts`) reads it, builds the real table, and builds a `ChartSpec`. The tool stores both in the collector. It also sets `collector.chart`. The chart always belongs to the **latest** result, so a later non-chart answer clears it.
 
@@ -73,19 +73,18 @@ Notice that the collector travels inside the request context. That is how tools 
 
 **11. The final event.** When the stream ends, the route reads the collector. It builds one `FinalAnswer`: the answer, the latest table, the chart spec, one source per Genie message (SQL, question, ids), and any follow-up questions from Genie. It sends it as a `final` event.
 
-**12. Follow-ups.** If Genie gave no suggestions and at least one result had no error, the route asks a small agent for up to three follow-up questions and sends a `suggestions` event (`server/src/mastra/suggest.ts`). Any failure there is ignored.
+**12. Follow-ups.** They do not wait for the answer. When the request arrives (step 4), the route starts a small agent that sees only the Genie descriptions and the chat so far, and it runs in parallel with everything above (`server/src/mastra/suggest.ts`). It sends a `suggestions` event as soon as it is ready, which may be before or after `final`. If Genie sent its own follow-ups, those win. After `final`, the stream waits at most `SUGGEST_WAIT_MS` (default 8000) for ours. Any failure is ignored.
 
-**13. Drawing.** `streamChat` parses each `data:` line and calls the handler in `Chat.send`. A `final` event stores the result on the message. `Details` (`ui/src/components.tsx`) draws the chart through `ui/src/charts/index.ts`, a collapsed data table, collapsed SQL with Helpful and Not helpful buttons, and the follow-up buttons.
+**13. Drawing.** `streamChat` parses each `data:` line and calls the handler in `Chat.send`. A `final` event stores the result on the message. Early `suggestions` are kept on the message until then. `Details` (`ui/src/components.tsx`) draws the chart through `ui/src/charts/index.ts`, a collapsed data table, collapsed SQL with Helpful and Not helpful buttons, and the follow-up buttons.
 
 ## What the browser sees over time
 
 | Event | When | Effect on screen |
 |---|---|---|
-| `thinking` | While Genie works | Lines in the "Genie is thinking…" panel |
-| `step` | A Genie tool starts or ends | "Querying Genie…" status line |
+| `trace` | From the first second, and as each agent acts | An entry in the scratchpad: the model, an agent's working note, a handover or tool call (spinner, then tick), or a line of Genie's progress |
 | `text` | The AI writes its answer | Answer text grows |
 | `final` | Work is done | Chart, table, SQL appear |
-| `suggestions` | A moment later | Follow-up buttons appear |
+| `suggestions` | Whenever the parallel writer finishes (often before `final`) | Follow-up buttons appear |
 | `error` | Anything throws | "Something went wrong: …" |
 
 Sources: `ChatEvent` in `server/src/contracts.ts`; the handler in `ui/src/App.tsx`.

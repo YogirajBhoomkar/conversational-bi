@@ -54,12 +54,14 @@ The response headers are `Content-Type: text/event-stream` and `Cache-Control: n
 | Mastra chunk | Event sent |
 |---|---|
 | `text-delta` | `text` |
-| `tool-call` or `tool-result` for a tool whose name contains `genie` | `step` (start or done) |
+| Text before a tool call or handover | a `trace` note (the agent's working note) |
+| `tool-call-input-streaming-start`, `tool-call`, `tool-result` | a `trace` entry for the handover or tool call (running, then done or error) |
+| Nested chunks from the data agent (inside `tool-output`) | its own notes and its Ask Genie entry |
 | `error` | throws, which becomes an `error` event |
 
-`thinking` events do not come from the loop. The tool pushes them directly through `collector.emit`.
+`server/src/mastra/trace.ts` does this translation. The text of a step that calls a tool is a working note; the text of a step that calls none is the final answer and becomes `text` events. Genie's own progress comes from the tool through `collector.emit` and is shown under the Ask Genie entry that is running.
 
-At the end the route sends `final`, maybe `suggestions`, and closes the stream in `finally`.
+The route sends `final` as soon as the answer is ready. Follow-ups are started when the request arrives and run in parallel, so the route never waits for them before `final`. It sends `suggestions` whenever they are ready, then waits at most `SUGGEST_WAIT_MS` (default 8000) after `final` before closing the stream in `finally`.
 
 ## Errors and validation
 

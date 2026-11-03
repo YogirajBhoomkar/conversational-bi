@@ -137,7 +137,7 @@ flowchart TD
 
 ## `genie/agentClient.ts` (Agent mode, the newer way, currently ON)
 
-**What it is:** The connector for Genie's streaming **Agent mode** (Beta).
+**What it is:** The connector for Genie's streaming **Agent mode** (GA).
 
 **What it does:** Sends one request and keeps the connection open. Databricks pushes events down it:
 
@@ -160,7 +160,7 @@ It also has **`fetchFullResult`**: given a statement id, it downloads **all** ro
 **Talks to:** `POST /api/2.0/genie/agents/{space}/responses` and `GET /api/2.0/sql/statements/{id}`.
 
 **Good to know:**
-* Needs the workspace preview "Agent Mode APIs for Genie Agents". It is **Beta**, so Databricks may change it.
+* The Agent mode APIs are **GA** (since 27 Aug 2026). Admins can still switch some Genie features off, so confirm it is enabled in your workspace. Only the Flash option is Beta, so do not turn Flash on.
 * Agent mode sends **no suggested questions**. That is why `suggest.ts` exists.
 * Row data arrives only as a **preview**. `totalRows` says how many there really are.
 * Timeout: 3 minutes (`GENIE_TIMEOUT_MS`).

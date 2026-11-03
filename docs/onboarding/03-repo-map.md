@@ -35,10 +35,12 @@ The repo is small: about 2,100 lines of TypeScript and CSS in total, including a
 | `src/mastra/tools/askGenie.ts` | The ask tool and the load-full-results tool |
 | `src/mastra/chartSpec.ts` | Chart JSON from Genie to a chart spec |
 | `src/mastra/collector.ts` | Per-request side channel |
+| `src/mastra/history.ts` | Earlier questions and suggestions per chat (in memory, last 6 turns), used so new follow-ups never repeat |
+| `src/mastra/trace.ts` | Turns the agents' stream into the scratchpad: their working notes, handover and tool-call entries, and Genie's progress |
 | `src/mastra/suggest.ts` | Writes follow-up questions |
 | `src/genie/registry.ts` | The list of Genie spaces |
 | `src/genie/client.ts` | Genie Conversation API client |
-| `src/genie/agentClient.ts` | Genie Agent mode client (Beta API) |
+| `src/genie/agentClient.ts` | Genie Agent mode client (GA API) |
 | `src/genie/conversations.ts` | In-memory conversation and last-result maps |
 | `src/auth/oauth.ts` | OAuth with PKCE: build login URL, exchange and refresh tokens |
 | `src/auth/sessions.ts` | In-memory sessions, the cookie, token refresh |
@@ -53,7 +55,7 @@ The repo is small: about 2,100 lines of TypeScript and CSS in total, including a
 | `vite.config.ts` | Dev server port 5173 and the proxy to the server |
 | `src/main.tsx` | Starts React |
 | `src/App.tsx` | Login page, chat page, sidebar, the send function |
-| `src/components.tsx` | Table, feedback buttons, thinking log, answer details, chart error guard |
+| `src/components.tsx` | Table, feedback buttons, scratchpad, answer details, chart error guard |
 | `src/api.ts` | `fetch` calls, including the stream reader |
 | `src/types.ts` | Data types. Copies of the server shapes. Keep in sync by hand |
 | `src/styles.css` | All styling in one file |

@@ -34,7 +34,7 @@ type Item = {
   content?: Array<{ type?: string; text?: string; metadata?: any }>;
 };
 
-// Genie Agent mode (Beta): POST /api/2.0/genie/agents/{space}/responses, streamed as Server-Sent Events.
+// Genie Agent mode (GA; the Agent mode APIs went generally available on 27 Aug 2026, only the Flash option is Beta): POST /api/2.0/genie/agents/{space}/responses, streamed as Server-Sent Events.
 // Unlike the Conversation API it streams the agent's actual reasoning, each SQL call and the synthesized answer.
 export class DatabricksGenieAgentClient implements GenieClient {
   private readonly origin: string;

@@ -138,7 +138,7 @@ The server can talk to Genie in two ways. The setting `GENIE_MODE` chooses.
 | What you see as "thinking" | Only status words like "Running the query..." | The agent's real reasoning sentences, each SQL step, and the result |
 | Row data | Full result (up to 200 rows kept) | A preview, plus a way to load all rows later |
 | Suggested questions | Genie can send some | Genie sends none, so our own suggestion agent writes them |
-| Status at Databricks | Stable | **Beta**: may change without notice, needs a workspace preview switched on |
+| Status at Databricks | No separate GA entry found in the release notes we read | **GA**: the Agent mode APIs have been generally available since 27 Aug 2026. Confirm it is enabled in your workspace. Only the Flash option is Beta |
 | Code file | `server/src/genie/client.ts` | `server/src/genie/agentClient.ts` |
 
 Both give the rest of the app exactly the same kind of result, so nothing else cares which one is used.

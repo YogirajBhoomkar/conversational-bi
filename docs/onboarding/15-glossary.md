@@ -24,7 +24,7 @@ Terms are in alphabetical order.
 | **Event (SSE)** | One message on the live stream, for example `text` or `final` (`ChatEvent` in `server/src/contracts.ts`) |
 | **FOT** | A term from the business domain. In the code it is both a placement status (between "Provide Quote" and "Authorization") and the name of a premium measure, "FOT premium". The repo does not spell the acronym out. Ask a domain expert |
 | **Genie** | A Databricks feature that turns English questions into SQL and returns rows |
-| **Genie Agent mode** | A newer, Beta Genie API that streams its reasoning (`GENIE_MODE=agent`) |
+| **Genie Agent mode** | A newer Genie API (GA since Aug 2026) that streams its reasoning (`GENIE_MODE=agent`) |
 | **Genie space** | One Genie set up for one group of tables. The app lists its spaces in `server/src/genie/registry.ts` |
 | **Layer** | A slice of a reinsurance placement. A data term used in agent text ("layer count") |
 | **LibSQL** | A SQLite-based database engine. Mastra uses it for storage files |

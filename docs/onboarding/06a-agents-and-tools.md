@@ -19,7 +19,7 @@ All are built in `createAgents` in `server/src/mastra/agents/index.ts`.
 |---|---|---|
 | `bi_supervisor` | 1 | Reads the user's question, delegates to a specialist, writes the final answer |
 | `genie_<key>` | 1 per Genie space (2 today: `placement`, `capacity`) | Turns the question into a Genie call and reports faithfully |
-| `suggest_agent` | 1 | Writes up to three follow-up questions |
+| `suggest_agent` | 1 | Writes up to three follow-up questions from the Genie descriptions and the chat so far. Runs in parallel with the answer |
 
 The supervisor gets the specialists in its `agents` option. That is how it can delegate to them. It also gets `maxSteps: 12`, a limit on how many agent and tool steps one request may take.
 

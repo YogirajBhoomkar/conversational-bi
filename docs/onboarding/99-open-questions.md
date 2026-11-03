@@ -34,11 +34,11 @@ Each question says what I checked. Where the docs made a choice anyway, it says 
 
 | # | Question | What I checked | Likely owner | Choice made |
 |---|---|---|---|---|
-| 14 | Which Genie mode runs in production? | `GENIE_MODE=agent` uses a Beta API (`server/src/genie/agentClient.ts`). Default is the Conversation API | App owner | Both documented |
+| 14 | Which Genie mode runs in production? | `GENIE_MODE=agent` uses the Agent mode API (GA since 27 Aug 2026; `server/src/genie/agentClient.ts`). Default is the Conversation API. Is Agent mode enabled in the production workspace, and does the 6 Aug markdown-table change affect our chart parsing? | App owner | Both documented |
 | 15 | Are the hard-coded fallback Genie space ids in `server/src/genie/registry.ts` intended? | Read the file. Ids were not copied into the docs | App owner, security | Flagged in [14-gotchas.md](14-gotchas.md) |
 | 16 | Which Genie space is attached to the "corridor profitability" data? | README says early tests returned placement data and read "corridor" as a region | Data owner | Not documented beyond the README note |
 | 17 | What does "FOT" stand for? | The code uses it as a status and a premium measure but never spells it out | Reinsurance domain expert | [15-glossary.md](15-glossary.md) says "not spelled out" |
-| 18 | Does the supervisor's tool-step filter match how sub-agent tools appear? | `stepOf` in `server/src/mastra/index.ts` matches tool names that contain `genie`. I did not run the app to see the names Mastra reports | App owner | [05-request-journey.md](05-request-journey.md) describes the intended behaviour |
+| 18 | Will Mastra keep naming sub-agent tools `agent-<id>` in future versions? | The scratchpad (`server/src/mastra/trace.ts`) relies on it. Confirmed on a live stream with `@mastra/core` 1.79 | App owner | Covered by unit tests built from the real chunk shapes |
 | 19 | Where is `ANTHROPIC_API_KEY` read? | Not in the repo's code. Presumably by the Mastra AI layer from the `anthropic/...` model name | App owner | Documented as "read by the AI library" |
 | 20 | What does Mastra Studio show? | Only the README mentions it. I did not run it | App owner | Described from the README |
 | 21 | Should a reload restore the chat messages? | The thread id is saved but messages are not (`ui/src/App.tsx`) | App owner | Listed in [14-gotchas.md](14-gotchas.md) |

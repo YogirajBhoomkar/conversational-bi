@@ -138,7 +138,7 @@ Be aware of these before showing or shipping the app.
 ### Must know
 
 1. **Data is held in server memory.** Sessions, Genie conversation ids and "last result" vanish on restart, and **do not work across several server copies** (see the table in file 4, section 8). Chat memory is stored in local files. For production this needs a shared database or cache.
-2. **Agent mode is Beta.** Databricks can change it without notice. It needs a workspace preview to be switched on.
+2. **Agent mode is GA** (APIs since 27 Aug 2026). Confirm it is enabled in the workspace. Only the Flash option is Beta.
 3. **Numbers need checking.** The same question ("FOT premium by region and year") returned **different totals on two runs** in Agent mode (for example North America 2024 once showed about 228.9M, another time 53.7M). This has **not been resolved**. Someone who knows the data should confirm what the "Total FOT Premium USD" measure should include (for example whether it should be limited to FOT status) and fix it on the Genie side.
 4. **The login mode matters.** With no `DATABRICKS_CLIENT_ID`, everyone shares one token and one set of permissions. Use this for development only.
 5. **Node 22.13 or newer is required** by Mastra.

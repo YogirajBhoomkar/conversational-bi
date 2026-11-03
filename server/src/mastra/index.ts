@@ -20,7 +20,7 @@ import { suggestFollowUps } from './suggest';
 const oauth = oauthEnabled();
 if (!oauth) console.warn('DATABRICKS_CLIENT_ID not set: using the shared DATABRICKS_TOKEN, no user login.');
 const tokens = new FallbackTokenProvider(oauth, new PatTokenProvider(), new SessionTokenProvider());
-// GENIE_MODE=agent uses the Agent mode API (Beta): streams the agent's real reasoning. Default is the Conversation API.
+// GENIE_MODE=agent uses the Agent mode API (GA): streams the agent's real reasoning. Default is the Conversation API.
 const genie = process.env.GENIE_MODE === 'agent' ? new DatabricksGenieAgentClient(tokens) : new DatabricksGenieClient(tokens);
 const { supervisor, genieAgents, suggestAgent } = createAgents(genie);
 

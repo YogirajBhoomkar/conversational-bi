@@ -15,7 +15,7 @@ The browser app is small: one page, no router, no state library, no component li
 |---|---|
 | `ui/src/main.tsx` | Mounts `<App />` inside `StrictMode` and loads `styles.css` |
 | `ui/src/App.tsx` | `App` (checks sign-in), `LoginPage`, `Chat` (the main screen) |
-| `ui/src/components.tsx` | `DataTable`, `Feedback`, `Thinking`, `Details`, `ChartBoundary` |
+| `ui/src/components.tsx` | `DataTable`, `Feedback`, `Scratchpad`, `Details`, `ChartBoundary` |
 | `ui/src/api.ts` | `getMe`, `logout`, `streamChat`, `sendFeedback` |
 | `ui/src/types.ts` | Types for events, answers, chart spec, messages |
 | `ui/src/charts/` | Chart renderers. See [07a-charts.md](07a-charts.md) |
@@ -42,7 +42,7 @@ All state lives in `Chat` (`ui/src/App.tsx`):
 | `input` | The text box |
 | `busy` | True while a question is running. Disables the input |
 
-The `Message` type has two shapes: user (`text`), and assistant (`text`, `steps`, `thinking`, `result`, `error`, `pending`) (`ui/src/types.ts`).
+The `Message` type has two shapes: user (`text`), and assistant (`text`, `trace`, `startedAt`, `endedAt`, `result`, `error`, `pending`) (`ui/src/types.ts`).
 
 "New chat" clears the messages and makes a new thread id.
 

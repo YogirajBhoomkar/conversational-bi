@@ -58,8 +58,8 @@ Instructions in `server/src/mastra/agents/index.ts` control routing, chart reque
 **14. Charts rely on Genie's wording.**
 The supervisor must use the word "chart" so Genie returns chart JSON. If Genie sends an unknown shape, the app logs `[genie] unparsed single-cell result` and shows only a table (`server/src/mastra/tools/askGenie.ts`).
 
-**15. Agent mode is a Beta API.**
-`server/src/genie/agentClient.ts` says so in a comment. Its output format can change. It also cuts long query output at about 600 characters, so chart JSON is re-loaded by statement id (same file).
+**15. Agent mode is GA, but re-check its output format.**
+Databricks' release notes say Agent mode went GA on 2 Jul 2026 and its APIs on 27 Aug 2026. Only Flash is Beta, so do not enable Flash. On 6 Aug 2026 the APIs changed to return tables as markdown (labelled Beta); the notes do not say whether that changed at GA. Our code reads query output text (`chartJsonOf` in `server/src/genie/agentClient.ts`), so test a chart question after any Databricks change. The stream also cuts long query output at about 600 characters, so chart JSON is re-loaded by statement id (same file). Confirm the feature is enabled in each workspace, because admins can switch some Genie features off.
 
 ## Security and safety
 

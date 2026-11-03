@@ -61,7 +61,7 @@ The choice is made once, at start, from `GENIE_MODE` (`server/src/mastra/index.t
 | How | Start a conversation, then **poll** the message until it completes | One request, answers **streamed** as events |
 | Progress shown | Status names and Genie's "thoughts" | Real reasoning, each query, the final text |
 | Full results | Not available (`statementId` is null) | `fetchFullResult` pages through the SQL Statement API |
-| API status | Not marked beta in the code | Marked **Beta** in a code comment |
+| API status | No separate GA entry found in the release notes we read | **GA** since 27 Aug 2026 (only the Flash option is Beta) |
 
 Notice that Agent mode still uses the Conversation client for feedback (`agentClient.ts`, `feedback`).
 

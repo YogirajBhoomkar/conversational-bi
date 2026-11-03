@@ -142,7 +142,7 @@
   <div class="step"><span class="n">4</span><p>The supervisor delegates to a <strong>Genie agent</strong>, one per data area. That agent calls Databricks Genie, which writes SQL, runs it and returns rows. For a chart request, Genie returns the chart data as one cell of JSON.</p></div>
   <div class="step"><span class="n">5</span><p><strong>Plain code, not an AI,</strong> turns that JSON into a real table and a chart description.</p></div>
   <div class="step"><span class="n">6</span><p>The supervisor writes a short answer. While this happens, the server streams live progress ("Running the query...") to the browser.</p></div>
-  <div class="step"><span class="n">7</span><p>The server sends one final package: the answer, the table, the chart description and the SQL. A moment later it may send follow-up question ideas. The UI draws everything.</p></div>
+  <div class="step"><span class="n">7</span><p>The server sends one final package: the answer, the table, the chart description and the SQL. Follow-up question ideas are written in parallel with the answer, so they usually arrive before or with it. The UI draws everything.</p></div>
 </div>
 
 <div class="diagram"><pre>
@@ -171,7 +171,7 @@
 <tr><td><strong>Supervisor / sub-agent</strong></td><td>A supervisor is an agent whose job is to delegate to other agents (sub-agents). Here each Genie space has one sub-agent.</td></tr>
 <tr><td><strong>Mastra</strong></td><td>A TypeScript framework for agents, tools, memory and an HTTP server in one place.</td></tr>
 <tr><td><strong>Databricks</strong></td><td>The data platform where the data lives.</td></tr>
-<tr><td><strong>Genie / Genie space</strong></td><td>A Databricks feature: ask a question in English, it writes SQL and returns rows. A "Genie space" is one Genie set up for one group of tables. <em>Agent mode</em> is a newer, Beta Genie API that streams its reasoning.</td></tr>
+<tr><td><strong>Genie / Genie space</strong></td><td>A Databricks feature: ask a question in English, it writes SQL and returns rows. A "Genie space" is one Genie set up for one group of tables. <em>Agent mode</em> is a newer Genie API (GA since August 2026) that streams its reasoning.</td></tr>
 <tr><td><strong>SQL</strong></td><td>The language for asking questions of a database.</td></tr>
 <tr><td><strong>Route / API</strong></td><td>A web address a program can call. <code>/bi/chat</code> is a route on our server.</td></tr>
 <tr><td><strong>SSE (Server-Sent Events)</strong></td><td>One long HTTP response that pushes many small messages, so the user sees progress instead of waiting.</td></tr>
@@ -206,7 +206,7 @@
       genie/
         registry.ts               list of Genie spaces
         client.ts                 Genie Conversation API client (default)
-        agentClient.ts            Genie Agent mode client (Beta)
+        agentClient.ts            Genie Agent mode client (GA)
         conversations.ts          remembers Genie conversation ids and last results
       auth/
         tokenProvider.ts          shared-token mode (dev)
@@ -217,6 +217,8 @@
         collector.ts              side channel for rows / SQL / chart
         chartSpec.ts              Genie chart JSON to a chart spec
         suggest.ts                writes follow-up questions
+        trace.ts                  turns the agents' stream into the scratchpad entries
+        history.ts                earlier questions and suggestions per chat (in memory)
         agents/index.ts           supervisor, Genie agents, follow-up agent
         tools/askGenie.ts         tools: ask Genie, load the full result
   ui/                             the React chat page
@@ -226,7 +228,7 @@
       main.tsx                    starts React
       App.tsx                     login page + chat page
       api.ts                      calls to the server
-      components.tsx              table, feedback, thinking log, answer details
+      components.tsx              table, feedback, scratchpad, answer details
       types.ts                    shared data shapes (UI copy)
       charts/                     index.ts (the switch) + one file per chart library
       styles.css                  look and feel</code></pre>
@@ -366,19 +368,17 @@ export type GenieResult = z.infer&lt;typeof GenieResultSchema&gt;;</code></pre>
 
 <h3>ChatEvent: the live messages</h3>
 <pre><code>export type ChatEvent =
-  | { type: 'step'; step: 'genie'; status: 'start' | 'done'; detail?: string }
-  | { type: 'thinking'; text: string }   // one line of Genie's progress or reasoning
+  | { type: 'trace'; item: TraceItem }   // one entry of the agents' working notes; the same id updates it
   | { type: 'text'; delta: string }
   | { type: 'final'; result: FinalAnswer }
-  | { type: 'suggestions'; questions: string[] }  // sent after final
+  | { type: 'suggestions'; questions: string[] }  // written in parallel with the answer; may arrive before or after final
   | { type: 'error'; message: string };</code></pre>
 <table>
 <tr><th>type</th><th>meaning</th><th>UI reaction</th></tr>
-<tr><td><code>step</code></td><td>A Genie tool started or finished</td><td>shows "Querying Genie..."</td></tr>
-<tr><td><code>thinking</code></td><td>One line of Genie's progress</td><td>adds a line to the "Genie is thinking" panel</td></tr>
+<tr><td><code>trace</code></td><td>One entry of the working notes: the model, an agent's note, a handover or tool call (running, done or error), or a line of Genie's progress</td><td>adds the entry to the scratchpad, or updates the one with the same id</td></tr>
 <tr><td><code>text</code></td><td>A few more words of the answer</td><td>appends them (typing effect)</td></tr>
 <tr><td><code>final</code></td><td>Everything is done, here is the data</td><td>shows chart, table, SQL</td></tr>
-<tr><td><code>suggestions</code></td><td>Follow-up ideas, a moment later</td><td>shows follow-up buttons</td></tr>
+<tr><td><code>suggestions</code></td><td>Follow-up ideas, written in parallel with the answer</td><td>shows follow-up buttons</td></tr>
 <tr><td><code>error</code></td><td>Something broke</td><td>shows the message</td></tr>
 </table>
 
@@ -483,9 +483,9 @@ if (!res.ok) throw new Error(`Genie ${method} ${path} failed: ${res.status} ...`
 <p>Sends your Helpful / Not helpful rating (<code>POSITIVE</code> or <code>NEGATIVE</code>) to Genie so the space's owners can see how it performs.</p>
 
 <!-- ======================================================= -->
-<h2 class="sec" id="agent-client">10. genie/agentClient.ts: Genie Agent mode (Beta)</h2>
+<h2 class="sec" id="agent-client">10. genie/agentClient.ts: Genie Agent mode (GA)</h2>
 <span class="file">server/src/genie/agentClient.ts</span>
-<p>Used when <code>GENIE_MODE=agent</code>. It calls <code>POST /api/2.0/genie/agents/{space}/responses</code> and reads a stream of events. Unlike polling, it shows Genie's <em>actual</em> reasoning, each SQL call and the final text. A comment in the file marks this API as <strong>Beta</strong>.</p>
+<p>Used when <code>GENIE_MODE=agent</code>. It calls <code>POST /api/2.0/genie/agents/{space}/responses</code> and reads a stream of events. Unlike polling, it shows Genie's <em>actual</em> reasoning, each SQL call and the final text. Databricks' release notes say the Agent mode APIs have been <strong>generally available since 27 August 2026</strong>. Only the Flash option is Beta, so do not enable Flash. One thing to re-check: on 6 August Databricks changed these APIs to return tables as markdown (labelled Beta), and the notes do not say whether that changed at GA. Test a chart question after any Databricks change.</p>
 
 <h3>How it reads the stream</h3>
 <ul>
@@ -533,7 +533,7 @@ export const getThreadId = (rc) =&gt; (rc?.get('threadId') as string) ?? 'defaul
      |
      +--short summary only--&gt;  the AI
 
- Genie tool  --collector.emit(thinking line)--&gt;  straight to the browser, live
+ Genie tool  --collector.emit(progress line)--&gt;  scratchpad entry under Ask Genie, live
 </pre></div>
 <p>The box is passed inside <code>RequestContext</code>, and it is the <em>same</em> box (a reference), so a change made deep in a sub-agent's tool is visible to the route that created it. <code>emit</code> pushes live events to the browser from inside a tool.</p>
 
@@ -548,14 +548,14 @@ export const getThreadId = (rc) =&gt; (rc?.get('threadId') as string) ?? 'defaul
   question,
   conversationId: getConversationId(threadId, space.spaceId),
   sessionId: requestContext?.get('sessionId') as string | undefined,
-  onProgress: (text) =&gt; collector.emit?.({ type: 'thinking', text }),
+  onProgress: (text) =&gt; collector.emit?.(text),
 });
 if (result.conversationId) setConversationId(threadId, space.spaceId, result.conversationId);
 const fromJson = parseGenieChartJson(result.columns, result.rows);
 collector.chart = fromJson?.chart ?? null;</code></pre>
 <ol>
   <li>Find which chat this is, and call Genie, reusing the earlier conversation id and the user's session id.</li>
-  <li>Send each progress line to the browser as a <code>thinking</code> event.</li>
+  <li>Send each progress line to the scratchpad, under this Ask Genie entry.</li>
   <li>Remember the conversation id for follow-ups.</li>
   <li>If the result is chart JSON, swap in the real table and set <code>collector.chart</code> (section 13). If not, <code>collector.chart</code> becomes <code>null</code>: <strong>the chart always belongs to the latest result</strong>, so a later non-chart answer clears an earlier chart.</li>
   <li>A one-cell result that is not recognised chart JSON is logged as a warning, to help diagnose.</li>
@@ -632,7 +632,7 @@ collector.chart = fromJson?.chart ?? null;</code></pre>
 </ol>
 
 <h3>Agent 3: the follow-up agent (<code>suggest_agent</code>)</h3>
-<p>Writes up to three short, self-contained follow-up questions (under 90 characters, answerable from the data described). Used by <code>suggest.ts</code>.</p>
+<p>Writes up to three short, self-contained follow-up questions (under 110 characters, each answerable by one named data agent). It is given only the agents' descriptions and the chat so far. Used by <code>suggest.ts</code>.</p>
 
 <div class="box tip"><strong class="t">Prompts are code</strong>
 <p>These instruction strings are the easiest place to change behaviour, and nothing tests them. Small wording changes can change behaviour. After any edit, try real questions end to end.</p></div>
@@ -640,10 +640,12 @@ collector.chart = fromJson?.chart ?? null;</code></pre>
 <!-- ======================================================= -->
 <h2 class="sec" id="suggest">15. suggest.ts: follow-up questions</h2>
 <span class="file">server/src/mastra/suggest.ts</span>
-<pre><code>const out = await agent.generate(`User question: ${question}\nAnswer: ${answer}\n...Suggest follow-up questions.`,
-  { structuredOutput: { schema: Suggestions } });
-return (out.object?.questions ?? []).map((q) =&gt; q.trim()).filter(Boolean).slice(0, 3);</code></pre>
-<p>Best effort: any failure is logged as <code>[suggest] failed</code> and returns an empty list, so the user just sees no suggestions. It runs only when Genie supplied none and at least one result had no error (checked in <code>mastra/index.ts</code>).</p>
+<pre><code>// the model sees only: the chat so far + the question just asked (the data agents' descriptions are in its instructions)
+const out = await agent.generate(promptOf(input), { structuredOutput: { schema: Suggestions } });
+// then we keep only questions that name a real data agent and are not repeats</code></pre>
+<p>Genie's Agent mode API sends no suggestions (checked against the API reference, the raw stream and the stored conversation), so this writer produces them. <strong>Nothing about the business is written into the code.</strong> Its only inputs are (1) the Genie space descriptions from <code>registry.ts</code>, placed in the agent's instructions, and (2) the chat so far: the earlier questions, answers and suggestions of this chat (kept in memory by <code>history.ts</code>, last 6 turns) plus the question just asked. The only fixed text is a short, generic instruction to act like a senior analyst in the field the descriptions cover and not merely re-cut the same number.</p>
+<p>Every suggestion must name the one data agent that can answer it (<code>space</code>, checked against the registry). Anything naming an unknown agent is dropped, and so are repeats of the current question and of earlier questions or suggestions.</p>
+<p><strong>It never holds the answer back.</strong> It needs neither the answer nor the data, so <code>mastra/index.ts</code> starts it the moment the request arrives, in parallel with the supervisor. The <code>suggestions</code> event is sent as soon as it is ready, which may be before or after <code>final</code>; the UI keeps early ones until the final answer arrives. If Genie supplied its own follow-ups (Conversation API), those win. After <code>final</code>, the stream waits at most <code>SUGGEST_WAIT_MS</code> (default 8000) for ours, then closes. Best effort: any failure is logged as <code>[suggest]</code> and returns an empty list.
 
 <!-- ======================================================= -->
 <h2 class="sec" id="mastra-index">16. mastra/index.ts: the server itself</h2>
@@ -675,9 +677,9 @@ const { supervisor, genieAgents, suggestAgent } = createAgents(genie);</code></p
   <div class="step"><span class="n">1</span><p>Authenticate. Check <code>threadId</code> and <code>message</code> exist (400 if not). Prefix the thread id with the user name, so threads are per user.</p></div>
   <div class="step"><span class="n">2</span><p>Create a fresh <code>collector</code> and a <code>RequestContext</code> holding the collector, thread id and session id. Set <code>collector.emit</code> so tools can stream progress.</p></div>
   <div class="step"><span class="n">3</span><p>Open a <code>ReadableStream</code> and call <code>supervisor.stream(message, ...)</code> with memory scoped to the thread and the request's abort signal.</p></div>
-  <div class="step"><span class="n">4</span><p>Loop over the stream. <code>text-delta</code> becomes a <code>text</code> event. <code>tool-call</code> and <code>tool-result</code> for a tool whose name contains "genie" become <code>step</code> events. An <code>error</code> chunk throws.</p></div>
+  <div class="step"><span class="n">4</span><p>Loop over the stream and hand every chunk to <code>trace.ts</code>, which builds the <strong>scratchpad</strong>: the text an agent writes before a tool call or handover becomes a working <em>note</em>; each handover and tool call becomes an entry that goes <em>running</em> then <em>done</em> (or <em>error</em>); and Genie's own progress lines sit under the Ask Genie entry. A supervisor step that calls no tool is the final answer and becomes <code>text</code> events. An <code>error</code> chunk throws.</p></div>
   <div class="step"><span class="n">5</span><p>Build the <code>FinalAnswer</code> from the collector: the latest result that has columns, the chart spec, one source per Genie message, and Genie's own follow-ups. Send it as a <code>final</code> event.</p></div>
-  <div class="step"><span class="n">6</span><p>If Genie gave no follow-ups and at least one result had no error, ask <code>suggestFollowUps</code> and send a <code>suggestions</code> event.</p></div>
+  <div class="step"><span class="n">6</span><p>Follow-ups were already started in parallel when the request arrived (step 2). If Genie gave its own, they win; otherwise wait at most <code>SUGGEST_WAIT_MS</code> for ours, then record the turn in the chat history.</p></div>
   <div class="step"><span class="n">7</span><p>Any exception is sent as an <code>error</code> event. <code>finally</code> closes the stream.</p></div>
 </div>
 <pre><code>const sse = (e: ChatEvent) =&gt; `data: ${JSON.stringify(e)}\n\n`;   // one SSE message</code></pre>
@@ -814,7 +816,7 @@ export const createSession = (tokens, user) =&gt; { const id = randomBytes(32).t
 <tr><th>File</th><th>Role</th></tr>
 <tr><td><code>main.tsx</code></td><td>Mounts <code>&lt;App /&gt;</code> in <code>StrictMode</code> and loads the CSS.</td></tr>
 <tr><td><code>App.tsx</code></td><td><code>App</code> (checks sign-in), <code>LoginPage</code>, <code>Chat</code> (the main screen).</td></tr>
-<tr><td><code>components.tsx</code></td><td><code>DataTable</code>, <code>Feedback</code>, <code>Thinking</code>, <code>Details</code>, <code>ChartBoundary</code>.</td></tr>
+<tr><td><code>components.tsx</code></td><td><code>DataTable</code>, <code>Feedback</code>, <code>Scratchpad</code>, <code>Details</code>, <code>ChartBoundary</code>.</td></tr>
 <tr><td><code>api.ts</code></td><td><code>getMe</code>, <code>logout</code>, <code>streamChat</code>, <code>sendFeedback</code>.</td></tr>
 <tr><td><code>types.ts</code></td><td>Types for events, answers, chart spec and messages.</td></tr>
 <tr><td><code>charts/</code></td><td>Chart renderers and the one-line switch (section 26).</td></tr>
@@ -824,7 +826,7 @@ export const createSession = (tokens, user) =&gt; { const id = randomBytes(32).t
 <!-- ======================================================= -->
 <h2 class="sec" id="ui-types">22. types.ts</h2>
 <span class="file">ui/src/types.ts</span>
-<p>The browser's copy of the server shapes: <code>Source</code>, <code>ChartSpec</code>, <code>FinalAnswer</code>, <code>ChatEvent</code> and <code>Message</code>. A message is either a user message (<code>text</code>) or an assistant message (<code>text</code>, <code>steps</code>, <code>thinking</code>, <code>result</code>, <code>error</code>, <code>pending</code>). The first comment says "Mirrors server/src/contracts.ts (keep in sync)". Keep it true.</p>
+<p>The browser's copy of the server shapes: <code>Source</code>, <code>ChartSpec</code>, <code>FinalAnswer</code>, <code>ChatEvent</code> and <code>Message</code>. A message is either a user message (<code>text</code>) or an assistant message (<code>text</code>, <code>trace</code>, <code>startedAt</code>, <code>endedAt</code>, <code>result</code>, <code>error</code>, <code>pending</code>). The first comment says "Mirrors server/src/contracts.ts (keep in sync)". Keep it true.</p>
 
 <!-- ======================================================= -->
 <h2 class="sec" id="ui-api">23. api.ts: calling the server</h2>
@@ -885,10 +887,9 @@ for (;;) {
 <h3>send(): what happens on Send</h3>
 <pre><code>await streamChat(threadId, text, (e) =&gt; {
   if (e.type === 'text') patchLast((m) =&gt; ({ text: m.text + e.delta }));
-  else if (e.type === 'thinking') patchLast((m) =&gt; ({ thinking: [...m.thinking, e.text] }));
-  else if (e.type === 'step') patchLast(...);       // adds or removes a status line
+  else if (e.type === 'trace') patchLast((m) =&gt; ({ trace: upsert(m.trace, e.item) }));   // add, or update the entry with the same id
   else if (e.type === 'final') patchLast(() =&gt; ({ result: e.result, text: e.result.answer, steps: [], pending: false }));
-  else if (e.type === 'suggestions') patchLast((m) =&gt; (m.result ? { result: { ...m.result, suggestedQuestions: e.questions } } : {}));
+  else if (e.type === 'suggestions') patchLast((m) =&gt; (!m.result ? { suggestions: e.questions } : m.result.suggestedQuestions.length ? {} : { result: { ...m.result, suggestedQuestions: e.questions } }));  // early ones are kept until final
   else if (e.type === 'error') patchLast(() =&gt; ({ error: e.message, steps: [], pending: false }));
 });</code></pre>
 <p>It adds the user message and an empty assistant message, then runs <code>streamChat</code>. A <code>ReloginError</code> logs the user out. Other failures show "Something went wrong". <code>finally</code> clears the busy state.</p>
@@ -897,7 +898,7 @@ for (;;) {
 <p>A dark sidebar (the "Xoriant" wordmark, New chat, and Log out in OAuth mode) and a page with a header, the messages, and the input form. With no messages it shows three starter buttons: "Chart FOT premium by region", "Which reinsurers left the most capacity unused?" and "How many placements are there by status in 2026?". "New chat" clears the messages and makes a new thread id.</p>
 
 <!-- ======================================================= -->
-<h2 class="sec" id="ui-components">25. components.tsx: table, feedback, thinking, details</h2>
+<h2 class="sec" id="ui-components">25. components.tsx: table, feedback, scratchpad, details</h2>
 <span class="file">ui/src/components.tsx</span>
 
 <h3>ChartBoundary</h3>
@@ -915,8 +916,8 @@ for (;;) {
 <h3>Feedback</h3>
 <p>Helpful and Not helpful buttons. They call <code>sendFeedback</code> and show "couldn't send" on failure.</p>
 
-<h3>Thinking</h3>
-<p>Genie's progress log. Open and live while the answer is being produced, collapsed afterwards as "Genie's thinking (N steps)".</p>
+<h3>Scratchpad</h3>
+<p>The agents' working notes, in order: <em>Using model: &lt;name&gt;</em>, what each agent decided (in its own words), each handover and tool call with a spinner, tick or cross, the question sent under it, and Genie's progress nested below. The header shows elapsed time and tool count ("Working… · 2 tools · 8s", then "Worked for 9s · 2 tools"). It is open while the agents work and collapses when the answer is done. Notes are written by the agents themselves (their instructions ask for one or two plain sentences before acting); no wording is written into the code.</p>
 
 <h3>Details</h3>
 <p>Draws, in order: the chart (inside <code>ChartBoundary</code>, with its title), a collapsed data table (labelled "preview: N of M rows" when truncated), one collapsed SQL block per source with the feedback buttons, and the suggested follow-ups as buttons (clicking one sends it as a new question).</p>
@@ -979,7 +980,7 @@ export { Chart } from './RechartsChart';
       |                   |                      |--delegate---&gt;|                |               |              |
       |                   |                      |              |--ask(question)-&gt;|               |              |
       |                   |                      |              |                |--client.ask---&gt;|--start, poll-&gt;|
-      |&lt;--thinking lines (collector.emit)---------------------------------------|&lt;--status-------|&lt;--rows--------|
+      |&lt;--progress lines (collector.emit)---------------------------------------|&lt;--status-------|&lt;--rows--------|
       |                   |                      |              |                |-parseGenieChartJson, save in collector
       |                   |                      |              |&lt;-summary, chartReady=true       |              |
       |                   |                      |&lt;--report-----|                |               |              |
@@ -996,7 +997,7 @@ export { Chart } from './RechartsChart';
   <div class="step"><span class="n">4</span><p><strong>Tool.</strong> <code>ask-placement</code> calls the Genie client with the stored conversation id. The client starts or continues a conversation and waits, pushing "thinking" lines to the browser.</p></div>
   <div class="step"><span class="n">5</span><p><strong>Chart JSON to chart.</strong> Genie returns one chart JSON cell. <code>parseGenieChartJson</code> builds the real table and a <code>ChartSpec</code>. Both go into the collector.</p></div>
   <div class="step"><span class="n">6</span><p><strong>Short answer.</strong> The tool returns a small object to the AI. The supervisor writes a short answer, streamed as <code>text</code> events.</p></div>
-  <div class="step"><span class="n">7</span><p><strong>Final.</strong> The route reads the collector into a <code>FinalAnswer</code> and sends <code>final</code>, then maybe <code>suggestions</code>.</p></div>
+  <div class="step"><span class="n">7</span><p><strong>Final.</strong> The route reads the collector into a <code>FinalAnswer</code> and sends <code>final</code>. The <code>suggestions</code> event comes whenever the parallel writer finishes.</p></div>
   <div class="step"><span class="n">8</span><p><strong>Draw.</strong> <code>Details</code> draws the chart through <code>charts/index.ts</code>, plus the table, SQL and follow-ups.</p></div>
 </div>
 
@@ -1065,9 +1066,10 @@ export { Chart } from './RechartsChart';
 <tr><td><code>DATABRICKS_REDIRECT_URI</code></td><td>no</td><td>Overrides the OAuth callback address</td><td><code>http://localhost:&lt;PORT&gt;/auth/callback</code></td></tr>
 <tr><td><code>DATABRICKS_GENIE_SPACE_ID</code></td><td>no</td><td>Placement Genie space</td><td>a fallback id in code</td></tr>
 <tr><td><code>DATABRICKS_GENIE_CAPACITY_SPACE_ID</code></td><td>no</td><td>Capacity Genie space</td><td>a fallback id in code</td></tr>
-<tr><td><code>GENIE_MODE</code></td><td>no</td><td><code>agent</code> selects Agent mode (Beta)</td><td>unset (Conversation API)</td></tr>
+<tr><td><code>GENIE_MODE</code></td><td>no</td><td><code>agent</code> selects Agent mode (GA)</td><td>unset (Conversation API)</td></tr>
 <tr><td><code>GENIE_ROW_CAP</code></td><td>no</td><td>Rows kept per result</td><td>200</td></tr>
 <tr><td><code>GENIE_TIMEOUT_MS</code></td><td>no</td><td>Max wait for Genie</td><td>180000</td></tr>
+<tr><td><code>SUGGEST_WAIT_MS</code></td><td>no</td><td>After the answer, max wait for our own follow-up questions before the stream closes</td><td>8000</td></tr>
 <tr><td><code>GENIE_FULL_ROW_CAP</code></td><td>no</td><td>Max rows when loading the full result</td><td>5000</td></tr>
 <tr><td><code>ANTHROPIC_API_KEY</code></td><td><strong>yes</strong></td><td>Lets the AI layer call Claude</td><td>none</td></tr>
 <tr><td><code>ANTHROPIC_MODEL</code></td><td>no</td><td>Model name</td><td><code>claude-sonnet-5-5</code></td></tr>
@@ -1146,7 +1148,7 @@ export { Chart } from './RechartsChart';
 <h3>Tools you have</h3>
 <ul>
   <li><strong>Mastra Studio</strong> at http://localhost:4111 when you run <code>npm run dev</code> in <code>server/</code> (named in the README; not verified here).</li>
-  <li><strong>The "thinking" panel</strong> and the <strong>SQL block</strong> under every answer.</li>
+  <li><strong>The scratchpad</strong> and the <strong>SQL block</strong> under every answer.</li>
   <li><strong><code>smoke-genie.ts</code></strong> to call Genie alone, without the AI agents.</li>
   <li><strong>Browser dev tools, Network tab:</strong> open the <code>/bi/chat</code> request and read the raw events.</li>
 </ul>
@@ -1155,7 +1157,7 @@ export { Chart } from './RechartsChart';
 <table>
 <tr><th>Problem</th><th>What to do</th></tr>
 <tr><td>No chart appears</td><td>In the Network tab, find the <code>final</code> event: is <code>chartSpec</code> null? If yes, look for <code>[chart] not drawing</code> or <code>[genie] unparsed single-cell result</code> in the server log. If not null but nothing draws, look for <code>[chart] could not draw</code> in the browser console. A server still running an old build is the usual cause.</td></tr>
-<tr><td>Answer is wrong or empty</td><td>Open the SQL block. Run the question with <code>smoke-genie.ts</code> to remove the AI agents. Read the thinking lines.</td></tr>
+<tr><td>Answer is wrong or empty</td><td>Open the SQL block. Run the question with <code>smoke-genie.ts</code> to remove the AI agents. Read the scratchpad.</td></tr>
 <tr><td>Asked to log in again</td><td>Sessions are in memory; a restart ends them. Also check the callback address matches the registered one.</td></tr>
 <tr><td>Hangs, then "Genie timed out"</td><td>The default wait is 180 seconds (<code>GENIE_TIMEOUT_MS</code>).</td></tr>
 </table>
@@ -1192,7 +1194,7 @@ export { Chart } from './RechartsChart';
   <li><strong>Routing rules live in two places</strong> (the registry descriptions, and the hand-written <code>ROUTING</code> block). A new space needs both.</li>
   <li><strong>Agent behaviour is untested text.</strong> Try real questions after any edit.</li>
   <li><strong>Charts depend on Genie's wording.</strong> The supervisor must use the word "chart". An unknown shape gives a table only.</li>
-  <li><strong>Agent mode is a Beta API</strong> and cuts long query output at about 600 characters, so chart JSON is reloaded by statement id.</li>
+  <li><strong>Agent mode is GA</strong> (confirm it is enabled in each workspace) but cuts long query output at about 600 characters, so chart JSON is reloaded by statement id.</li>
 </ol>
 
 <h3>Security</h3>
@@ -1269,11 +1271,11 @@ export { Chart } from './RechartsChart';
 <tr><td>8</td><td>Where does <code>mastra start</code> write <code>mastra.db</code> and <code>bi-memory.db</code>? (Relative paths; no <code>.db</code> file was found in <code>server/</code> when checked.)</td><td>App owner</td></tr>
 <tr><td>9</td><td>How is the app fronted in production (proxy, TLS)? This decides the cookie <code>Secure</code> flag.</td><td>Platform / DevOps</td></tr>
 <tr><td>10</td><td>Is the UI always served from the same address as the API? (CORS allows only the dev address.)</td><td>App owner</td></tr>
-<tr><td>11</td><td>Which Genie mode runs in production? Agent mode is Beta.</td><td>App owner</td></tr>
+<tr><td>11</td><td>Which Genie mode runs in production? Agent mode is GA; confirm it is enabled in the production workspace.</td><td>App owner</td></tr>
 <tr><td>12</td><td>Are the hard-coded fallback Genie space ids in <code>registry.ts</code> intended?</td><td>App owner, security</td></tr>
 <tr><td>13</td><td>Which Genie space is attached to the "corridor profitability" data?</td><td>Data owner</td></tr>
 <tr><td>14</td><td>What does "FOT" stand for?</td><td>Reinsurance domain expert</td></tr>
-<tr><td>15</td><td>Does the <code>stepOf</code> filter in <code>mastra/index.ts</code> (tool names containing "genie") match the tool names Mastra reports for sub-agents? (Not run live.)</td><td>App owner</td></tr>
+<tr><td>15</td><td>The scratchpad labels depend on Mastra naming sub-agent tools <code>agent-&lt;id&gt;</code> (seen on a live stream with <code>@mastra/core</code> 1.79). Will that stay stable across Mastra upgrades?</td><td>App owner</td></tr>
 <tr><td>16</td><td>Where is <code>ANTHROPIC_API_KEY</code> read? (Not in the repo's code; presumably by the Mastra AI layer.)</td><td>App owner</td></tr>
 <tr><td>17</td><td>What does Mastra Studio show? (Only the README mentions it; not run.)</td><td>App owner</td></tr>
 <tr><td>18</td><td>Should a page reload restore the chat messages?</td><td>App owner</td></tr>

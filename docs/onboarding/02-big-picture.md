@@ -64,7 +64,7 @@ Notice that `emit` lets a tool push live progress straight to the browser while 
 
 - The browser sends `POST /bi/chat` with a thread id and a message.
 - The server answers with **Server-Sent Events (SSE)**: a single long HTTP response that sends many small messages over time. This lets the UI show progress while the answer is being made.
-- The message types are in `server/src/contracts.ts` (`ChatEvent`): `step`, `thinking`, `text`, `final`, `suggestions`, `error`.
+- The message types are in `server/src/contracts.ts` (`ChatEvent`): `trace`, `text`, `final`, `suggestions`, `error`.
 - Other routes: `POST /bi/feedback` and `/auth/me`, `/auth/login`, `/auth/callback`, `/auth/logout` (`server/src/mastra/index.ts`).
 
 ## Development versus production
