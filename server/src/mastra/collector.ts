@@ -1,10 +1,10 @@
 import type { RequestContext } from '@mastra/core/request-context';
-import type { ChartSpec, ChatEvent, GenieResult } from '../contracts';
+import type { ChartSpec, GenieResult } from '../contracts';
 
 // Per-request side channel: tools running inside sub-agents record structured data here so the HTTP route
 // can return rows/SQL/chart to the UI (the LLM only sees text). Stored by reference in RequestContext.
-// `emit` pushes SSE events straight to the client (used to stream Genie's progress from inside the tool).
-export type Collector = { results: GenieResult[]; chart: ChartSpec | null; emit?: (e: ChatEvent) => void };
+// `emit` sends one line of Genie's progress to the client while the tool is still running.
+export type Collector = { results: GenieResult[]; chart: ChartSpec | null; emit?: (progress: string) => void };
 
 export const newCollector = (): Collector => ({ results: [], chart: null });
 

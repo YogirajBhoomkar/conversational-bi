@@ -6,16 +6,19 @@ import { genieSpaces } from '../../genie/registry';
 import { createAskGenieTool, createFetchFullResultsTool } from '../tools/askGenie';
 
 // With LLM_BASE_URL set, use that OpenAI-compatible endpoint (e.g. a LiteLLM proxy); otherwise Anthropic.
+// The model name as the scratchpad shows it.
+export const modelLabel = () => (process.env.LLM_BASE_URL ? (process.env.LLM_MODEL ?? 'gpt-5.1') : (process.env.ANTHROPIC_MODEL ?? 'claude-sonnet-5-5'));
+
 const model = () => {
   const baseUrl = process.env.LLM_BASE_URL;
   if (baseUrl) {
     return {
-      id: `litellm/${process.env.LLM_MODEL ?? 'gpt-5.1'}` as `${string}/${string}`,
+      id: `litellm/${modelLabel()}` as `${string}/${string}`,
       url: baseUrl,
       apiKey: process.env.LLM_API_KEY,
     };
   }
-  return `anthropic/${process.env.ANTHROPIC_MODEL ?? 'claude-sonnet-5-5'}` as const;
+  return `anthropic/${modelLabel()}` as const;
 };
 
 export function createAgents(client: GenieClient) {
@@ -28,6 +31,7 @@ export function createAgents(client: GenieClient) {
         name: `genie_${space.key}`,
         description: `Data analyst for "${space.name}". ${space.description} Delegate any question that needs numbers from this data. Returns Genie's answer and the SQL it used.`,
         instructions: `You answer data questions using the ask-${space.key} tool, and nothing else.
+- Before you call a tool, write one short sentence in the first person saying what you will ask Genie and why. It is shown to the user as your working notes.
 - Pass a clear, self-contained question to the tool. Do not invent numbers or answer from memory.
 - Report Genie's findings accurately, including the key figures, plus a one-line note of any caveat (e.g. time window assumed).
 - If the tool returns an error, say so plainly.
@@ -70,7 +74,8 @@ How to work:
    - Use a currency symbol or unit only if the data states one; otherwise just give the number (e.g. "492.2M").
    - Never mention sub-agents, tools, or internal hiccups (the one chartReady=false sentence above is the exception).
    - If a genie agent reports the result is truncated (the table shows only a preview of N of M rows), add one sentence saying the table shows a preview of N of M rows and ask whether they want the full result. Do NOT load the rest on your own. If the user then says yes, delegate to the same genie agent asking it to load the full results of the previous query (not to re-run the question), then confirm how many rows are now shown.
-5. For small talk or questions about what you can do, answer directly without delegating.`,
+5. For small talk or questions about what you can do, answer directly without delegating.
+6. Working notes: before you delegate to an agent or call a tool, write one or two short sentences in the first person saying what you will do and why, for example which data agent you chose and what you will ask it. Plain facts only. These are shown to the user as your working notes, so never repeat them in the final answer.`,
     model: model(),
     agents: { ...genieAgents },
     memory: new Memory({ storage: new LibSQLStore({ id: 'bi-memory', url: 'file:./bi-memory.db' }) }),

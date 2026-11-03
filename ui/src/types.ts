@@ -18,9 +18,17 @@ export type FinalAnswer = {
   sources: Source[];
   suggestedQuestions: string[];
 };
+export type TraceItem = {
+  id: string;
+  kind: 'meta' | 'note' | 'tool' | 'progress';
+  text?: string;
+  label?: string;
+  by?: string;
+  parent?: string;
+  status?: 'running' | 'done' | 'error';
+};
 export type ChatEvent =
-  | { type: 'step'; step: 'genie'; status: 'start' | 'done'; detail?: string }
-  | { type: 'thinking'; text: string }
+  | { type: 'trace'; item: TraceItem }
   | { type: 'text'; delta: string }
   | { type: 'final'; result: FinalAnswer }
   | { type: 'suggestions'; questions: string[] }
@@ -28,4 +36,4 @@ export type ChatEvent =
 
 export type Message =
   | { id: string; role: 'user'; text: string }
-  | { id: string; role: 'assistant'; text: string; steps: string[]; thinking: string[]; suggestions?: string[]; result?: FinalAnswer; error?: string; pending: boolean };
+  | { id: string; role: 'assistant'; text: string; trace: TraceItem[]; startedAt: number; endedAt?: number; suggestions?: string[]; result?: FinalAnswer; error?: string; pending: boolean };

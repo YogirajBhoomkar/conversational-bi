@@ -33,7 +33,7 @@ export const createAskGenieTool = (space: GenieSpace, client: GenieClient) =>
         question,
         conversationId: getConversationId(threadId, space.spaceId),
         sessionId: requestContext?.get('sessionId') as string | undefined,
-        onProgress: (text) => collector.emit?.({ type: 'thinking', text }),
+        onProgress: (text) => collector.emit?.(text),
       });
       if (result.conversationId) setConversationId(threadId, space.spaceId, result.conversationId);
       // If Genie answered with chart JSON, swap in the real table and build the chart from it (in code).

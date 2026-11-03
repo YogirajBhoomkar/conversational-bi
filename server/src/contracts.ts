@@ -41,10 +41,20 @@ export const FinalAnswerSchema = z.object({
 });
 export type FinalAnswer = z.infer<typeof FinalAnswerSchema>;
 
+// One entry of the scratchpad the UI shows while the agents work (the same id updates the entry).
+export type TraceItem = {
+  id: string;
+  kind: 'meta' | 'note' | 'tool' | 'progress';
+  text?: string;   // meta/note/progress: the line itself. tool: a short detail, for example the question that was sent
+  label?: string;  // meta: what the value is. tool: what is being done
+  by?: string;     // who is acting, when it is not the supervisor (a data agent's name)
+  parent?: string; // progress: id of the tool entry it belongs to
+  status?: 'running' | 'done' | 'error'; // tool only
+};
+
 // SSE events streamed by POST /bi/chat. One JSON object per `data:` line.
 export type ChatEvent =
-  | { type: 'step'; step: 'genie'; status: 'start' | 'done'; detail?: string }
-  | { type: 'thinking'; text: string }  // one line of Genie's progress/reasoning, streamed while it works
+  | { type: 'trace'; item: TraceItem }  // one entry of the agents' working notes; sending the same id again updates that entry
   | { type: 'text'; delta: string }
   | { type: 'final'; result: FinalAnswer }
   | { type: 'suggestions'; questions: string[] }  // follow-ups, sent after `final` once the supervisor model has written them

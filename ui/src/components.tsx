@@ -1,7 +1,7 @@
-import { Component, type ReactNode, useState } from 'react';
+import { Component, type ReactNode, useEffect, useState } from 'react';
 import { sendFeedback } from './api';
 import { Chart } from './charts';
-import type { FinalAnswer } from './types';
+import type { FinalAnswer, TraceItem } from './types';
 
 // A chart that fails to draw must never take the app down: fall back to the table.
 class ChartBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
@@ -78,15 +78,56 @@ export function Feedback({ source }: { source: FinalAnswer['sources'][number] })
   );
 }
 
-// Genie's progress/reasoning log: open and live while the answer is being produced, collapsed once it's done.
-export function Thinking({ lines, live }: { lines: string[]; live: boolean }) {
-  if (lines.length === 0) return null;
+// Re-renders once a second while the agents are working, so the elapsed time ticks.
+const useNow = (live: boolean) => {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!live) return;
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [live]);
+  return now;
+};
+
+// The agents' working notes, in order: the model, what each agent decided, each handover and tool call with its state,
+// and Genie's own progress under the call that produced it. Open while they work, collapsed once the answer is done.
+export function Scratchpad({ trace, live, startedAt, endedAt }: { trace: TraceItem[]; live: boolean; startedAt: number; endedAt?: number }) {
+  const now = useNow(live);
+  if (trace.length === 0) return null;
+  const seconds = Math.max(0, Math.round(((live ? now : (endedAt ?? now)) - startedAt) / 1000));
+  const tools = trace.filter((i) => i.kind === 'tool').length;
+  const count = `${tools} tool${tools === 1 ? '' : 's'}`;
+  const ids = new Set(trace.map((i) => i.id));
+  const childrenOf = (id: string) => trace.filter((i) => i.kind === 'progress' && i.parent === id);
   return (
-    <details className="think" open={live}>
-      <summary>{live ? 'Genie is thinking…' : `Genie's thinking (${lines.length} steps)`}</summary>
-      <ol className="thinking">
-        {lines.map((t, i) => <li key={i}>{t}</li>)}
-      </ol>
+    <details className="pad" open={live}>
+      <summary>{live ? `Working… · ${count} · ${seconds}s` : `Worked for ${seconds}s · ${count}`}</summary>
+      <div className="pad-body">
+        {trace.map((i) => {
+          if (i.kind === 'progress' && i.parent && ids.has(i.parent)) return null; // shown under its tool call
+          if (i.kind === 'meta') return <div key={i.id} className="pad-meta"><strong>{i.label}:</strong> {i.text}</div>;
+          if (i.kind !== 'tool') {
+            return (
+              <p key={i.id} className="pad-note">
+                {i.by && <span className="pad-by">{i.by}</span>}
+                {i.text}
+              </p>
+            );
+          }
+          const status = !live && i.status === 'running' ? 'done' : i.status;
+          return (
+            <div key={i.id} className="pad-tool">
+              <div className="pad-row">
+                <span className={`pad-icon ${status}`} role="img" aria-label={status} />
+                <strong>{i.label}</strong>
+                {i.by && <span className="pad-by">{i.by}</span>}
+              </div>
+              {i.text && <div className="pad-detail">{i.text}</div>}
+              {childrenOf(i.id).map((c) => <p key={c.id} className="pad-note pad-child">{c.text}</p>)}
+            </div>
+          );
+        })}
+      </div>
     </details>
   );
 }

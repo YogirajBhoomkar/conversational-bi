@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ReloginError, getMe, logout, streamChat, type Me } from './api';
-import { Details, Thinking } from './components';
-import type { Message } from './types';
+import { Details, Scratchpad } from './components';
+import type { Message, TraceItem } from './types';
 
 const STARTERS = [
   'Chart FOT premium by region',
@@ -17,7 +17,9 @@ const loadThread = () => {
     return newThread();
   }
 };
-const stepLabel = (s: string) => (s === 'genie' ? 'Querying Genie…' : s);
+// An entry whose id we already have updates it (a tool call going from running to done); otherwise it is added.
+const upsert = (trace: TraceItem[], item: TraceItem) =>
+  trace.some((t) => t.id === item.id) ? trace.map((t) => (t.id === item.id ? { ...t, ...item } : t)) : [...trace, item];
 
 function LoginPage({ error }: { error?: string }) {
   return (
@@ -58,24 +60,23 @@ function Chat({ me, onLoggedOut }: { me: Me; onLoggedOut: (msg?: string) => void
     setMessages((ms) => [
       ...ms,
       { id: crypto.randomUUID(), role: 'user', text },
-      { id: crypto.randomUUID(), role: 'assistant', text: '', steps: [], thinking: [], pending: true },
+      { id: crypto.randomUUID(), role: 'assistant', text: '', trace: [], startedAt: Date.now(), pending: true },
     ]);
     try {
       await streamChat(threadId, text, (e) => {
         if (e.type === 'text') patchLast((m) => ({ text: m.text + e.delta }));
-        else if (e.type === 'thinking') patchLast((m) => ({ thinking: [...m.thinking, e.text] }));
-        else if (e.type === 'step') patchLast((m) => ({ steps: e.status === 'start' ? [...m.steps, e.step] : m.steps.filter((s, i, a) => !(s === e.step && i === a.indexOf(s))) }));
+        else if (e.type === 'trace') patchLast((m) => ({ trace: upsert(m.trace, e.item) }));
         // Follow-ups are written alongside the answer, so they may arrive before `final` (kept until then) or after it.
         // Genie's own follow-ups, when the final answer carries them, take precedence.
-        else if (e.type === 'final') patchLast((m) => ({ result: e.result.suggestedQuestions.length ? e.result : { ...e.result, suggestedQuestions: m.suggestions ?? [] }, text: e.result.answer, steps: [], pending: false }));
+        else if (e.type === 'final') patchLast((m) => ({ result: e.result.suggestedQuestions.length ? e.result : { ...e.result, suggestedQuestions: m.suggestions ?? [] }, text: e.result.answer, endedAt: Date.now(), pending: false }));
         else if (e.type === 'suggestions') patchLast((m) => (!m.result ? { suggestions: e.questions } : m.result.suggestedQuestions.length ? {} : { result: { ...m.result, suggestedQuestions: e.questions } }));
-        else if (e.type === 'error') patchLast(() => ({ error: e.message, steps: [], pending: false }));
+        else if (e.type === 'error') patchLast(() => ({ error: e.message, endedAt: Date.now(), pending: false }));
       });
     } catch (err) {
       if (err instanceof ReloginError) return onLoggedOut(err.message);
       patchLast(() => ({ error: err instanceof Error ? err.message : 'Request failed', pending: false }));
     } finally {
-      patchLast(() => ({ pending: false, steps: [] }));
+      patchLast((m) => ({ pending: false, endedAt: m.endedAt ?? Date.now() }));
       setBusy(false);
     }
   };
@@ -119,9 +120,8 @@ function Chat({ me, onLoggedOut }: { me: Me; onLoggedOut: (msg?: string) => void
               <div key={m.id} className="msg user">{m.text}</div>
             ) : (
               <div key={m.id} className="msg bot">
-                {m.steps.map((s, i) => <div key={i} className="status">{stepLabel(s)}</div>)}
-                <Thinking lines={m.thinking} live={m.pending} />
-                {m.pending && !m.text && m.steps.length === 0 && m.thinking.length === 0 && <div className="status">Thinking…</div>}
+                <Scratchpad trace={m.trace} live={m.pending} startedAt={m.startedAt} endedAt={m.endedAt} />
+                {m.pending && !m.text && m.trace.length === 0 && <div className="status">Thinking…</div>}
                 {m.text && <div className="answer">{m.text}</div>}
                 {m.error && <div className="error" role="alert">Something went wrong: {m.error}</div>}
                 {m.result && <Details result={m.result} onAsk={(q) => void send(q)} disabled={busy} />}

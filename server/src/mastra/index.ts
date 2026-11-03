@@ -10,9 +10,10 @@ import { AuthError, COOKIE, FallbackTokenProvider, SessionTokenProvider, cookie,
 import { DatabricksGenieAgentClient } from '../genie/agentClient';
 import { DatabricksGenieClient } from '../genie/client';
 import { genieSpaces, getSpaceById } from '../genie/registry';
-import { createAgents } from './agents';
+import { createAgents, modelLabel } from './agents';
 import { newCollector } from './collector';
 import { recentTurns, recordTurn } from './history';
+import { createTracer } from './trace';
 import { suggestFollowUps } from './suggest';
 
 // OAuth (per-user Databricks login) when DATABRICKS_CLIENT_ID is set; otherwise the shared PAT (dev only).
@@ -25,7 +26,6 @@ const { supervisor, genieAgents, suggestAgent } = createAgents(genie);
 
 const SUGGEST_WAIT_MS = Number(process.env.SUGGEST_WAIT_MS ?? 8000); // how long, after the answer, to wait for our own follow-ups
 const sse = (e: ChatEvent) => `data: ${JSON.stringify(e)}\n\n`;
-const stepOf = (toolName: string): 'genie' | null => (toolName.includes('genie') ? 'genie' : null);
 
 // Resolves the caller. In PAT mode everyone is the shared dev user; in OAuth mode a valid, refreshable session is required.
 async function authenticate(c: any): Promise<{ sessionId?: string; user: string } | Response> {
@@ -67,7 +67,16 @@ const chatRoute = registerApiRoute('/bi/chat', {
         const send = (e: ChatEvent) => {
           if (!closed) controller.enqueue(enc.encode(sse(e)));
         };
-        collector.emit = send;
+        let answer = '';
+        const tracer = createTracer({
+          trace: (item) => send({ type: 'trace', item }),
+          answer: (delta) => {
+            answer += delta;
+            send({ type: 'text', delta });
+          },
+        });
+        collector.emit = tracer.progress;
+        send({ type: 'trace', item: { id: 'model', kind: 'meta', label: 'Using model', text: modelLabel() } });
         let ours: string[] = [];
         void pendingSuggestions.then((questions) => {
           ours = questions;
@@ -79,20 +88,14 @@ const chatRoute = registerApiRoute('/bi/chat', {
             memory: { thread: threadId, resource: who.user },
             abortSignal: c.req.raw.signal,
           });
-          let answer = '';
           for await (const chunk of stream.fullStream as AsyncIterable<any>) {
-            const p = chunk.payload ?? chunk;
-            if (chunk.type === 'text-delta') {
-              const delta: string = p.text ?? p.textDelta ?? '';
-              answer += delta;
-              send({ type: 'text', delta });
-            } else if (chunk.type === 'tool-call' || chunk.type === 'tool-result') {
-              const step = stepOf(String(p.toolName ?? ''));
-              if (step) send({ type: 'step', step, status: chunk.type === 'tool-call' ? 'start' : 'done' });
-            } else if (chunk.type === 'error') {
+            if (chunk.type === 'error') {
+              const p = chunk.payload ?? chunk;
               throw new Error(String(p.error?.message ?? p.error ?? 'agent error'));
             }
+            tracer.handle(chunk);
           }
+          tracer.end();
           const withData = [...collector.results].reverse().find((r) => r.columns.length);
           // Loading the full result re-uses an earlier message, so keep one source per message (the latest).
           const sources = [...new Map(collector.results.map((r) => [r.messageId, r])).values()];
