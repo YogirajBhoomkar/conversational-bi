@@ -28,4 +28,4 @@ export type ChatEvent =
 
 export type Message =
   | { id: string; role: 'user'; text: string }
-  | { id: string; role: 'assistant'; text: string; steps: string[]; thinking: string[]; result?: FinalAnswer; error?: string; pending: boolean };
+  | { id: string; role: 'assistant'; text: string; steps: string[]; thinking: string[]; suggestions?: string[]; result?: FinalAnswer; error?: string; pending: boolean };

@@ -65,8 +65,10 @@ function Chat({ me, onLoggedOut }: { me: Me; onLoggedOut: (msg?: string) => void
         if (e.type === 'text') patchLast((m) => ({ text: m.text + e.delta }));
         else if (e.type === 'thinking') patchLast((m) => ({ thinking: [...m.thinking, e.text] }));
         else if (e.type === 'step') patchLast((m) => ({ steps: e.status === 'start' ? [...m.steps, e.step] : m.steps.filter((s, i, a) => !(s === e.step && i === a.indexOf(s))) }));
-        else if (e.type === 'final') patchLast(() => ({ result: e.result, text: e.result.answer, steps: [], pending: false }));
-        else if (e.type === 'suggestions') patchLast((m) => (m.result ? { result: { ...m.result, suggestedQuestions: e.questions } } : {}));
+        // Follow-ups are written alongside the answer, so they may arrive before `final` (kept until then) or after it.
+        // Genie's own follow-ups, when the final answer carries them, take precedence.
+        else if (e.type === 'final') patchLast((m) => ({ result: e.result.suggestedQuestions.length ? e.result : { ...e.result, suggestedQuestions: m.suggestions ?? [] }, text: e.result.answer, steps: [], pending: false }));
+        else if (e.type === 'suggestions') patchLast((m) => (!m.result ? { suggestions: e.questions } : m.result.suggestedQuestions.length ? {} : { result: { ...m.result, suggestedQuestions: e.questions } }));
         else if (e.type === 'error') patchLast(() => ({ error: e.message, steps: [], pending: false }));
       });
     } catch (err) {

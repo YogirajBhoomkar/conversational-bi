@@ -12,6 +12,7 @@ import { DatabricksGenieClient } from '../genie/client';
 import { genieSpaces, getSpaceById } from '../genie/registry';
 import { createAgents } from './agents';
 import { newCollector } from './collector';
+import { recentTurns, recordTurn } from './history';
 import { suggestFollowUps } from './suggest';
 
 // OAuth (per-user Databricks login) when DATABRICKS_CLIENT_ID is set; otherwise the shared PAT (dev only).
@@ -22,6 +23,7 @@ const tokens = new FallbackTokenProvider(oauth, new PatTokenProvider(), new Sess
 const genie = process.env.GENIE_MODE === 'agent' ? new DatabricksGenieAgentClient(tokens) : new DatabricksGenieClient(tokens);
 const { supervisor, genieAgents, suggestAgent } = createAgents(genie);
 
+const SUGGEST_WAIT_MS = Number(process.env.SUGGEST_WAIT_MS ?? 8000); // how long, after the answer, to wait for our own follow-ups
 const sse = (e: ChatEvent) => `data: ${JSON.stringify(e)}\n\n`;
 const stepOf = (toolName: string): 'genie' | null => (toolName.includes('genie') ? 'genie' : null);
 
@@ -49,6 +51,9 @@ const chatRoute = registerApiRoute('/bi/chat', {
     if (!rawThread || !message?.trim()) return c.json({ error: 'threadId and message are required' }, 400);
     const threadId = `${who.user}::${rawThread}`; // threads are per user
 
+    // Follow-ups need only the Genie descriptions and the chat so far, so they are written in parallel with the answer, not after it.
+    const pendingSuggestions = suggestFollowUps(suggestAgent, { question: message, history: recentTurns(threadId) });
+
     const collector = newCollector();
     const requestContext = new RequestContext();
     requestContext.set('collector', collector);
@@ -58,8 +63,16 @@ const chatRoute = registerApiRoute('/bi/chat', {
 
     const body = new ReadableStream({
       async start(controller) {
-        const send = (e: ChatEvent) => controller.enqueue(enc.encode(sse(e)));
+        let closed = false;
+        const send = (e: ChatEvent) => {
+          if (!closed) controller.enqueue(enc.encode(sse(e)));
+        };
         collector.emit = send;
+        let ours: string[] = [];
+        void pendingSuggestions.then((questions) => {
+          ours = questions;
+          if (questions.length) send({ type: 'suggestions', questions }); // may arrive before or after `final`; the UI handles both
+        });
         try {
           const stream = await supervisor.stream(message, {
             requestContext,
@@ -100,14 +113,17 @@ const chatRoute = registerApiRoute('/bi/chat', {
             suggestedQuestions: [...collector.results].reverse().find((r) => r.suggestedQuestions.length)?.suggestedQuestions ?? [],
           };
           send({ type: 'final', result: final });
-          // Follow-ups come from the supervisor's own model; sent after `final` so the answer isn't held up. Skipped for small talk/clarifications.
-          if (!final.suggestedQuestions.length && collector.results.some((r) => !r.error)) {
-            const questions = await suggestFollowUps(suggestAgent, { question: message, answer, columns: final.columns });
-            if (questions.length) send({ type: 'suggestions', questions });
+          // Genie's own follow-ups (Conversation API) win. Otherwise ours are usually ready already; give them a short moment, but never hold the stream open for long.
+          if (!final.suggestedQuestions.length) {
+            let timer: ReturnType<typeof setTimeout> | undefined;
+            await Promise.race([pendingSuggestions, new Promise((resolve) => (timer = setTimeout(resolve, SUGGEST_WAIT_MS)))]);
+            clearTimeout(timer);
           }
+          recordTurn(threadId, { question: message, answer, suggested: final.suggestedQuestions.length ? final.suggestedQuestions : ours });
         } catch (err) {
           send({ type: 'error', message: err instanceof Error ? err.message : String(err) });
         } finally {
+          closed = true;
           controller.close();
         }
       },

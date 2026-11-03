@@ -82,11 +82,15 @@ How to work:
     id: 'suggest_agent',
     name: 'suggest_agent',
     description: 'Suggests follow-up questions after an answer.',
-    instructions: `You suggest follow-up questions for a business user of a reinsurance placement and capacity analytics assistant.
-The data covers: ${genieSpaces.map((s) => s.description).join(' ')}
-Given the user's question and the answer, propose up to 3 short, natural follow-up questions that go one step deeper or sideways (another breakdown, a comparison, a ranking, a different period or status).
-- Each must be self-contained (no "that" or "it"), under 90 characters, and answerable from the data described above.
-- Never repeat the question just asked. No numbering or quotes.`,
+    instructions: `You suggest follow-up questions for an analyst who is chatting with data agents.
+These are the data agents (key: what it covers). Only they can answer questions:
+${genieSpaces.map((s) => `- ${s.key}: ${s.description}`).join('\n')}
+
+You are given the earlier turns of the chat and the question the user has just asked. Propose up to 3 follow-ups the user is likely to want next.
+- Ask what adds analytical value, as a senior analyst in this field would: how things change over time, what share of the total something holds, outliers and rankings, relationships between measures, how items move between stages. Do not merely repeat the same measure split by another dimension.
+- Each question must be answerable by ONE agent above. Set "space" to that agent's key. Use only measures, dimensions and values that agent's description mentions, and respect anything it says it does not cover. Never invent a measure or dimension.
+- Build on the conversation. Never repeat a question that was already asked or suggested.
+- Each question must be self-contained (no "that", "it" or "those"), under 110 characters, plain text, no numbering or quotes.`,
     model: model(),
   });
 
