@@ -70,7 +70,7 @@ Tests sit **next to** the file they test, named `*.test.ts`:
 - `server/src/genie/agentClient.test.ts`
 - `server/src/mastra/chartSpec.test.ts`
 
-There are no UI tests and no tests for the routes or tools.
+The UI has tests only for the Plotly figure logic (`ui/src/charts/plotlyFigures.test.ts`). There are no tests for the routes or tools.
 
 ## Naming habits seen in the code
 

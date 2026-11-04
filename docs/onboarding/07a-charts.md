@@ -50,6 +50,7 @@ All in `ui/src/charts/`. Each exports one component, `Chart`, that takes a `Char
 | `RechartsChart.tsx` | Recharts | Enabled by default. Stacked bars for series |
 | `PlotlyChart.tsx` | Plotly (the full `plotly.js-dist-min`) | Draws every chart type. Largest bundle, about 4.6 MB |
 | `D3Chart.tsx` | D3, drawing SVG by hand | Smallest bundle. Most code |
+| `plotlyFigures.ts` | none | Turns a chart spec into Plotly data and layout, one function per chart type. No Plotly import, so it is unit-tested |
 | `shared.ts` | none | Colour palette, height, `toSeries`, number format |
 | `plotly.d.ts` | none | A type declaration so TypeScript accepts the Plotly bundle |
 | `index.ts` | none | **The switch** |
@@ -83,10 +84,10 @@ The server accepts every chart type Genie can send and turns each into the same 
 `path` is a list of column names. It is how Genie describes a hierarchy, a share or a flow. The first one is also copied into `x`. Anything else, an incomplete chart, or a non-numeric `y` gives no chart: the table is still shown and a warning is logged (`server/src/mastra/chartSpec.ts`). The supervisor is told this list from `SUPPORTED_CHART_TYPES` in the same file, so it never drifts.
 
 **Which library draws what.** Each renderer exports `supports(spec)`:
-- **Plotly** (the full `plotly.js-dist-min` bundle, about 4.6 MB) draws every type. For bar, line, scatter and area it also shows Plotly's own buttons to change the form. They are configuration only: there is no code of ours behind them.
+- **Plotly** (the full `plotly.js-dist-min` bundle, about 4.6 MB) draws every type. It is loaded the first time a chart is drawn, so the main bundle stays about 230 kB. A heatmap without a series, or a sankey with fewer than two dimensions, is not drawn and the table is shown. For bar, line, scatter and area it also shows Plotly's own buttons to change the form. They are configuration only: there is no code of ours behind them.
 - **D3** and **Recharts** draw bar, line and scatter. For any other type the UI shows a short note and the table.
 
-Genie's own SQL for a chart sometimes fails (for example a syntax error). That is on Genie's side, and the table-only answer is shown.
+Genie's own SQL for a chart sometimes fails (for example a syntax error). The question is asked again, up to `GENIE_RETRY_ATTEMPTS` times; if it still fails, the table-only answer is shown.
 
 ## How to ship one library
 
@@ -118,5 +119,6 @@ If a chart throws while drawing, `ChartBoundary` in `ui/src/components.tsx` hide
 - `server/src/mastra/chartSpec.ts`: `buildChartSpec`, `parseGenieChartJson`.
 - `server/src/contracts.ts`: `ChartSpecSchema`.
 - `ui/src/charts/index.ts`: the switch.
+- `ui/src/charts/plotlyFigures.ts`, `plotlyFigures.test.ts`: the Plotly mapping and its tests (`npm test` in `ui/`).
 - `ui/src/charts/shared.ts`: shared helpers.
 - `ui/src/components.tsx`: where `Chart` is used.

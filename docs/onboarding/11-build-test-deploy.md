@@ -44,13 +44,14 @@ A change to server code only takes effect after `npm run build`, because the ser
 |---|---|---|
 | `server/` | `npm test` (`vitest run`) | Login (PKCE, sessions, refresh), both Genie clients, chart spec building |
 | `server/` | `npm run typecheck` | Types in `src/` only |
+| `ui/` | `npm test` (`vitest run`) | How each chart type is turned into Plotly data (`ui/src/charts/plotlyFigures.test.ts`) |
 | `ui/` | `npm run typecheck` | Types |
 
 Test files: `server/src/auth/auth.test.ts`, `server/src/genie/client.test.ts`, `server/src/genie/agentClient.test.ts`, `server/src/mastra/chartSpec.test.ts`.
 
 The tests pass fake `fetch` functions into the clients, so they do not call Databricks. That is why the clients take a `fetchFn` argument (`server/src/genie/client.ts`, constructor).
 
-**Not covered by tests:** the routes in `server/src/mastra/index.ts`, the tools in `server/src/mastra/tools/askGenie.ts`, the agents and their instructions, `suggest.ts`, and everything in `ui/`.
+**Not covered by tests:** the routes in `server/src/mastra/index.ts`, the tools in `server/src/mastra/tools/askGenie.ts`, the agents and their instructions, and the UI apart from the Plotly figure logic.
 
 ## CI/CD, scans, environments, release
 
