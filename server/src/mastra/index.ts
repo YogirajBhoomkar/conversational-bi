@@ -3,7 +3,8 @@ import { Mastra } from '@mastra/core';
 import { RequestContext } from '@mastra/core/request-context';
 import { registerApiRoute } from '@mastra/core/server';
 import { LibSQLStore } from '@mastra/libsql';
-import type { ChatEvent, ChatRequest, FeedbackRequest, FinalAnswer } from '../contracts';
+import type { z } from 'zod';
+import { ChatRequestSchema, FeedbackRequestSchema, type ChatEvent, type FinalAnswer } from '../contracts';
 import { PatTokenProvider } from '../auth/tokenProvider';
 import { buildLoginUrl, exchangeCode, fetchUserName, oauthEnabled } from '../auth/oauth';
 import { AuthError, COOKIE, FallbackTokenProvider, SessionTokenProvider, cookie, createSession, destroySession, getSession, readSessionId } from '../auth/sessions';
@@ -42,13 +43,21 @@ async function authenticate(c: any): Promise<{ sessionId?: string; user: string 
   return { sessionId, user: session.user };
 }
 
+// Reads and checks a JSON request body. A missing, malformed or invalid body gets a 400 that says what is wrong.
+async function readBody<T>(c: any, schema: z.ZodType<T>): Promise<T | Response> {
+  const parsed = schema.safeParse(await c.req.json().catch(() => undefined));
+  if (parsed.success) return parsed.data;
+  return c.json({ error: 'Invalid request', issues: parsed.error.issues.map((i) => `${i.path.join('.') || 'body'}: ${i.message}`) }, 400);
+}
+
 const chatRoute = registerApiRoute('/bi/chat', {
   method: 'POST',
   handler: async (c) => {
     const who = await authenticate(c);
     if (who instanceof Response) return who;
-    const { threadId: rawThread, message } = (await c.req.json()) as ChatRequest;
-    if (!rawThread || !message?.trim()) return c.json({ error: 'threadId and message are required' }, 400);
+    const request = await readBody(c, ChatRequestSchema);
+    if (request instanceof Response) return request;
+    const { threadId: rawThread, message } = request;
     const threadId = `${who.user}::${rawThread}`; // threads are per user
 
     // Follow-ups need only the Genie descriptions and the chat so far, so they are written in parallel with the answer, not after it.
@@ -143,7 +152,8 @@ const feedbackRoute = registerApiRoute('/bi/feedback', {
   handler: async (c) => {
     const who = await authenticate(c);
     if (who instanceof Response) return who;
-    const body = (await c.req.json()) as FeedbackRequest;
+    const body = await readBody(c, FeedbackRequestSchema);
+    if (body instanceof Response) return body;
     if (!getSpaceById(body.spaceId)) return c.json({ error: 'unknown space' }, 400);
     try {
       await genie.feedback({ ...body, sessionId: who.sessionId });

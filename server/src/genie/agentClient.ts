@@ -1,5 +1,6 @@
 import type { FeedbackRequest, GenieClient, GenieResult, TokenProvider } from '../contracts';
-import { DatabricksGenieClient } from './client';
+import { type AskArgs, DatabricksGenieClient, failedResult, isRetryableRun, RETRY_NOTE, type Run } from './client';
+import { DEFAULT_RETRY, fetchWithRetry, GenieRunFailed, type RetryPolicy, withRetry } from './retry';
 
 const ROW_CAP = Number(process.env.GENIE_ROW_CAP ?? 200);
 const TIMEOUT_MS = Number(process.env.GENIE_TIMEOUT_MS ?? 180_000);
@@ -34,7 +35,8 @@ type Item = {
   content?: Array<{ type?: string; text?: string; metadata?: any }>;
 };
 
-// Genie Agent mode (GA; the Agent mode APIs went generally available on 27 Aug 2026, only the Flash option is Beta): POST /api/2.0/genie/agents/{space}/responses, streamed as Server-Sent Events.
+// Genie Agent mode (GA; the Agent mode APIs went generally available on 27 Aug 2026, only the Flash option is Beta):
+// POST /api/2.0/genie/agents/{space}/responses, streamed as Server-Sent Events.
 // Unlike the Conversation API it streams the agent's actual reasoning, each SQL call and the synthesized answer.
 export class DatabricksGenieAgentClient implements GenieClient {
   private readonly origin: string;
@@ -43,46 +45,59 @@ export class DatabricksGenieAgentClient implements GenieClient {
     private readonly tokens: TokenProvider,
     host = process.env.DATABRICKS_SERVER_HOSTNAME,
     private readonly fetchFn: typeof fetch = fetch,
+    private readonly retry: RetryPolicy = DEFAULT_RETRY,
   ) {
     if (!host) throw new Error('DATABRICKS_SERVER_HOSTNAME is not set');
     this.origin = `https://${host.replace(/^https?:\/\//, '')}`;
-    this.chat = new DatabricksGenieClient(tokens, host, fetchFn); // feedback still uses the Conversation API
+    this.chat = new DatabricksGenieClient(tokens, host, fetchFn, undefined, retry); // feedback still uses the Conversation API
   }
 
-  async ask({ spaceId, question, conversationId, sessionId, onProgress }: { spaceId: string; question: string; conversationId?: string; sessionId?: string; onProgress?: (line: string) => void }): Promise<GenieResult> {
-    const result: GenieResult = { spaceId, question, summary: '', sql: null, columns: [], rows: [], totalRows: 0, thinking: [], suggestedQuestions: [], statementId: null, conversationId: conversationId ?? '', messageId: '', error: null };
+  async ask(args: AskArgs): Promise<GenieResult> {
+    const run: Run = { conversationId: args.conversationId ?? '', messageId: '' };
+    try {
+      return await withRetry(`Genie agent ${args.spaceId}`, () => this.askOnce(args, run), isRetryableRun, this.retry, () => args.onProgress?.(RETRY_NOTE));
+    } catch (error) {
+      return failedResult(args, run, error);
+    }
+  }
+
+  private async askOnce({ spaceId, question, sessionId, onProgress }: AskArgs, run: Run): Promise<GenieResult> {
+    const result: GenieResult = { spaceId, question, summary: '', sql: null, columns: [], rows: [], totalRows: 0, thinking: [], suggestedQuestions: [], statementId: null, conversationId: run.conversationId, messageId: run.messageId, error: null };
     const abort = new AbortController();
     const timer = setTimeout(() => abort.abort(), TIMEOUT_MS);
     try {
-      const res = await this.fetchFn(`${this.origin}/api/2.0/genie/agents/${spaceId}/responses`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${await this.tokens.getToken({ sessionId })}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'genie-agent',
-          stream: true,
-          input: [{ type: 'message', role: 'user', content: [{ type: 'input_text', text: question }] }],
-          ...(conversationId ? { conversation_id: conversationId } : {}),
-        }),
-        signal: abort.signal,
-      });
+      const res = await fetchWithRetry(
+        this.fetchFn,
+        `${this.origin}/api/2.0/genie/agents/${spaceId}/responses`,
+        {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${await this.tokens.getToken({ sessionId })}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: 'genie-agent',
+            stream: true,
+            input: [{ type: 'message', role: 'user', content: [{ type: 'input_text', text: question }] }],
+            ...(run.conversationId ? { conversation_id: run.conversationId } : {}),
+          }),
+          signal: abort.signal,
+        },
+        this.retry,
+      );
       if (!res.ok || !res.body) throw new Error(`Genie agent responses failed: ${res.status} ${(await res.text()).slice(0, 300)}`);
 
       const texts: string[] = [];
       for await (const data of sseData(res.body)) {
         switch (data.type) {
           case 'response.created':
-            result.conversationId = data.response?.conversation_id ?? result.conversationId;
-            result.messageId = data.response?.id ?? result.messageId;
+            result.conversationId = run.conversationId = data.response?.conversation_id ?? run.conversationId;
+            result.messageId = run.messageId = data.response?.id ?? run.messageId;
             break;
           case 'response.output_item.done':
             this.onItem(data.item as Item, result, texts, onProgress);
             break;
           case 'response.failed':
-            result.error = data.response?.error?.message ?? 'Genie agent failed';
-            break;
+            throw new GenieRunFailed(data.response?.error?.message ?? 'Genie agent failed');
           case 'error':
-            result.error = data.message ?? data.error?.message ?? 'Genie agent error';
-            break;
+            throw new GenieRunFailed(data.message ?? data.error?.message ?? 'Genie agent error');
         }
       }
       // The stream cuts long query output off mid-way (~600 chars), so a chart's JSON often arrives incomplete.
@@ -97,9 +112,8 @@ export class DatabricksGenieAgentClient implements GenieClient {
       }
       result.summary = texts.join('\n\n');
       return result;
-    } catch (e) {
-      result.error = abort.signal.aborted ? 'Genie timed out' : e instanceof Error ? e.message : String(e);
-      return result;
+    } catch (error) {
+      throw abort.signal.aborted ? new Error('Genie timed out') : error;
     } finally {
       clearTimeout(timer);
     }
@@ -159,7 +173,7 @@ export class DatabricksGenieAgentClient implements GenieClient {
     let totalRows = 0;
     const rows: unknown[][] = [];
     while (path && rows.length < cap) {
-      const res = await this.fetchFn(`${this.origin}${path}`, { headers: { Authorization: `Bearer ${await this.tokens.getToken({ sessionId })}` } });
+      const res = await fetchWithRetry(this.fetchFn, `${this.origin}${path}`, { headers: { Authorization: `Bearer ${await this.tokens.getToken({ sessionId })}` } }, this.retry);
       if (!res.ok) throw new Error(`Statement fetch failed: ${res.status} ${(await res.text()).slice(0, 300)}`);
       const j: any = await res.json();
       if (j.manifest) {
@@ -189,17 +203,21 @@ async function* sseData(body: ReadableStream<Uint8Array>): AsyncGenerator<any> {
       return null;
     }
   };
-  for (;;) {
-    const { done, value } = await reader.read();
-    buf += dec.decode(value, { stream: !done }).replace(/\r\n/g, '\n');
-    let i: number;
-    while ((i = buf.indexOf('\n\n')) >= 0) {
-      const ev = parse(buf.slice(0, i));
-      buf = buf.slice(i + 2);
-      if (ev) yield ev;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      buf += dec.decode(value, { stream: !done }).replace(/\r\n/g, '\n');
+      let i: number;
+      while ((i = buf.indexOf('\n\n')) >= 0) {
+        const ev = parse(buf.slice(0, i));
+        buf = buf.slice(i + 2);
+        if (ev) yield ev;
+      }
+      if (done) break;
     }
-    if (done) break;
+    const last = parse(buf);
+    if (last) yield last;
+  } finally {
+    reader.cancel().catch(() => undefined); // stop the download when the caller stops reading early (a failed run)
   }
-  const last = parse(buf);
-  if (last) yield last;
 }

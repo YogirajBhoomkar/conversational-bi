@@ -33,6 +33,7 @@ I listed these by searching the source for `process.env`. "Secret" means: do not
 | `GENIE_MODE` | no | `agent` selects Agent mode. Anything else is the Conversation API | unset | `mastra/index.ts` |
 | `GENIE_ROW_CAP` | no | Rows kept per result | 200 | `genie/client.ts`, `genie/agentClient.ts` |
 | `GENIE_TIMEOUT_MS` | no | Max wait for Genie | 180000 | same |
+| `GENIE_RETRY_ATTEMPTS` | no | How many times a Genie call is tried before giving up, with backoff between tries | 3 | `genie/retry.ts` |
 | `SUGGEST_WAIT_MS` | no | After the answer, max wait for our own follow-up questions before the stream closes | 8000 | `mastra/index.ts` |
 | `GENIE_FULL_ROW_CAP` | no | Max rows when loading the full result | 5000 | `mastra/tools/askGenie.ts` |
 | `ANTHROPIC_API_KEY` | **yes** | Lets the model library call Claude | none | read by the AI library, not by repo code |

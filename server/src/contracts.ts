@@ -61,9 +61,20 @@ export type ChatEvent =
   | { type: 'suggestions'; questions: string[] }  // follow-ups, sent after `final` once the supervisor model has written them
   | { type: 'error'; message: string };
 
-// Request body for POST /bi/chat and POST /bi/feedback
-export type ChatRequest = { threadId: string; message: string };
-export type FeedbackRequest = { spaceId: string; conversationId: string; messageId: string; rating: 'POSITIVE' | 'NEGATIVE' };
+// Request bodies for POST /bi/chat and POST /bi/feedback. The routes reject anything that does not match (400).
+export const ChatRequestSchema = z.object({
+  threadId: z.string().trim().min(1).max(200),
+  message: z.string().trim().min(1).max(4000), // a question, not a document: keeps the cost of one request bounded
+});
+export type ChatRequest = z.infer<typeof ChatRequestSchema>;
+
+export const FeedbackRequestSchema = z.object({
+  spaceId: z.string().min(1),
+  conversationId: z.string().min(1),
+  messageId: z.string().min(1),
+  rating: z.enum(['POSITIVE', 'NEGATIVE']),
+});
+export type FeedbackRequest = z.infer<typeof FeedbackRequestSchema>;
 
 // Genie client public API (server/src/genie/client.ts)
 export interface GenieClient {

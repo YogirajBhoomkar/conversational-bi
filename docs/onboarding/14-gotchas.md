@@ -63,8 +63,8 @@ Databricks' release notes say Agent mode went GA on 2 Jul 2026 and its APIs on 2
 
 ## Security and safety
 
-**16. Request bodies are barely checked.**
-`threadId` and `message` are checked for presence. Feedback `rating` is not checked. Invalid JSON is not handled in the route code. The zod schemas in `server/src/contracts.ts` are not applied to requests (`server/src/mastra/index.ts`).
+**16. A retried Genie question takes longer.**
+Genie calls are retried with exponential backoff and jitter (`server/src/genie/retry.ts`, up to `GENIE_RETRY_ATTEMPTS`, default 3): a GET on 408, 429, 5xx or a network failure; a POST only on 429 or 503, so a question is never sent twice; and a run Genie itself reports as failed (for example SQL it wrote that does not parse), asked again in the same conversation. Access errors and timeouts are not retried. Each retry repeats Genie's work, so a question that fails twice can take two to three times as long. The scratchpad says when Genie is trying again.
 
 **17. Stream errors return HTTP 200 and are not logged on the server.**
 By the time something fails, the response has started. The error is sent as an `error` event (`chatRoute`), and not written to the server log.

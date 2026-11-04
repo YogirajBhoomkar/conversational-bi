@@ -232,7 +232,7 @@
       types.ts                    shared data shapes (UI copy)
       charts/                     index.ts (the switch) + one file per chart library
       styles.css                  look and feel</code></pre>
-<p>Tests sit next to the code as <code>*.test.ts</code>: <code>auth/auth.test.ts</code>, <code>genie/client.test.ts</code>, <code>genie/agentClient.test.ts</code> and <code>mastra/chartSpec.test.ts</code>. There are no UI tests.</p>
+<p>Tests sit next to the code as <code>*.test.ts</code>: <code>auth/auth.test.ts</code>, <code>genie/client.test.ts</code>, <code>genie/agentClient.test.ts</code> and <code>mastra/chartSpec.test.ts</code>. The UI has tests only for the Plotly figure logic (<code>ui/src/charts/plotlyFigures.test.ts</code>, run with <code>npm test</code> in <code>ui/</code>).</p>
 
 <!-- ======================================================= -->
 <h2 class="sec" id="run">4. Run it on your machine</h2>
@@ -714,7 +714,7 @@ const { supervisor, genieAgents, suggestAgent } = createAgents(genie);</code></p
 <p>CORS (the browser rule about which addresses may call the server) allows only the dev UI address. In production the UI comes from the same address, so it is not needed.</p>
 
 <div class="box warn"><strong class="t">Error handling to know about</strong>
-<p>Request bodies are barely checked. <code>threadId</code> and <code>message</code> are checked for presence; the feedback <code>rating</code> is not checked; invalid JSON is not handled in the route code. The zod schemas in <code>contracts.ts</code> are not applied to requests. Errors inside the stream return HTTP 200 (the response has already started) and are sent as an <code>error</code> event, but are not written to the server log.</p></div>
+<p>Both routes check the request body against a zod schema (<code>ChatRequestSchema</code>, <code>FeedbackRequestSchema</code> in <code>contracts.ts</code>) through <code>readBody</code>; a missing, malformed or invalid body gets a 400 that lists what is wrong. Genie calls are retried with exponential backoff and jitter (<code>genie/retry.ts</code>, up to <code>GENIE_RETRY_ATTEMPTS</code>, default 3): a GET on 408, 429, 5xx or a network failure; a POST only on 429 or 503, so a question is never sent twice; and a run Genie itself reports as failed (for example SQL it wrote that does not parse), asked again in the same conversation. Access errors and timeouts are not retried. Errors inside the stream return HTTP 200 (the response has already started) and are sent as an <code>error</code> event, but are not written to the server log.</p></div>
 
 <!-- ======================================================= -->
 <h2 class="sec" id="auth-overview">17. How login works (before reading the code)</h2>
@@ -931,7 +931,8 @@ for (;;) {
 <tr><th>File</th><th>What it is</th></tr>
 <tr><td><code>index.ts</code></td><td><strong>The switch.</strong></td></tr>
 <tr><td><code>RechartsChart.tsx</code></td><td>Recharts. Enabled by default.</td></tr>
-<tr><td><code>PlotlyChart.tsx</code></td><td>Plotly (the full <code>plotly.js-dist-min</code> bundle, about 4.6 MB). Draws every chart type.</td></tr>
+<tr><td><code>PlotlyChart.tsx</code></td><td>Plotly (the full <code>plotly.js-dist-min</code> bundle, about 4.6 MB). Draws every chart type. Plotly is loaded the first time a chart is drawn, not with the page, so the main bundle stays small (about 230 kB).</td></tr>
+<tr><td><code>plotlyFigures.ts</code></td><td>Turns a chart spec into the data and layout Plotly draws, one function per chart type. It does not import Plotly, so it is unit-tested (<code>plotlyFigures.test.ts</code>).</td></tr>
 <tr><td><code>D3Chart.tsx</code></td><td>D3, drawing SVG by hand.</td></tr>
 <tr><td><code>shared.ts</code></td><td>Palette, height, <code>toSeries</code> (groups rows by the colour field), number format.</td></tr>
 <tr><td><code>plotly.d.ts</code></td><td>A type declaration so TypeScript accepts the Plotly bundle.</td></tr>
@@ -956,7 +957,7 @@ export { Chart } from './RechartsChart';
 <tr><td><code>sankey</code></td><td>sankey</td><td><code>path</code> (at least two dimensions), <code>y</code></td></tr>
 </table>
 <p><code>path</code> is a list of column names: how Genie describes a hierarchy, a share or a flow. The first one is also copied into <code>x</code>. Anything else, an incomplete chart, or a non-numeric <code>y</code> gives no chart: the table is still shown and a warning is logged. The supervisor is told this list from <code>SUPPORTED_CHART_TYPES</code> in <code>chartSpec.ts</code>, so it never drifts.</p>
-<p><strong>Which library draws what.</strong> Each renderer exports <code>supports(spec)</code>. <strong>Plotly</strong> (the full <code>plotly.js-dist-min</code> bundle, about 4.6 MB) draws every type, and for bar, line, scatter and area it also shows Plotly's own buttons to change the form (configuration only, no code of ours behind them). <strong>D3</strong> and <strong>Recharts</strong> draw bar, line and scatter; for any other type the UI shows a short note and the table. Genie's own SQL for a chart sometimes fails (for example a syntax error); that is on Genie's side and the table-only answer is shown.</p>
+<p><strong>Which library draws what.</strong> Each renderer exports <code>supports(spec)</code>. <strong>Plotly</strong> (the full <code>plotly.js-dist-min</code> bundle, about 4.6 MB) draws every type, and for bar, line, scatter and area it also shows Plotly's own buttons to change the form (configuration only, no code of ours behind them). <strong>D3</strong> and <strong>Recharts</strong> draw bar, line and scatter; for any other type the UI shows a short note and the table. Genie's own SQL for a chart sometimes fails (for example a syntax error); the question is asked again, up to <code>GENIE_RETRY_ATTEMPTS</code> times, and if it still fails the table-only answer is shown.</p>
 
 <h3>Switching, and shipping just one</h3>
 <ol>
@@ -1084,6 +1085,7 @@ export { Chart } from './RechartsChart';
 <tr><td><code>GENIE_MODE</code></td><td>no</td><td><code>agent</code> selects Agent mode (GA)</td><td>unset (Conversation API)</td></tr>
 <tr><td><code>GENIE_ROW_CAP</code></td><td>no</td><td>Rows kept per result</td><td>200</td></tr>
 <tr><td><code>GENIE_TIMEOUT_MS</code></td><td>no</td><td>Max wait for Genie</td><td>180000</td></tr>
+<tr><td><code>GENIE_RETRY_ATTEMPTS</code></td><td>no</td><td>How many times a Genie call is tried before giving up, with backoff between tries</td><td>3</td></tr>
 <tr><td><code>SUGGEST_WAIT_MS</code></td><td>no</td><td>After the answer, max wait for our own follow-up questions before the stream closes</td><td>8000</td></tr>
 <tr><td><code>GENIE_FULL_ROW_CAP</code></td><td>no</td><td>Max rows when loading the full result</td><td>5000</td></tr>
 <tr><td><code>ANTHROPIC_API_KEY</code></td><td><strong>yes</strong></td><td>Lets the AI layer call Claude</td><td>none</td></tr>
@@ -1125,7 +1127,7 @@ export { Chart } from './RechartsChart';
 <tr><td><code>server/</code></td><td><code>npm run typecheck</code></td><td>Types in <code>src/</code> only (not <code>scripts/</code>)</td></tr>
 <tr><td><code>ui/</code></td><td><code>npm run typecheck</code></td><td>Types</td></tr>
 </table>
-<p>The Genie client tests pass a fake <code>fetch</code>, so they never call Databricks. <strong>Not tested:</strong> the routes, the tools, the agents and their instructions, <code>suggest.ts</code>, and everything in <code>ui/</code>.</p>
+<p>The Genie client tests pass a fake <code>fetch</code>, so they never call Databricks. <strong>Not tested:</strong> the routes, the tools, the agents and their instructions, <code>suggest.ts</code>, and the UI apart from the Plotly figure logic (<code>plotlyFigures.ts</code>).</p>
 
 <h3>Questions to answer before shipping</h3>
 <ol>
@@ -1214,7 +1216,7 @@ export { Chart } from './RechartsChart';
 
 <h3>Security</h3>
 <ol start="16">
-  <li><strong>Request bodies are barely checked</strong> (section 16).</li>
+  <li><strong>A retried Genie question takes longer</strong>: each retry repeats Genie's work, so a question that fails twice can take two to three times as long (section 16).</li>
   <li><strong>Stream errors return HTTP 200 and are not logged on the server.</strong></li>
   <li><strong>The <code>[genie] unparsed single-cell result</code> warning may contain data.</strong></li>
   <li><strong>Fallback Genie space ids are hard-coded</strong> in <code>registry.ts</code>. Decide whether that belongs in source.</li>

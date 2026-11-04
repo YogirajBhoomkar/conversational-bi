@@ -65,11 +65,11 @@ The route sends `final` as soon as the answer is ready. Follow-ups are started w
 
 ## Errors and validation
 
-- **Bad input:** if `threadId` or `message` is missing or blank, the route answers 400 (`chatRoute`).
+- **Bad input:** both routes check the body against a zod schema (`ChatRequestSchema`, `FeedbackRequestSchema` in `server/src/contracts.ts`) through `readBody`. A missing, malformed or invalid body gets a 400 that lists what is wrong. A message must be 1 to 4000 characters after trimming, and a rating must be `POSITIVE` or `NEGATIVE`.
 - **Not signed in:** 401 with `relogin: true`.
 - **Feedback with an unknown space:** 400 `unknown space`. If Genie fails: 502 with the message (`feedbackRoute`).
 - **Anything thrown inside the stream:** caught, sent as an `error` event, then the stream closes. The HTTP status is already 200 by then.
-- **Not checked in the route code:** the shape of the request body beyond those fields. The `rating` value in feedback is passed on without checking. A body that is not valid JSON would throw before the `try` block. I did not find code that handles that.
+- **Genie failures:** Genie calls are retried with exponential backoff and jitter (`server/src/genie/retry.ts`, up to `GENIE_RETRY_ATTEMPTS`, default 3): a GET on 408, 429, 5xx or a network failure; a POST only on 429 or 503, so a question is never sent twice; and a run Genie itself reports as failed (for example SQL it wrote that does not parse), asked again in the same conversation. Access errors and timeouts are not retried.
 
 The data shapes have zod schemas in `server/src/contracts.ts`, but the routes do not call `.parse` on the request. They only use TypeScript types.
 

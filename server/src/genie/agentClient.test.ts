@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { DatabricksGenieAgentClient } from './agentClient';
+import { RETRY_NOTE } from './client';
 
+const NO_WAIT = { attempts: 3, baseDelayMs: 0, maxDelayMs: 0 };
 const ev = (type: string, data: object) => `event:${type}\ndata:${JSON.stringify({ type, ...data })}\n\n`;
 const item = (it: object) => ev('response.output_item.done', { item: it });
 
@@ -31,7 +33,7 @@ const streamOf = (s: string, chunk = 17) =>
   });
 
 const client = (res: Response | (() => Response)) =>
-  new DatabricksGenieAgentClient({ getToken: async () => 't' }, 'host.example', (async () => (typeof res === 'function' ? res() : res)) as typeof fetch);
+  new DatabricksGenieAgentClient({ getToken: async () => 't' }, 'host.example', (async () => (typeof res === 'function' ? res() : res)) as typeof fetch, NO_WAIT);
 
 describe('DatabricksGenieAgentClient', () => {
   it('streams reasoning and maps the final message to a GenieResult', async () => {
@@ -77,7 +79,7 @@ describe('DatabricksGenieAgentClient', () => {
       if (String(u).includes('/responses')) return new Response(streamOf(stream), { status: 200 });
       urls.push(new URL(u).pathname);
       return new Response(JSON.stringify({ manifest: { total_row_count: 1, schema: { columns: [{ name: 'chart_json' }] } }, result: { data_array: [[chart]] } }), { status: 200 });
-    }) as unknown as typeof fetch);
+    }) as unknown as typeof fetch, NO_WAIT);
     const r = await c.ask({ spaceId: 's', question: 'chart it' });
     expect(urls).toEqual(['/api/2.0/sql/statements/s3']);
     expect(r.columns).toEqual(['chart_json']);
@@ -95,7 +97,7 @@ describe('DatabricksGenieAgentClient', () => {
     const c = new DatabricksGenieAgentClient({ getToken: async () => 't' }, 'host.example', (async (u: string) => {
       urls.push(new URL(u).pathname);
       return new Response(JSON.stringify(pages[new URL(u).pathname]), { status: 200 });
-    }) as unknown as typeof fetch);
+    }) as unknown as typeof fetch, NO_WAIT);
     expect(await c.fetchFullResult({ statementId: 's', cap: 100 })).toEqual({ columns: ['a'], rows: [['1'], ['2'], ['3'], ['4'], ['5']], totalRows: 5 });
     urls.length = 0;
     const capped = await c.fetchFullResult({ statementId: 's', cap: 3 });
@@ -104,8 +106,32 @@ describe('DatabricksGenieAgentClient', () => {
     expect(urls).toHaveLength(2); // stopped paging once the cap was reached
   });
 
-  it('reports HTTP errors instead of throwing', async () => {
-    const r = await client(new Response('preview not enabled', { status: 403 })).ask({ spaceId: 's', question: 'q' });
+  it('reports HTTP errors instead of throwing, without retrying a rejected request', async () => {
+    let calls = 0;
+    const r = await client(() => (calls++, new Response('preview not enabled', { status: 403 }))).ask({ spaceId: 's', question: 'q' });
     expect(r.error).toContain('403');
+    expect(calls).toBe(1);
+  });
+
+  it('runs the question again in the same conversation when Genie reports a failed run', async () => {
+    const failed = [ev('response.created', { response: { id: 'm1', conversation_id: 'conv1' } }), ev('response.failed', { response: { error: { message: 'query failed' } } })].join('');
+    const bodies: any[] = [];
+    let call = 0;
+    const lines: string[] = [];
+    const c = new DatabricksGenieAgentClient({ getToken: async () => 't' }, 'host.example', (async (_u: string, init: RequestInit) => {
+      bodies.push(JSON.parse(String(init.body)));
+      return new Response(streamOf(++call === 1 ? failed : STREAM), { status: 200 });
+    }) as unknown as typeof fetch, NO_WAIT);
+    const r = await c.ask({ spaceId: 's', question: 'q', onProgress: (l) => lines.push(l) });
+    expect(r).toMatchObject({ error: null, conversationId: 'conv1', rows: [['APAC', '1'], ['EMEA', '2']] });
+    expect(bodies.map((b) => b.conversation_id)).toEqual([undefined, 'conv1']);
+    expect(lines[0]).toBe(RETRY_NOTE);
+  });
+
+  it('retries a request the server did not take (503), then answers', async () => {
+    let call = 0;
+    const r = await client(() => (++call === 1 ? new Response('busy', { status: 503 }) : new Response(streamOf(STREAM), { status: 200 }))).ask({ spaceId: 's', question: 'q' });
+    expect(r.error).toBeNull();
+    expect(call).toBe(2);
   });
 });
