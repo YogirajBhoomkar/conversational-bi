@@ -1,0 +1,25 @@
+// Template, not compiled in this repository. Copy to <GC_ROOT>/apps/api/src/conversational-bi/bi.module.ts and add
+// BiModule to the imports of GC's AppModule (the one manual edit in GC's own files).
+import { Module } from '@nestjs/common';
+// TODO(GC:nest-paths) point these at where the lifted code lives.
+import { loadConfig } from '../../../conversational-bi/server/src/config/load';
+import { createBiService } from '../../../conversational-bi/server/src/core/service';
+import { createModelProvider } from '../../../conversational-bi/server/src/adapters/model';
+// TODO(GC:token-exchange) the Okta -> Databricks token-exchange provider (adapters/gc), added in the next phase.
+import { OktaToDatabricksTokenProvider } from '../../../conversational-bi/server/src/adapters/gc/tokenExchange';
+import { BI_SERVICE, BiController } from './bi.controller';
+
+@Module({
+  controllers: [BiController],
+  providers: [
+    {
+      provide: BI_SERVICE,
+      useFactory: () => {
+        // TODO(GC:vault) GC's settings arrive as environment variables from Vault/Helm; see docs/lift/GC-CONFIG.md.
+        const { config } = loadConfig({ ...process.env, BI_MODE: 'gc' });
+        return createBiService(config, { tokens: new OktaToDatabricksTokenProvider(config), model: createModelProvider(config.model) });
+      },
+    },
+  ],
+})
+export class BiModule {}

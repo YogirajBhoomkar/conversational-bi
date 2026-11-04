@@ -1,0 +1,78 @@
+// Template, not compiled in this repository. Copy to <GC_ROOT>/apps/api/src/conversational-bi/bi.controller.ts.
+// Use it only if GC's API can host the Mastra-based core (Node 22.13 or later). Otherwise run our service standalone
+// and proxy to it; see README.md next to this file.
+import { Body, Controller, HttpException, Inject, Post, Req, Res, UseGuards } from '@nestjs/common';
+import type { Request, Response } from 'express';
+import { randomUUID } from 'node:crypto';
+// TODO(GC:nest-paths) point these at where the lifted core lives.
+import { ChatRequestSchema, FeedbackRequestSchema } from '../../../conversational-bi/server/src/contracts';
+import { AuthError, UpstreamError, ValidationError } from '../../../conversational-bi/server/src/core/errors';
+import type { BiService } from '../../../conversational-bi/server/src/core/service';
+import type { BiRequestContext } from '../../../conversational-bi/server/src/ports/context';
+// TODO(GC:okta-guard) GC's existing Okta guard, which validates the bearer token and puts the user on the request.
+import { OktaAuthGuard } from '../auth/okta-auth.guard';
+
+export const BI_SERVICE = Symbol('BI_SERVICE');
+
+type OktaRequest = Request & { user?: { sub: string } }; // TODO(GC:okta-guard) GC's request user type
+
+const HEARTBEAT_MS = 15_000; // well under the ~60 s idle timeout of proxies; Genie can take minutes
+
+@Controller('bi') // TODO(GC:route-prefix) GC's global prefix applies in front of this
+@UseGuards(OktaAuthGuard)
+export class BiController {
+  constructor(@Inject(BI_SERVICE) private readonly bi: BiService) {}
+
+  private context(req: OktaRequest, signal: AbortSignal): BiRequestContext {
+    const bearer = /^Bearer\s+(.+)$/i.exec(req.headers.authorization ?? '')?.[1];
+    if (!req.user?.sub || !bearer) throw new HttpException({ error: 'Please sign in again.', relogin: true }, 401);
+    // The Okta token goes to the token-exchange provider only; it is never logged or sent to Databricks.
+    return { userId: req.user.sub, userToken: bearer, traceId: String(req.headers['x-trace-id'] ?? randomUUID()), signal };
+  }
+
+  @Post('chat')
+  async chat(@Req() req: OktaRequest, @Res() res: Response, @Body() body: unknown): Promise<void> {
+    const parsed = ChatRequestSchema.safeParse(body);
+    if (!parsed.success) {
+      res.status(400).json({ error: 'Invalid request', issues: parsed.error.issues.map((i) => `${i.path.join('.') || 'body'}: ${i.message}`) });
+      return;
+    }
+    const abort = new AbortController();
+    res.on('close', () => abort.abort()); // the browser tab closed: stop the supervisor and Genie polling
+    const ctx = this.context(req, abort.signal);
+
+    res.status(200).set({
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache, no-transform',
+      Connection: 'keep-alive',
+      'X-Accel-Buffering': 'no',
+      'X-Trace-Id': ctx.traceId,
+    });
+    res.flushHeaders();
+    const heartbeat = setInterval(() => res.write(': keep-alive\n\n'), HEARTBEAT_MS);
+    try {
+      for await (const event of this.bi.handleChat(ctx, parsed.data)) {
+        if (abort.signal.aborted) break;
+        res.write(`data: ${JSON.stringify(event)}\n\n`);
+      }
+    } finally {
+      clearInterval(heartbeat);
+      res.end();
+    }
+  }
+
+  @Post('feedback')
+  async feedback(@Req() req: OktaRequest, @Body() body: unknown) {
+    const parsed = FeedbackRequestSchema.safeParse(body);
+    if (!parsed.success) throw new HttpException({ error: 'Invalid request', issues: parsed.error.issues.map((i) => `${i.path.join('.') || 'body'}: ${i.message}`) }, 400);
+    try {
+      await this.bi.handleFeedback(this.context(req, new AbortController().signal), parsed.data);
+      return { ok: true };
+    } catch (e) {
+      if (e instanceof ValidationError) throw new HttpException({ error: e.message }, 400);
+      if (e instanceof AuthError) throw new HttpException({ error: e.message, relogin: true }, 401);
+      if (e instanceof UpstreamError) throw new HttpException({ error: 'Genie could not record the feedback.' }, 502);
+      throw e;
+    }
+  }
+}
