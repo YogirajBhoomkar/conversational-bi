@@ -1,6 +1,7 @@
 // What was asked and suggested earlier in a chat, so new follow-ups build on the conversation and never repeat.
 // In memory like the other per-thread state (genie/conversations.ts), so it resets when the server restarts.
-export type Turn = { question: string; answer: string; suggested: string[] };
+import type { Turn } from '../ports/state';
+export type { Turn };
 
 const MAX_TURNS = 6;
 const turns = new Map<string, Turn[]>();

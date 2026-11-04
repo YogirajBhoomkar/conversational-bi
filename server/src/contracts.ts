@@ -84,6 +84,7 @@ export interface GenieClient {
   fetchFullResult?(args: { statementId: string; cap: number; sessionId?: string }): Promise<{ columns: string[]; rows: unknown[][]; totalRows: number }>;
 }
 // Auth (server/src/auth/tokenProvider.ts)
+/** @deprecated Use TokenProvider from ports/auth.ts, which receives the caller's BiRequestContext. Kept so older callers compile. */
 export interface TokenProvider { getToken(ctx?: { sessionId?: string }): Promise<string> }
 // One Genie space, from configuration (server/src/config/spaces.ts)
 export type GenieSpace = {
