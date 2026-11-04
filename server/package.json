@@ -6,7 +6,8 @@
     "dev": "mastra dev",
     "build": "mastra build",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "env:example": "tsx scripts/env-example.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.89",
