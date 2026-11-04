@@ -1,0 +1,67 @@
+.composer {
+  flex: none;
+  padding: 10px 16px 14px;
+  background: linear-gradient(to top, #fff 75%, rgba(255, 255, 255, 0));
+}
+
+.composer__box {
+  max-width: 780px;
+  margin: 0 auto;
+  border: 1.5px solid #b7c0d3;
+  border-radius: 14px;
+  background: #fff;
+  display: flex;
+  align-items: flex-end;
+  padding: 8px 8px 8px 16px;
+  gap: 10px;
+  box-shadow: 0 4px 14px rgba(15, 30, 80, 0.08);
+  transition: border-color 0.15s;
+}
+
+.composer__box:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 4px 16px rgba(11, 42, 138, 0.16);
+}
+
+.composer__box.is-busy {
+  background: #f7f8fa;
+}
+
+.composer__input {
+  flex: 1;
+  font: inherit;
+  font-size: 14.5px;
+  line-height: 1.4;
+  padding: 8px 0;
+  align-items: flex-start;
+}
+
+.composer__input .MuiInputBase-input {
+  padding: 0;
+}
+
+.composer__send {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  flex: none;
+  transition: background 0.15s;
+}
+
+.composer__send:hover:not(:disabled) {
+  background: #0a2370;
+}
+
+.composer__send:disabled {
+  background: #c5cbd8;
+  color: #fff;
+}
+
+.composer__hint {
+  text-align: center;
+  font-size: 11.5px;
+  color: var(--muted);
+  margin-top: 7px;
+}

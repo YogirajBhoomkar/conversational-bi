@@ -1,0 +1,41 @@
+.chart-card__body {
+  padding: 10px 14px 6px;
+  position: relative;
+}
+
+.chart-seg {
+  display: flex;
+  border: 1px solid #cfd6e4;
+  border-radius: 6px;
+  overflow: hidden;
+  flex: none;
+}
+
+.chart-seg__btn {
+  border: 0;
+  background: #fff;
+  padding: 5px 12px;
+  font: inherit;
+  font-size: 12px;
+  color: #374151;
+  cursor: pointer;
+}
+
+.chart-seg__btn + .chart-seg__btn {
+  border-left: 1px solid #cfd6e4;
+}
+
+.chart-seg__btn:hover {
+  background: var(--bg-soft);
+}
+
+.chart-seg__btn.is-on,
+.chart-seg__btn.is-on:hover {
+  background: var(--accent);
+  color: #fff;
+}
+
+.chart-seg__caret.MuiSvgIcon-root {
+  font-size: 16px;
+  margin: 0 -4px 0 2px;
+}

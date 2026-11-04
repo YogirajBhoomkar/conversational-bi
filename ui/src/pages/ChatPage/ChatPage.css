@@ -1,0 +1,33 @@
+.chat-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: #fff;
+}
+
+.chat-page__body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+.chat-page__col {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.chat-page__thread {
+  flex: 1;
+  overflow: auto;
+  padding: 22px 0 10px;
+  background: #fff;
+}
+
+.chat-page__inner {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 0 24px;
+}

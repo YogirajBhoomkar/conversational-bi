@@ -1,0 +1,25 @@
+.empty {
+  text-align: center;
+  padding-top: 40px;
+}
+
+.empty__icon {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 14px;
+  border-radius: 50%;
+  background: #f1ebfd;
+  display: grid;
+  place-items: center;
+}
+
+.empty__title {
+  font-size: 20px;
+  color: var(--accent);
+  margin-bottom: 6px;
+}
+
+.empty__text {
+  color: var(--muted);
+  margin-bottom: 22px;
+}

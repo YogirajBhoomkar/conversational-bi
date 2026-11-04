@@ -1,0 +1,36 @@
+:root {
+  --navy: #0a1f6e;
+  --blue: #0067b1;
+  --accent: #0b2a8a;
+  --bg-soft: #f4f6fa;
+  --line: #e1e5ec;
+  --text: #1f2937;
+  --muted: #6b7280;
+  --green: #1a9d4b;
+  --genie: #7b3fe4;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: Roboto, 'Segoe UI', Arial, sans-serif;
+  color: var(--text);
+  background: #fff;
+  font-size: 14px;
+  overflow: hidden;
+}
+
+h2,
+h3,
+p {
+  margin: 0;
+}

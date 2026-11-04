@@ -1,0 +1,38 @@
+.res-table__wrap {
+  max-height: 360px;
+}
+
+.res-table {
+  font-size: 12.5px;
+  border-collapse: collapse;
+  border: 1px solid gray;
+}
+
+.res-table .res-table__th {
+  background: #0067b1;
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 500;
+  text-align: left;
+  padding: 9px 12px;
+  line-height: 1.4;
+  white-space: nowrap;
+  border-bottom: 0;
+}
+
+.res-table .res-table__td {
+  font-size: 12.5px;
+  padding: 8px 12px;
+  line-height: 1.4;
+  border-bottom: 1px solid var(--line);
+  color: var(--text);
+}
+
+.res-table .res-table__th.n,
+.res-table .res-table__td.n {
+  text-align: right;
+}
+
+.res-table .res-table__td.n {
+  font-variant-numeric: tabular-nums;
+}
