@@ -64,11 +64,19 @@ export function loadSpaces(s: Settings, io: ConfigIO): { spaces: GenieSpace[]; p
 
   const parsed = SpacesConfigSchema.safeParse(raw);
   if (!parsed.success) {
-    return { spaces: [], problems: parsed.error.issues.map((i) => ({ name: `${source}${i.path.length ? `[${i.path.join('.')}]` : ''}`, message: hint(s, i.message) })), warnings };
+    const keyAt = (i: PropertyKey | undefined) => (Array.isArray(raw) && typeof i === 'number' ? (raw[i] as { key?: unknown } | undefined)?.key : undefined);
+    return {
+      spaces: [],
+      problems: parsed.error.issues.map((i) => ({ name: `${source}${i.path.length ? `[${i.path.join('.')}]` : ''}`, message: hint(s, i.message, keyAt(i.path[0])) })),
+      warnings,
+    };
   }
   return { spaces: parsed.data, problems: [], warnings };
 }
 
-// In local mode a placeholder id usually means the space id is missing from .env.
-const hint = (s: Settings, message: string) =>
-  s.BI_MODE === 'local' && message.includes('REPLACE_ME') ? `${message}: set it in the spaces file, or set ${Object.values(LEGACY_SPACE_IDS).join(' / ')}` : message;
+// In local mode a placeholder id usually means the space id is missing from .env: name the variable to set.
+const hint = (s: Settings, message: string, key: unknown) => {
+  if (s.BI_MODE !== 'local' || !message.includes('REPLACE_ME')) return message;
+  const name = LEGACY_SPACE_IDS[key as keyof typeof LEGACY_SPACE_IDS];
+  return `${message}: ${name ? `set ${name} in server/.env` : 'set the space id in the spaces file'}`;
+};

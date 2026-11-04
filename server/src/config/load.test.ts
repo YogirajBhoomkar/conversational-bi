@@ -113,7 +113,7 @@ describe('loadConfig', () => {
 
   it('local mode: a space id left as REPLACE_ME says which variable to set', () => {
     const problems = problemsOf({ ...LOCAL, DATABRICKS_GENIE_CAPACITY_SPACE_ID: undefined });
-    expect(problems).toEqual([expect.stringMatching(/^BI_SPACES_FILE\[1\.spaceId\]: still the placeholder REPLACE_ME: .*DATABRICKS_GENIE_CAPACITY_SPACE_ID/)]);
+    expect(problems).toEqual(['BI_SPACES_FILE[1.spaceId]: still the placeholder REPLACE_ME: set DATABRICKS_GENIE_CAPACITY_SPACE_ID in server/.env']);
   });
 
   it('resolves relative files from the server folder, also when Mastra runs the build from .mastra/output', () => {
