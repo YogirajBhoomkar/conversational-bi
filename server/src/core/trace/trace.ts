@@ -1,4 +1,4 @@
-import type { TraceItem } from '../contracts';
+import type { TraceItem } from '../../contracts';
 import type { SpaceRegistry } from '../genie/registry';
 
 // Turns the supervisor's stream into the scratchpad the UI shows: the agents' own working notes (the text they write before
@@ -10,6 +10,19 @@ type Sink = {
 };
 
 const HANDOVER = 'agent-genie_';
+
+// The parts of a Mastra stream chunk the tracer reads. Mastra puts them under `payload`; older chunks have them at the top.
+type Payload = {
+  text?: string;
+  textDelta?: string;
+  toolName?: string;
+  toolCallId?: string;
+  args?: { prompt?: unknown; question?: unknown; query?: unknown };
+  result?: { error?: unknown };
+  stepResult?: { reason?: string };
+  output?: { type?: string; payload?: Payload };
+};
+export type TraceChunk = Payload & { type: string; payload?: Payload };
 
 const clip = (s: unknown, max = 300) => {
   const text = String(s ?? '').replace(/\s+/g, ' ').trim();
@@ -26,7 +39,7 @@ const describeTool = (toolName: string, spaceName: (key: string) => string): { l
 };
 
 // What was sent to the tool or agent, shown under its entry.
-const detailOf = (args: any) => clip(args?.prompt ?? args?.question ?? args?.query);
+const detailOf = (args: Payload['args']) => clip(args?.prompt ?? args?.question ?? args?.query);
 
 export function createTracer(sink: Sink, registry: SpaceRegistry) {
   const spaceName = (key: string) => registry.byKey(key)?.name ?? key;
@@ -44,7 +57,7 @@ export function createTracer(sink: Sink, registry: SpaceRegistry) {
     if (text) sink.trace({ id: nextId('note'), kind: 'note', text, by });
   };
 
-  const onChunk = (level: Level, type: string, p: any, by?: string) => {
+  const onChunk = (level: Level, type: string, p: Payload | undefined, by?: string) => {
     switch (type) {
       case 'text-delta':
         levels[level].text += p?.text ?? p?.textDelta ?? '';
@@ -53,14 +66,14 @@ export function createTracer(sink: Sink, registry: SpaceRegistry) {
       case 'tool-call': {
         flushNote(level, by); // text written before a tool call is the agent's working note, not the answer
         const toolName = String(p?.toolName ?? '');
-        if (level === 'specialist' && toolName.startsWith('ask-')) currentAsk = p.toolCallId;
+        if (level === 'specialist' && toolName.startsWith('ask-')) currentAsk = p?.toolCallId;
         const detail = type === 'tool-call' ? detailOf(p?.args) : '';
-        sink.trace({ id: p.toolCallId, kind: 'tool', ...describeTool(toolName, spaceName), status: 'running', ...(detail ? { text: detail } : {}) });
+        sink.trace({ id: String(p?.toolCallId), kind: 'tool', ...describeTool(toolName, spaceName), status: 'running', ...(detail ? { text: detail } : {}) });
         break;
       }
       case 'tool-result': {
         const error = typeof p?.result?.error === 'string' ? p.result.error : '';
-        sink.trace({ id: p.toolCallId, kind: 'tool', ...describeTool(String(p?.toolName ?? ''), spaceName), status: error ? 'error' : 'done', ...(error ? { text: clip(error) } : {}) });
+        sink.trace({ id: String(p?.toolCallId), kind: 'tool', ...describeTool(String(p?.toolName ?? ''), spaceName), status: error ? 'error' : 'done', ...(error ? { text: clip(error) } : {}) });
         break;
       }
       case 'step-finish': {
@@ -74,12 +87,12 @@ export function createTracer(sink: Sink, registry: SpaceRegistry) {
   };
 
   return {
-    handle(chunk: any) {
+    handle(chunk: TraceChunk) {
       const p = chunk?.payload ?? chunk;
       if (chunk?.type === 'tool-output') {
         // The data agent's own stream arrives nested inside the supervisor's handover call.
         const inner = p?.output;
-        const key = String(p?.toolName ?? '').startsWith(HANDOVER) ? spaceName(String(p.toolName).slice(HANDOVER.length)) : undefined;
+        const key = String(p?.toolName ?? '').startsWith(HANDOVER) ? spaceName(String(p?.toolName).slice(HANDOVER.length)) : undefined;
         if (inner?.type) onChunk('specialist', inner.type, inner.payload, key);
         return;
       }

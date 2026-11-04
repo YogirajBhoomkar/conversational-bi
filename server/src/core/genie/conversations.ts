@@ -1,4 +1,4 @@
-import type { GenieResult } from '../contracts';
+import type { GenieResult } from '../../contracts';
 
 // Maps (thread, space) -> Genie conversationId so follow-ups keep Genie's context. In-memory; use Postgres/Redis in prod.
 const store = new Map<string, string>();

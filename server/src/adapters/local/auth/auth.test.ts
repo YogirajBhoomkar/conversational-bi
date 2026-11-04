@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { buildLoginUrl, challengeOf, exchangeCode } from './oauth';
-import { AuthError, SessionTokenProvider, createSession, getSession, readSessionId } from './sessions';
+import { AuthError } from '../../../core/errors';
+import { SessionTokenProvider, createSession, getSession, readSessionId } from './sessions';
 
 const cfg = { host: 'adb-1.azuredatabricks.net', clientId: 'client-123', redirectUri: 'http://localhost:1976/auth/callback' };
 

@@ -94,4 +94,17 @@ describe('DatabricksGenieClient', () => {
     expect((await client(fn).ask({ spaceId: 's', question: 'q' })).error).toBeNull();
     expect(posts).toBe(2);
   });
+
+  it('stops polling as soon as the caller aborts', async () => {
+    const abort = new AbortController();
+    let polls = 0;
+    const { fn } = mockFetch([
+      [/POST .*start-conversation/, () => json({ conversation_id: 'c', message_id: 'm' })],
+      [/GET .*messages\/m$/, () => (++polls === 1 && setTimeout(() => abort.abort(), 5), json({ status: 'EXECUTING_QUERY' }))],
+    ]);
+    const slow = new DatabricksGenieClient(tokens, { host: 'host', rowCap: 200, timeoutMs: 180_000, retry: NO_WAIT, fetch: fn, pollDelaysMs: [60_000] });
+    const r = await slow.ask({ spaceId: 's', question: 'q', signal: abort.signal });
+    expect(r.error).toBeTruthy();
+    expect(polls).toBe(1);
+  });
 });

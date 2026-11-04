@@ -30,7 +30,7 @@ const promptOf = ({ question, history }: SuggestInput) =>
     .join('\n');
 
 // Best effort: follow-ups are a nicety, so any failure just means none are shown. Never rejects.
-export async function suggestFollowUps(agent: Agent, registry: SpaceRegistry, input: SuggestInput): Promise<string[]> {
+export async function suggestFollowUps(agent: Pick<Agent, 'generate'>, registry: SpaceRegistry, input: SuggestInput): Promise<string[]> {
   try {
     const out = await agent.generate(promptOf(input), { structuredOutput: { schema: suggestionsSchema(registry) } });
     const seen = new Set([input.question, ...input.history.flatMap((t) => [t.question, ...t.suggested])].map(norm));

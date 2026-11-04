@@ -1,8 +1,8 @@
 import { randomBytes } from 'node:crypto';
-import type { TokenProvider } from '../contracts';
+import { AuthError } from '../../../core/errors';
+import type { TokenProvider } from '../../../ports/auth';
 import type { Tokens } from './oauth';
 
-export class AuthError extends Error {}
 
 export type Session = Tokens & { user: string };
 const sessions = new Map<string, Session>();

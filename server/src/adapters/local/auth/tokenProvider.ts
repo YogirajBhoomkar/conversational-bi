@@ -1,4 +1,4 @@
-import type { TokenProvider } from '../contracts';
+import type { TokenProvider } from '../../../ports/auth';
 
 // Dev: one shared PAT. Swap for an OIDC token-exchange provider (per-user, with refresh) without touching callers.
 export class PatTokenProvider implements TokenProvider {

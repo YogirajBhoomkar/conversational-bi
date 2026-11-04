@@ -18,6 +18,11 @@ export const SettingsSchema = z.object({
   // ---------------------------------------------------------------- Mode
   BI_MODE: setting(z.enum(['local', 'gc']).default('local'), 'local: shared token or Databricks login, serves the UI (development). gc: Okta bearer token per request, no cookie login, no UI.', { group: 'Mode' }),
   PORT: setting(int(1, 65535).default(4111), 'Port the server listens on (npm start uses 1976).', { group: 'Mode' }),
+  BI_ROUTE_PREFIX: setting(
+    z.string().regex(/^\/[a-z0-9_\/-]*[a-z0-9_-]$/, 'a path such as /bi, starting with / and not ending with /').refine((p) => !/^\/api(\/|$)/.test(p), '/api is reserved by Mastra').default('/bi'),
+    'Path prefix of the chat and feedback routes (POST <prefix>/chat, POST <prefix>/feedback). Change it if the host API already uses /bi.',
+    { group: 'Mode' },
+  ),
 
   // ---------------------------------------------------------------- Databricks
   DATABRICKS_SERVER_HOSTNAME: setting(z.string().trim().min(1).transform((h) => h.replace(/^https?:\/\//, '').replace(/\/+$/, '')), 'Workspace host, with or without https:// (for example <workspace>.azuredatabricks.net).', { group: 'Databricks', required: true }),

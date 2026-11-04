@@ -1,7 +1,7 @@
 // Characterization tests: they pin what POST /bi/chat and POST /bi/feedback do today, so the restructuring can prove it
 // changed nothing. Everything outside our code is faked: no network, no model, no Genie, and server/.env is never read.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ChatEvent, GenieResult } from '../contracts';
+import type { ChatEvent, GenieResult } from '../../contracts';
 
 type Chunk = { type: string; payload?: Record<string, unknown> };
 type StreamOptions = { requestContext: { get(key: string): unknown }; memory: { thread: string; resource: string }; abortSignal: AbortSignal };
@@ -24,8 +24,7 @@ vi.mock('@mastra/core', () => ({
     }
   },
 }));
-vi.mock('../mastra/agents', () => ({
-  modelLabel: () => 'test-model',
+vi.mock('../../core/agents/createAgents', () => ({
   createAgents: () => ({
     supervisor: {
       stream: async (_message: string, opts: StreamOptions) => {
@@ -44,6 +43,7 @@ const ENV = {
   DATABRICKS_SERVER_HOSTNAME: 'workspace.example',
   DATABRICKS_TOKEN: 'test-pat',
   ANTHROPIC_API_KEY: 'test-key',
+  ANTHROPIC_MODEL: 'test-model',
   DATABRICKS_GENIE_SPACE_ID: 'space-a',
   DATABRICKS_GENIE_CAPACITY_SPACE_ID: 'space-b',
   SUGGEST_WAIT_MS: '200',
@@ -53,7 +53,7 @@ async function loadRoutes(env: Record<string, string> = {}): Promise<Route[]> {
   vi.resetModules();
   for (const [k, v] of Object.entries({ ...ENV, ...env })) vi.stubEnv(k, v);
   vi.stubEnv('DATABRICKS_CLIENT_ID', ''); // shared-token mode: every caller is the dev user
-  const { mastra } = await import('../mastra');
+  const { mastra } = await import('../../mastra');
   return (mastra.getServer() as unknown as { apiRoutes: Route[] }).apiRoutes;
 }
 
@@ -115,6 +115,7 @@ beforeEach(() => {
   scenario.suggest = async () => ({ object: { questions: [] } });
 });
 afterEach(() => vi.unstubAllEnvs());
+vi.setConfig({ testTimeout: 30_000 }); // each test re-imports the whole server module graph
 
 describe('POST /bi/chat (characterization)', () => {
   it('streams model meta, working notes, tool entries, Genie progress, the answer, final and our follow-ups, in that order', async () => {

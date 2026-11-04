@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto';
+import type { OAuthSettings } from '../../../config/load';
 
 // Databricks OAuth (authorization code + PKCE, public client). Mirrors the External_UI_OAuth reference app. Local mode only.
-export type OAuthSettings = { host: string; clientId: string; redirectUri: string };
 const SCOPES = 'all-apis offline_access';
 const origin = (cfg: OAuthSettings) => `https://${cfg.host}`;
 

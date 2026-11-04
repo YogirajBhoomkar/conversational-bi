@@ -1,4 +1,4 @@
-import type { GenieSpace } from '../contracts';
+import type { GenieSpace } from '../../contracts';
 
 // The spaces the agents can use, built from configuration (config/spaces.ts). Disabled spaces are left out entirely.
 export type SpaceRegistry = {

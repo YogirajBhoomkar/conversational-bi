@@ -1,9 +1,9 @@
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import type { GenieClient, GenieSpace } from '../../contracts';
-import { getConversationId, getLastResult, setConversationId, setLastResult } from '../../genie/conversations';
-import { getCollector, getThreadId } from '../collector';
-import { parseGenieChartJson } from '../chartSpec';
+import { getConversationId, getLastResult, setConversationId, setLastResult } from '../genie/conversations';
+import { getCaller, getCollector, getSignal, getThreadId } from '../chat/collector';
+import { parseGenieChartJson } from '../chart/chartSpec';
 
 export const createAskGenieTool = (space: GenieSpace, client: GenieClient) =>
   createTool({
@@ -30,7 +30,8 @@ export const createAskGenieTool = (space: GenieSpace, client: GenieClient) =>
         spaceId: space.spaceId,
         question,
         conversationId: getConversationId(threadId, space.spaceId),
-        sessionId: requestContext?.get('sessionId') as string | undefined,
+        caller: getCaller(requestContext),
+        signal: getSignal(requestContext),
         onProgress: (text) => collector.emit?.(text),
       });
       if (result.conversationId) setConversationId(threadId, space.spaceId, result.conversationId);
@@ -79,7 +80,8 @@ export const createFetchFullResultsTool = (space: GenieSpace, client: GenieClien
         const full = await client.fetchFullResult({
           statementId: last.statementId,
           cap: fullRowCap,
-          sessionId: requestContext?.get('sessionId') as string | undefined,
+          caller: getCaller(requestContext),
+        signal: getSignal(requestContext),
         });
         const result = { ...last, columns: full.columns.length ? full.columns : last.columns, rows: full.rows, totalRows: full.totalRows };
         getCollector(requestContext).results.push(result);

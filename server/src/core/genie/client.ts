@@ -1,4 +1,5 @@
-import type { FeedbackRequest, GenieClient, GenieResult, TokenProvider } from '../contracts';
+import type { GenieCaller, GenieClient, GenieResult } from '../../contracts';
+import type { TokenProvider } from '../../ports/auth';
 import { fetchWithRetry, GenieRunFailed, type RetryPolicy, withRetry } from './retry';
 
 export type GenieClientOptions = {
@@ -15,6 +16,11 @@ type Attachment = {
   text?: { content?: string };
   query?: { query?: string; description?: string; thoughts?: Array<string | { thought_type?: string; content?: string }> };
   suggested_questions?: { questions?: string[] };
+};
+type Started = { conversation_id?: string; message_id?: string; id?: string };
+type StatementResponse = {
+  manifest?: { schema?: { columns?: Array<{ name: string }> }; total_row_count?: number };
+  result?: { data_array?: unknown[][] };
 };
 type Message = {
   id?: string;
@@ -38,6 +44,28 @@ const thoughtsOf = (att?: Attachment): string[] =>
   (att?.query?.thoughts ?? []).map((t) => (typeof t === 'string' ? t : t.content ?? '')).filter(Boolean);
 
 export type AskArgs = Parameters<GenieClient['ask']>[0];
+export type FeedbackArgs = Parameters<GenieClient['feedback']>[0];
+// Who the call is for, and when to stop: shared by every request a client makes.
+export type CallScope = { caller: GenieCaller; signal?: AbortSignal };
+export const scopeOf = (a: { caller?: GenieCaller; sessionId?: string; signal?: AbortSignal }): CallScope => ({
+  caller: a.caller ?? { userId: '', sessionId: a.sessionId },
+  signal: a.signal,
+});
+
+// Waits between polls; stops early, with the abort reason, when the caller has gone.
+const sleep = (ms: number, signal?: AbortSignal) =>
+  new Promise<void>((resolve, reject) => {
+    if (signal?.aborted) return reject(signal.reason);
+    const stop = () => {
+      clearTimeout(timer);
+      reject(signal?.reason);
+    };
+    const timer = setTimeout(() => {
+      signal?.removeEventListener('abort', stop);
+      resolve();
+    }, ms);
+    signal?.addEventListener('abort', stop, { once: true });
+  });
 // The Genie conversation and message of the current question, kept across attempts so a retry continues the same conversation.
 export type Run = { conversationId: string; messageId: string };
 
@@ -62,14 +90,15 @@ export class DatabricksGenieClient implements GenieClient {
     this.retry = options.retry;
   }
 
-  private async call<T>(method: string, path: string, body?: unknown, sessionId?: string): Promise<T> {
+  private async call<T>(scope: CallScope, method: string, path: string, body?: unknown): Promise<T> {
     const res = await fetchWithRetry(
       this.fetchFn,
       `${this.base}${path}`,
       {
         method,
-        headers: { Authorization: `Bearer ${await this.tokens.getToken({ sessionId })}`, 'Content-Type': 'application/json' },
+        headers: { Authorization: `Bearer ${await this.tokens.getToken(scope.caller)}`, 'Content-Type': 'application/json' },
         body: body === undefined ? undefined : JSON.stringify(body),
+        signal: scope.signal,
       },
       this.retry,
     );
@@ -87,13 +116,15 @@ export class DatabricksGenieClient implements GenieClient {
     }
   }
 
-  private async askOnce({ spaceId, question, sessionId, onProgress }: AskArgs, run: Run): Promise<GenieResult> {
-    const call = <T>(m: string, p: string, b?: unknown) => this.call<T>(m, p, b, sessionId);
+  private async askOnce(args: AskArgs, run: Run): Promise<GenieResult> {
+    const { spaceId, question, onProgress } = args;
+    const scope = scopeOf(args);
+    const call = <T>(m: string, p: string, b?: unknown) => this.call<T>(scope, m, p, b);
     const started = run.conversationId
-      ? await call<Message>('POST', `/${spaceId}/conversations/${run.conversationId}/messages`, { content: question })
-      : await call<{ conversation_id: string; message_id: string }>('POST', `/${spaceId}/start-conversation`, { content: question });
-    run.conversationId = (started as any).conversation_id ?? run.conversationId;
-    run.messageId = (started as any).message_id ?? (started as any).id;
+      ? await call<Started>('POST', `/${spaceId}/conversations/${run.conversationId}/messages`, { content: question })
+      : await call<Started>('POST', `/${spaceId}/start-conversation`, { content: question });
+    run.conversationId = started.conversation_id ?? run.conversationId;
+    run.messageId = started.message_id ?? started.id ?? '';
     const { conversationId: cid, messageId: mid } = run;
 
     const deadline = Date.now() + this.options.timeoutMs;
@@ -114,7 +145,7 @@ export class DatabricksGenieClient implements GenieClient {
       if (msg.status === 'FAILED') throw new GenieRunFailed(msg.error?.error ?? 'Genie message FAILED');
       if (msg.status === 'CANCELLED' || msg.status === 'QUERY_RESULT_EXPIRED') throw new Error(`Genie message ${msg.status}`);
       if (Date.now() > deadline) throw new Error('Genie timed out');
-      await new Promise((r) => setTimeout(r, this.pollDelaysMs[Math.min(i, this.pollDelaysMs.length - 1)]));
+      await sleep(this.pollDelaysMs[Math.min(i, this.pollDelaysMs.length - 1)], scope.signal);
     }
 
     const attachments = msg.attachments ?? [];
@@ -124,10 +155,10 @@ export class DatabricksGenieClient implements GenieClient {
     let rows: unknown[][] = [];
     let totalRows = 0;
     if (queryAtt?.attachment_id) {
-      const r = await call<any>('GET', `/${spaceId}/conversations/${cid}/messages/${mid}/attachments/${queryAtt.attachment_id}/query-result`);
+      const r = await call<StatementResponse & { statement_response?: StatementResponse }>('GET', `/${spaceId}/conversations/${cid}/messages/${mid}/attachments/${queryAtt.attachment_id}/query-result`);
       const sr = r.statement_response ?? r;
-      columns = (sr.manifest?.schema?.columns ?? []).map((c: any) => c.name);
-      const data: unknown[][] = sr.result?.data_array ?? [];
+      columns = (sr.manifest?.schema?.columns ?? []).map((c) => c.name);
+      const data = sr.result?.data_array ?? [];
       totalRows = sr.manifest?.total_row_count ?? data.length;
       rows = data.slice(0, this.options.rowCap);
     }
@@ -143,7 +174,8 @@ export class DatabricksGenieClient implements GenieClient {
     };
   }
 
-  async feedback({ spaceId, conversationId, messageId, rating, sessionId }: FeedbackRequest & { sessionId?: string }): Promise<void> {
-    await this.call('POST', `/${spaceId}/conversations/${conversationId}/messages/${messageId}/feedback`, { rating }, sessionId);
+  async feedback(args: FeedbackArgs): Promise<void> {
+    const { spaceId, conversationId, messageId, rating } = args;
+    await this.call(scopeOf(args), 'POST', `/${spaceId}/conversations/${conversationId}/messages/${messageId}/feedback`, { rating });
   }
 }

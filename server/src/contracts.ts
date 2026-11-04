@@ -76,14 +76,19 @@ export const FeedbackRequestSchema = z.object({
 });
 export type FeedbackRequest = z.infer<typeof FeedbackRequestSchema>;
 
-// Genie client public API (server/src/genie/client.ts)
+// Who a Genie call is made for: the token provider turns this into the caller's Databricks token. Never logged.
+export type GenieCaller = { userId: string; userToken?: string; sessionId?: string };
+// What every Genie call accepts besides its own arguments. `sessionId` is the older form of `caller` and still works.
+type CallOptions = { caller?: GenieCaller; /** @deprecated use caller */ sessionId?: string; signal?: AbortSignal };
+
+// Genie client public API (server/src/core/genie/client.ts)
 export interface GenieClient {
-  ask(args: { spaceId: string; question: string; conversationId?: string; sessionId?: string; onProgress?: (line: string) => void }): Promise<GenieResult>;
-  feedback(args: FeedbackRequest & { sessionId?: string }): Promise<void>;
+  ask(args: { spaceId: string; question: string; conversationId?: string; onProgress?: (line: string) => void } & CallOptions): Promise<GenieResult>;
+  feedback(args: FeedbackRequest & CallOptions): Promise<void>;
   // Loads the complete result of an earlier query (the ask() result only carries a capped preview). Agent mode only.
-  fetchFullResult?(args: { statementId: string; cap: number; sessionId?: string }): Promise<{ columns: string[]; rows: unknown[][]; totalRows: number }>;
+  fetchFullResult?(args: { statementId: string; cap: number } & CallOptions): Promise<{ columns: string[]; rows: unknown[][]; totalRows: number }>;
 }
-// Auth (server/src/auth/tokenProvider.ts)
+// Auth (server/src/adapters/local/auth/tokenProvider.ts)
 /** @deprecated Use TokenProvider from ports/auth.ts, which receives the caller's BiRequestContext. Kept so older callers compile. */
 export interface TokenProvider { getToken(ctx?: { sessionId?: string }): Promise<string> }
 // One Genie space, from configuration (server/src/config/spaces.ts)

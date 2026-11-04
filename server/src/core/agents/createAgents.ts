@@ -1,26 +1,16 @@
 import { Agent } from '@mastra/core/agent';
 import { Memory } from '@mastra/memory';
 import { LibSQLStore } from '@mastra/libsql';
-import type { ModelSettings } from '../../config/load';
+import type { MastraModelConfig } from '@mastra/core/llm';
 import type { GenieClient } from '../../contracts';
-import { agentName, askToolName, fetchFullToolName, genieAgentDescription, genieAgentInstructions, suggestInstructions, supervisorInstructions } from '../../core/agents/prompts';
-import type { SpaceRegistry } from '../../genie/registry';
-import { SUPPORTED_CHART_TYPES } from '../chartSpec';
-import { createAskGenieTool, createFetchFullResultsTool } from '../tools/askGenie';
+import { agentName, askToolName, fetchFullToolName, genieAgentDescription, genieAgentInstructions, suggestInstructions, supervisorInstructions } from './prompts';
+import type { SpaceRegistry } from '../genie/registry';
+import { SUPPORTED_CHART_TYPES } from '../chart/chartSpec';
+import { createAskGenieTool, createFetchFullResultsTool } from './askGenie';
 
-// The model name as the scratchpad shows it.
-export const modelLabel = (m: ModelSettings) => m.model;
+export type AgentSettings = { registry: SpaceRegistry; model: MastraModelConfig; domainRules: string; fullRowCap: number };
 
-// openai-compatible: that endpoint (for example a model gateway); anthropic: Anthropic directly.
-const modelOf = (m: ModelSettings) =>
-  m.provider === 'openai-compatible'
-    ? { id: `litellm/${m.model}` as `${string}/${string}`, url: m.baseUrl, apiKey: m.apiKey }
-    : { id: `anthropic/${m.model}` as `${string}/${string}`, apiKey: m.apiKey };
-
-export type AgentSettings = { registry: SpaceRegistry; model: ModelSettings; domainRules: string; fullRowCap: number };
-
-export function createAgents(client: GenieClient, { registry, model: modelSettings, domainRules, fullRowCap }: AgentSettings) {
-  const model = modelOf(modelSettings);
+export function createAgents(client: GenieClient, { registry, model, domainRules, fullRowCap }: AgentSettings) {
   const { spaces } = registry;
 
   // One sub-agent per Genie space. Its only job is to turn a question into a Genie call and report faithfully.

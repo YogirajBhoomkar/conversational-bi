@@ -1,4 +1,4 @@
-import type { ChartSpec } from '../contracts';
+import type { ChartSpec } from '../../contracts';
 
 // Charts are built in code, never by an AI agent. Genie returns the chart description as JSON; we turn it into a library-neutral chart spec.
 const isDate = (v: unknown) => typeof v === 'string' && /^\d{4}-\d{2}(-\d{2})?/.test(v) && !Number.isNaN(Date.parse(v));

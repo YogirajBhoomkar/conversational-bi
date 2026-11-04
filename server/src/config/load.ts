@@ -3,10 +3,12 @@
 // names every bad setting. Values are never echoed, so a secret cannot leak through a startup error.
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import type { OAuthSettings } from '../auth/oauth';
 import type { GenieSpace } from '../contracts';
 import { crossCheck, SettingsSchema, type Settings } from './schema';
 import { type ConfigIO, loadSpaces } from './spaces';
+
+// Databricks per-user login (local mode): the workspace host, the OAuth app's client id and the callback address.
+export type OAuthSettings = { host: string; clientId: string; redirectUri: string };
 
 export type ModelSettings =
   | { provider: 'anthropic'; model: string; apiKey: string }
@@ -15,6 +17,7 @@ export type ModelSettings =
 export type BiConfig = {
   mode: 'local' | 'gc';
   port: number;
+  routePrefix: string;
   databricks: {
     host: string;
     token?: string;                                         // local mode, shared token
@@ -80,6 +83,7 @@ function toConfig(s: Settings, spaces: GenieSpace[], domainRules: string): BiCon
   return {
     mode: s.BI_MODE,
     port: s.PORT,
+    routePrefix: s.BI_ROUTE_PREFIX,
     databricks: {
       host: s.DATABRICKS_SERVER_HOSTNAME,
       token: local ? s.DATABRICKS_TOKEN : undefined,
