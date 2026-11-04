@@ -41,9 +41,14 @@ export class ConfigError extends Error {
 export const EXAMPLE_DOMAIN_RULES_FILE = 'config/examples/domain-rules.example.md';
 const MAX_DOMAIN_RULES = 20_000;
 
-const fileIO = (cwd: string): ConfigIO => ({ readFile: (p) => readFileSync(p, 'utf8'), resolve: (p) => resolve(cwd, p) });
+const fileIO = (root: string): ConfigIO => ({ readFile: (p) => readFileSync(p, 'utf8'), resolve: (p) => resolve(root, p) });
 
-export function loadConfig(env: Record<string, string | undefined>, io: ConfigIO = fileIO(process.cwd())): { config: BiConfig; warnings: string[] } {
+// Relative file settings mean "from the server folder". `mastra start` and `mastra dev` run the build from
+// server/.mastra/output; `mastra start` passes the server folder as MASTRA_PROJECT_ROOT.
+export const serverRoot = (env: Record<string, string | undefined>, cwd: string) =>
+  env.MASTRA_PROJECT_ROOT || (/[\\/]\.mastra[\\/]output[\\/]?$/.test(cwd) ? resolve(cwd, '..', '..') : cwd);
+
+export function loadConfig(env: Record<string, string | undefined>, io: ConfigIO = fileIO(serverRoot(env, process.cwd()))): { config: BiConfig; warnings: string[] } {
   // An empty value means "not set", so NAME= in a .env file falls back to the default instead of becoming 0 or "".
   const given = Object.fromEntries(Object.entries(env).filter(([, v]) => v !== undefined && v.trim() !== ''));
   const known = new Set(Object.keys(SettingsSchema.shape));

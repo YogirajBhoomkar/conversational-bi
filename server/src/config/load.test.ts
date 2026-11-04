@@ -1,5 +1,6 @@
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { ConfigError, EXAMPLE_DOMAIN_RULES_FILE, loadConfig } from './load';
+import { ConfigError, EXAMPLE_DOMAIN_RULES_FILE, loadConfig, serverRoot } from './load';
 import { EXAMPLE_SPACES_FILE, type ConfigIO } from './spaces';
 
 const space = (key: string, spaceId: string, extra: object = {}) => ({ key, name: `Space ${key}`, description: `Covers the ${key} data in enough words to route by.`, spaceId, ...extra });
@@ -113,5 +114,11 @@ describe('loadConfig', () => {
   it('local mode: a space id left as REPLACE_ME says which variable to set', () => {
     const problems = problemsOf({ ...LOCAL, DATABRICKS_GENIE_CAPACITY_SPACE_ID: undefined });
     expect(problems).toEqual([expect.stringMatching(/^BI_SPACES_FILE\[1\.spaceId\]: still the placeholder REPLACE_ME: .*DATABRICKS_GENIE_CAPACITY_SPACE_ID/)]);
+  });
+
+  it('resolves relative files from the server folder, also when Mastra runs the build from .mastra/output', () => {
+    expect(serverRoot({ MASTRA_PROJECT_ROOT: '/srv/server' }, '/srv/server/.mastra/output')).toBe('/srv/server');
+    expect(serverRoot({}, resolve('/srv/server/.mastra/output'))).toBe(resolve('/srv/server'));
+    expect(serverRoot({}, '/srv/server')).toBe('/srv/server');
   });
 });
