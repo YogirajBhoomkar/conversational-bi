@@ -3,6 +3,9 @@ import * as d3 from 'd3';
 import type { ChartSpec } from '../types';
 import { formatNumber, HEIGHT, PALETTE, type Row, toSeries } from './shared';
 
+// D3 draws the basic charts by hand; the other chart types need Plotly.
+export const supports = (spec: ChartSpec) => ['bar', 'line', 'scatter'].includes(spec.type);
+
 const LEGEND_WIDTH = 150;
 const margin = { top: 12, right: 16, bottom: 90, left: 76 };
 

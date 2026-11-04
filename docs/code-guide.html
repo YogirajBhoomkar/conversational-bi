@@ -344,7 +344,7 @@ export type GenieResult = z.infer&lt;typeof GenieResultSchema&gt;;</code></pre>
 
 <h3>ChartSpec: a chart, described without a library</h3>
 <pre><code>export const ChartSpecSchema = z.object({
-  type: z.enum(['bar', 'line', 'scatter']),
+  type: z.enum(['bar', 'line', 'scatter', 'area', 'pie', 'donut', 'funnel', 'waterfall', 'heatmap', 'treemap', 'sunburst', 'sankey']),
   title: z.string(),
   x: z.string(),                                    // field names, keys of each data row
   y: z.string(),
@@ -573,9 +573,9 @@ collector.chart = fromJson?.chart ?? null;</code></pre>
 
 <h3>parseGenieChartJson(columns, rows)</h3>
 <ol>
-  <li>Check the shape: one column, one row, a string that parses as JSON with a <code>data</code> array and string <code>x</code> and <code>y</code>. If not, return <code>null</code> (it is not chart data).</li>
+  <li>Check the shape: one column, one row, a string that parses as JSON with a <code>data</code> array, a string <code>y</code>, and either a string <code>x</code> or a <code>path</code> list of dimensions. If not, return <code>null</code> (it is not chart data).</li>
   <li>Check that <code>x</code> and <code>y</code> are real columns. Build the real table from <code>data</code>.</li>
-  <li>Map the type: <code>column</code> or <code>bar</code> becomes <code>bar</code>; <code>line</code> and <code>scatter</code> stay. Anything else, or a non-numeric y, gives <strong>no chart</strong> (table only) and a warning in the log.</li>
+  <li>Map the type with <code>TYPE_OF</code> (12 chart types, see section 26). An unknown type, an incomplete chart (a sankey needs two dimensions, a heatmap needs a series) or a non-numeric y gives <strong>no chart</strong> (table only) and a warning in the log.</li>
   <li>If a <code>series</code> field exists, it becomes the chart's <code>color</code>.</li>
 </ol>
 
@@ -625,7 +625,7 @@ collector.chart = fromJson?.chart ?? null;</code></pre>
 <ol>
   <li><strong>Routing.</strong> Placement, status, layer, total limit and FOT premium go to <code>genie_placement</code>. Reinsurer, capacity, authorized or signed, declines to quote and quoted premium go to <code>genie_capacity</code>. If both are needed, ask both. If unclear, ask the user one short question.</li>
   <li><strong>Never invent numbers.</strong> "Year" means underwriting year. Statuses are in workflow order (Request Quote, Provide Quote, FOT, Authorization, Signed). Trends go years ascending, rankings by value descending. Money in tables and answers is USD millions with one decimal.</li>
-  <li><strong>Charts come from Genie.</strong> When a chart, or a clearly useful ranking, comparison or trend, is wanted, ask Genie for the data <em>as a chart</em> in the same question, using the word "chart". Only bar or column, line and scatter are drawn; for pie, sankey and so on, say it is not supported yet. If <code>chartReady</code> is false, say in one sentence that no chart was available and the table is shown.</li>
+  <li><strong>Charts come from Genie.</strong> When a chart, or a clearly useful ranking, comparison or trend, is wanted, ask Genie for the data <em>as a chart</em> in the same question, using the word "chart". The drawable chart types come from <code>SUPPORTED_CHART_TYPES</code>; for any other type, say it is not supported yet and offer the closest one.  If <code>chartReady</code> is false, say in one sentence that no chart was available and the table is shown.</li>
   <li><strong>Answer style.</strong> Short plain prose, no markdown tables or lists. Lead with the insight. Never repeat what the UI already shows. Never mention agents or tools.</li>
   <li><strong>Truncation.</strong> If the table is only a preview, say so and ask before loading the rest.</li>
   <li>Small talk gets a direct answer.</li>
@@ -931,7 +931,7 @@ for (;;) {
 <tr><th>File</th><th>What it is</th></tr>
 <tr><td><code>index.ts</code></td><td><strong>The switch.</strong></td></tr>
 <tr><td><code>RechartsChart.tsx</code></td><td>Recharts. Enabled by default.</td></tr>
-<tr><td><code>PlotlyChart.tsx</code></td><td>Plotly (the slim <code>plotly.js-basic-dist-min</code>).</td></tr>
+<tr><td><code>PlotlyChart.tsx</code></td><td>Plotly (the full <code>plotly.js-dist-min</code> bundle, about 4.6 MB). Draws every chart type.</td></tr>
 <tr><td><code>D3Chart.tsx</code></td><td>D3, drawing SVG by hand.</td></tr>
 <tr><td><code>shared.ts</code></td><td>Palette, height, <code>toSeries</code> (groups rows by the colour field), number format.</td></tr>
 <tr><td><code>plotly.d.ts</code></td><td>A type declaration so TypeScript accepts the Plotly bundle.</td></tr>
@@ -942,6 +942,21 @@ export { Chart } from './RechartsChart';
 // export { Chart } from './PlotlyChart';
 // export { Chart } from './D3Chart';</code></pre>
 <p>Keep exactly one line active. <code>Details</code> imports <code>Chart</code> from <code>./charts</code>, so nothing else changes. All three renderers draw stacked bars, lines with points, scatter, a legend for multiple series, axis titles and tooltips.</p>
+
+<h3>Which chart types are drawn</h3>
+<p>The server accepts every chart type Genie can send and turns each into the same <code>ChartSpec</code>:</p>
+<table>
+<tr><th>Genie sends</th><th>Drawn as</th><th>Fields it uses</th></tr>
+<tr><td><code>column</code>, <code>bar</code></td><td>bar (stacked by series)</td><td><code>x</code>, <code>y</code>, optional <code>series</code></td></tr>
+<tr><td><code>line</code>, <code>area</code>, <code>scatter</code></td><td>line, area, scatter</td><td><code>x</code>, <code>y</code>, optional <code>series</code></td></tr>
+<tr><td><code>funnel</code>, <code>waterfall</code></td><td>funnel, waterfall</td><td><code>x</code>, <code>y</code></td></tr>
+<tr><td><code>heatmap</code></td><td>heatmap</td><td><code>x</code>, <code>series</code> (the second dimension), <code>y</code></td></tr>
+<tr><td><code>pie</code>, <code>donut</code></td><td>pie, donut</td><td><code>path</code> (one dimension) or <code>x</code>, and <code>y</code></td></tr>
+<tr><td><code>treemap</code>, <code>sunburst</code></td><td>treemap, sunburst</td><td><code>path</code> (the dimensions, outermost first), <code>y</code></td></tr>
+<tr><td><code>sankey</code></td><td>sankey</td><td><code>path</code> (at least two dimensions), <code>y</code></td></tr>
+</table>
+<p><code>path</code> is a list of column names: how Genie describes a hierarchy, a share or a flow. The first one is also copied into <code>x</code>. Anything else, an incomplete chart, or a non-numeric <code>y</code> gives no chart: the table is still shown and a warning is logged. The supervisor is told this list from <code>SUPPORTED_CHART_TYPES</code> in <code>chartSpec.ts</code>, so it never drifts.</p>
+<p><strong>Which library draws what.</strong> Each renderer exports <code>supports(spec)</code>. <strong>Plotly</strong> (the full <code>plotly.js-dist-min</code> bundle, about 4.6 MB) draws every type, and for bar, line, scatter and area it also shows Plotly's own buttons to change the form (configuration only, no code of ours behind them). <strong>D3</strong> and <strong>Recharts</strong> draw bar, line and scatter; for any other type the UI shows a short note and the table. Genie's own SQL for a chart sometimes fails (for example a syntax error); that is on Genie's side and the table-only answer is shown.</p>
 
 <h3>Switching, and shipping just one</h3>
 <ol>
@@ -1026,7 +1041,7 @@ export { Chart } from './RechartsChart';
 <ol>
   <li>Server: map the new type name in <code>parseGenieChartJson</code> (<code>chartSpec.ts</code>) and extend <code>ChartSpecSchema</code> in <code>contracts.ts</code>.</li>
   <li>Browser: extend <code>ChartSpec</code> in <code>types.ts</code> and draw it in all three renderers (or just the one you keep).</li>
-  <li>Update the "only bar or column, line and scatter are drawn" sentence in the supervisor instructions.</li>
+  <li>Nothing to change in the supervisor instructions: its list of chart types comes from <code>SUPPORTED_CHART_TYPES</code> in <code>chartSpec.ts</code>.</li>
   <li>Add a test in <code>chartSpec.test.ts</code>.</li>
 </ol>
 

@@ -1,11 +1,12 @@
 // Mirrors server/src/contracts.ts (keep in sync).
 export type Source = { spaceId: string; spaceName: string; question: string; sql: string | null; messageId: string; conversationId: string };
 export type ChartSpec = {
-  type: 'bar' | 'line' | 'scatter';
+  type: 'bar' | 'line' | 'scatter' | 'area' | 'pie' | 'donut' | 'funnel' | 'waterfall' | 'heatmap' | 'treemap' | 'sunburst' | 'sankey';
   title: string;
   x: string;
   y: string;
   color?: string;
+  path?: string[];
   xType: 'category' | 'time' | 'number';
   data: Record<string, unknown>[];
 };

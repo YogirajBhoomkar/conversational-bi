@@ -20,11 +20,12 @@ export type GenieResult = z.infer<typeof GenieResultSchema>;
 
 // Library-neutral chart description. The UI's chart renderer (ui/src/charts) draws it with whichever library is enabled.
 export const ChartSpecSchema = z.object({
-  type: z.enum(['bar', 'line', 'scatter']),
+  type: z.enum(['bar', 'line', 'scatter', 'area', 'pie', 'donut', 'funnel', 'waterfall', 'heatmap', 'treemap', 'sunburst', 'sankey']),
   title: z.string(),
-  x: z.string(),                                    // field names, keys of each `data` row
+  x: z.string(),                                    // field names, keys of each `data` row. For `path` charts, the first dimension
   y: z.string(),
-  color: z.string().optional(),                     // series field
+  color: z.string().optional(),                     // series field (for a heatmap, the second dimension)
+  path: z.array(z.string()).optional(),             // pie, donut, treemap, sunburst, sankey: the dimensions, outermost first
   xType: z.enum(['category', 'time', 'number']),    // time: ISO date strings, sorted ascending
   data: z.array(z.record(z.string(), z.unknown())), // y (and x for scatter) are numbers
 });

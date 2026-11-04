@@ -2,6 +2,9 @@ import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContai
 import type { ChartSpec } from '../types';
 import { formatNumber, HEIGHT, PALETTE, toSeries } from './shared';
 
+// Recharts draws the basic charts; the other chart types need Plotly.
+export const supports = (spec: ChartSpec) => ['bar', 'line', 'scatter'].includes(spec.type);
+
 const formatMonth = (t: number) => new Date(t).toLocaleDateString(undefined, { timeZone: 'UTC', year: 'numeric', month: 'short' });
 
 // Recharts wants one row per x value with a key per series.

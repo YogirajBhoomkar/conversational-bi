@@ -1,6 +1,6 @@
 import { Component, type ReactNode, useEffect, useState } from 'react';
 import { sendFeedback } from './api';
-import { Chart } from './charts';
+import { Chart, supports } from './charts';
 import type { FinalAnswer, TraceItem } from './types';
 
 // A chart that fails to draw must never take the app down: fall back to the table.
@@ -139,7 +139,11 @@ export function Details({ result, onAsk, disabled }: { result: FinalAnswer; onAs
         <ChartBoundary>
           <figure className="chart">
             <figcaption>{result.chartSpec.title}</figcaption>
-            <Chart spec={result.chartSpec} />
+            {supports(result.chartSpec) ? (
+              <Chart spec={result.chartSpec} />
+            ) : (
+              <p className="status">The enabled chart library cannot draw a {result.chartSpec.type} chart. The data is in the table below.</p>
+            )}
           </figure>
         </ChartBoundary>
       )}

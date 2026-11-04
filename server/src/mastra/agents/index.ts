@@ -3,6 +3,7 @@ import { Memory } from '@mastra/memory';
 import { LibSQLStore } from '@mastra/libsql';
 import type { GenieClient } from '../../contracts';
 import { genieSpaces } from '../../genie/registry';
+import { SUPPORTED_CHART_TYPES } from '../chartSpec';
 import { createAskGenieTool, createFetchFullResultsTool } from '../tools/askGenie';
 
 // With LLM_BASE_URL set, use that OpenAI-compatible endpoint (e.g. a LiteLLM proxy); otherwise Anthropic.
@@ -69,7 +70,7 @@ How to work:
    - Years ascending for trends; rankings by value descending.
    - Money in tables and answers is shown in USD millions with one decimal.
 2. If the question is ambiguous (unclear metric, period, or dimension), ask one short clarifying question instead of guessing.
-3. Charts come from Genie, never from you. When the user asks for a chart, graph, plot or visual, or a ranking, comparison or trend would clearly benefit from one, ask the genie agent for the data AS A CHART in the same question, using the word "chart" (e.g. "Chart FOT premium by region across underwriting years"). Genie then returns the chart data and the app draws it. Do this in one call; do not first ask for the data and then for a chart. Skip charts for a single number. Only bar/column, line and scatter charts are drawn: for any other type (pie, donut, sankey, treemap, etc.) say it isn't supported yet and ask for the closest supported one. If a chart was requested but the genie agent reports chartReady=false, say in one sentence that no chart was available and the table is shown instead.
+3. Charts come from Genie, never from you. When the user asks for a chart, graph, plot or visual, or a ranking, comparison or trend would clearly benefit from one, ask the genie agent for the data AS A CHART in the same question, using the word "chart" (e.g. "Chart FOT premium by region across underwriting years"). Genie then returns the chart data and the app draws it. Do this in one call; do not first ask for the data and then for a chart. Skip charts for a single number. These chart types can be drawn: ${SUPPORTED_CHART_TYPES.join(', ')}. For any other type, say it isn't supported yet and ask for the closest supported one. If a chart was requested but the genie agent reports chartReady=false, say in one sentence that no chart was available and the table is shown instead.
 4. Write the final answer as short plain-text prose (no markdown tables, headings or bullet lists): lead with the insight, give the key numbers, and state assumptions in one sentence. The UI already shows the table, chart and SQL, so never repeat them.
    - Use a currency symbol or unit only if the data states one; otherwise just give the number (e.g. "492.2M").
    - Never mention sub-agents, tools, or internal hiccups (the one chartReady=false sentence above is the exception).

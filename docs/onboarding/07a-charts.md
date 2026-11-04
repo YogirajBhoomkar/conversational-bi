@@ -17,9 +17,10 @@ Defined in `server/src/contracts.ts` (`ChartSpecSchema`) and copied by hand to `
 
 | Field | Meaning |
 |---|---|
-| `type` | `bar`, `line` or `scatter` |
+| `type` | One of 12 types, see below |
 | `title` | Shown above the chart by `Details` |
 | `x`, `y` | Names of the data fields to plot |
+| `path` | Optional. The dimensions of a pie, donut, treemap, sunburst or sankey |
 | `color` | Optional. A field that splits the data into series |
 | `xType` | `category`, `time` or `number` |
 | `data` | The rows, as objects. `y` is always a number |
@@ -29,7 +30,7 @@ Defined in `server/src/contracts.ts` (`ChartSpecSchema`) and copied by hand to `
 `parseGenieChartJson` and `buildChartSpec` in `server/src/mastra/chartSpec.ts`:
 
 - Genie sends one cell of JSON: `{type, title, x, y, series, data}`.
-- Type names `column` and `bar` become `bar`. `line` and `scatter` stay. Anything else gives **no chart**. The table is still shown, and a warning is logged.
+- Type names are mapped by `TYPE_OF` in `chartSpec.ts` (12 chart types). Anything else gives **no chart**. The table is still shown, and a warning is logged.
 - `xType` is `number` for scatter, `time` for a line whose x values are all dates, and `category` otherwise. Bars with dates are treated as categories.
 - Numbers sent as text are turned into real numbers.
 - For `time`, the rows are sorted by date.
@@ -47,7 +48,7 @@ All in `ui/src/charts/`. Each exports one component, `Chart`, that takes a `Char
 | File | Library | Notes |
 |---|---|---|
 | `RechartsChart.tsx` | Recharts | Enabled by default. Stacked bars for series |
-| `PlotlyChart.tsx` | Plotly (the slim `plotly.js-basic-dist-min`) | Largest bundle |
+| `PlotlyChart.tsx` | Plotly (the full `plotly.js-dist-min`) | Draws every chart type. Largest bundle, about 4.6 MB |
 | `D3Chart.tsx` | D3, drawing SVG by hand | Smallest bundle. Most code |
 | `shared.ts` | none | Colour palette, height, `toSeries`, number format |
 | `plotly.d.ts` | none | A type declaration so TypeScript accepts the Plotly bundle |
@@ -65,11 +66,33 @@ Keep exactly one line active. `Details` imports `Chart` from `./charts`, so noth
 
 Bundle sizes when each was built (from build output during development): about 643 kB for Recharts, 1,457 kB for Plotly, 306 kB for D3. These change with versions.
 
+## Which chart types are drawn
+
+The server accepts every chart type Genie can send and turns each into the same `ChartSpec`:
+
+| Genie sends | Drawn as | Fields it uses |
+|---|---|---|
+| `column`, `bar` | bar (stacked by series) | `x`, `y`, optional `series` |
+| `line`, `area`, `scatter` | line, area, scatter | `x`, `y`, optional `series` |
+| `funnel`, `waterfall` | funnel, waterfall | `x`, `y` |
+| `heatmap` | heatmap | `x`, `series` (the second dimension), `y` |
+| `pie`, `donut` | pie, donut | `path` (one dimension) or `x`, and `y` |
+| `treemap`, `sunburst` | treemap, sunburst | `path` (the dimensions, outermost first), `y` |
+| `sankey` | sankey | `path` (at least two dimensions), `y` |
+
+`path` is a list of column names. It is how Genie describes a hierarchy, a share or a flow. The first one is also copied into `x`. Anything else, an incomplete chart, or a non-numeric `y` gives no chart: the table is still shown and a warning is logged (`server/src/mastra/chartSpec.ts`). The supervisor is told this list from `SUPPORTED_CHART_TYPES` in the same file, so it never drifts.
+
+**Which library draws what.** Each renderer exports `supports(spec)`:
+- **Plotly** (the full `plotly.js-dist-min` bundle, about 4.6 MB) draws every type. For bar, line, scatter and area it also shows Plotly's own buttons to change the form. They are configuration only: there is no code of ours behind them.
+- **D3** and **Recharts** draw bar, line and scatter. For any other type the UI shows a short note and the table.
+
+Genie's own SQL for a chart sometimes fails (for example a syntax error). That is on Genie's side, and the table-only answer is shown.
+
 ## How to ship one library
 
 1. Choose one line in `ui/src/charts/index.ts`.
 2. Delete the other two renderer files. If you keep Recharts or D3, also delete `plotly.d.ts`.
-3. Uninstall the unused packages in `ui/`. For example, to keep Recharts, remove `plotly.js-basic-dist-min`, `@types/plotly.js`, `d3` and `@types/d3`.
+3. Uninstall the unused packages in `ui/`. For example, to keep Recharts, remove `plotly.js-dist-min`, `@types/plotly.js`, `d3` and `@types/d3`.
 4. Run `npm run build` in `ui/`.
 
 Do not delete files before step 1. TypeScript checks every file in `ui/src` even when the switch does not import it (`ui/tsconfig.json`, `include: ["src"]`). So all three packages must stay installed until you delete the files.
@@ -78,7 +101,7 @@ Do not delete files before step 1. TypeScript checks every file in `ui/src` even
 
 1. Server: in `server/src/mastra/chartSpec.ts`, map the new type name to a `type`, and extend `ChartSpecSchema` in `server/src/contracts.ts`.
 2. Browser: extend `ChartSpec` in `ui/src/types.ts` and draw the new type in **all three** renderers (or only in the one you keep).
-3. Agent text: the supervisor's instructions say only bar or column, line and scatter are drawn. Update that sentence in `server/src/mastra/agents/index.ts`.
+3. Agent text: nothing to change. The supervisor's list comes from `SUPPORTED_CHART_TYPES` in `chartSpec.ts`.
 4. Add a test in `server/src/mastra/chartSpec.test.ts`.
 
 ## Failure handling

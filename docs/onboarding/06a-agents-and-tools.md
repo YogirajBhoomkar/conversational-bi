@@ -73,7 +73,7 @@ All the rules are plain text inside the supervisor's `instructions`:
 - Routing by topic: placement, status, layer, total limit and FOT premium go to `genie_placement`. Reinsurer, capacity, authorized or signed, declines and quoted premium go to `genie_capacity`.
 - Never invent numbers.
 - Ask one short question if unclear.
-- Chart requests: pass the word "chart" in the question to Genie, in one call. Only bar or column, line and scatter are drawn.
+- Chart requests: pass the word "chart" in the question to Genie, in one call. The list of drawable chart types comes from `SUPPORTED_CHART_TYPES` in `server/src/mastra/chartSpec.ts`.
 - If the result is truncated, say so and ask before loading the rest.
 - Final answer is short plain prose. No tables, no lists.
 
