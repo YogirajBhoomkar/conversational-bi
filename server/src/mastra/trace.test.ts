@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import type { TraceItem } from '../contracts';
+import { createSpaceRegistry } from '../genie/registry';
 import { createTracer } from './trace';
+
+const registry = createSpaceRegistry([
+  { key: 'placement', name: 'Lab – Placement Core', description: 'Placement counts and premium.', spaceId: 's1' },
+  { key: 'capacity', name: 'Lab – Capacity & Reinsurer', description: 'Reinsurer capacity.', spaceId: 's2' },
+]);
 
 // Chunk shapes captured from a real supervisor stream.
 const top = (type: string, payload: object) => ({ type, payload });
@@ -10,7 +16,7 @@ const finish = (reason: string) => ({ stepResult: { reason } });
 const run = (chunks: any[], progress: string[] = []) => {
   const trace: TraceItem[] = [];
   let answer = '';
-  const t = createTracer({ trace: (i) => trace.push(i), answer: (d) => (answer += d) });
+  const t = createTracer({ trace: (i) => trace.push(i), answer: (d) => (answer += d) }, registry);
   chunks.forEach((c) => t.handle(c));
   progress.forEach((p) => t.progress(p));
   t.end();

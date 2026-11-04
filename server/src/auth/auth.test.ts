@@ -1,12 +1,8 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { buildLoginUrl, challengeOf, exchangeCode } from './oauth';
 import { AuthError, SessionTokenProvider, createSession, getSession, readSessionId } from './sessions';
 
-beforeEach(() => {
-  process.env.DATABRICKS_SERVER_HOSTNAME = 'adb-1.azuredatabricks.net';
-  process.env.DATABRICKS_CLIENT_ID = 'client-123';
-  process.env.DATABRICKS_REDIRECT_URI = 'http://localhost:1976/auth/callback';
-});
+const cfg = { host: 'adb-1.azuredatabricks.net', clientId: 'client-123', redirectUri: 'http://localhost:1976/auth/callback' };
 
 const tokenResponse = (body: object, status = 200) => vi.fn(async () => new Response(JSON.stringify(body), { status })) as unknown as typeof fetch;
 
@@ -16,7 +12,7 @@ describe('PKCE login', () => {
   });
 
   it('builds an authorize URL with state, challenge and scopes', () => {
-    const u = new URL(buildLoginUrl());
+    const u = new URL(buildLoginUrl(cfg));
     expect(u.origin + u.pathname).toBe('https://adb-1.azuredatabricks.net/oidc/v1/authorize');
     expect(u.searchParams.get('client_id')).toBe('client-123');
     expect(u.searchParams.get('redirect_uri')).toBe('http://localhost:1976/auth/callback');
@@ -26,23 +22,23 @@ describe('PKCE login', () => {
   });
 
   it('exchanges the code with the stored verifier, and state is single-use', async () => {
-    const u = new URL(buildLoginUrl());
+    const u = new URL(buildLoginUrl(cfg));
     const state = u.searchParams.get('state')!;
     const fetchFn = tokenResponse({ access_token: 'at', refresh_token: 'rt', expires_in: 3600 });
-    const t = await exchangeCode('the-code', state, fetchFn);
+    const t = await exchangeCode(cfg, 'the-code', state, fetchFn);
     expect(t.accessToken).toBe('at');
     expect(t.refreshToken).toBe('rt');
     const sent = new URLSearchParams(((fetchFn as any).mock.calls[0][1] as RequestInit).body as string);
     expect(sent.get('grant_type')).toBe('authorization_code');
     expect(sent.get('code')).toBe('the-code');
     expect(challengeOf(sent.get('code_verifier')!)).toBe(u.searchParams.get('code_challenge'));
-    await expect(exchangeCode('the-code', state, fetchFn)).rejects.toThrow(/not recognised/);
+    await expect(exchangeCode(cfg, 'the-code', state, fetchFn)).rejects.toThrow(/not recognised/);
   });
 
   it('rejects an unknown state and surfaces token endpoint failures', async () => {
-    await expect(exchangeCode('c', 'nope', tokenResponse({}))).rejects.toThrow(/not recognised/);
-    const state = new URL(buildLoginUrl()).searchParams.get('state')!;
-    await expect(exchangeCode('c', state, tokenResponse({ error: 'bad' }, 400))).rejects.toThrow(/HTTP 400/);
+    await expect(exchangeCode(cfg, 'c', 'nope', tokenResponse({}))).rejects.toThrow(/not recognised/);
+    const state = new URL(buildLoginUrl(cfg)).searchParams.get('state')!;
+    await expect(exchangeCode(cfg, 'c', state, tokenResponse({ error: 'bad' }, 400))).rejects.toThrow(/HTTP 400/);
   });
 });
 

@@ -1,23 +1,22 @@
 import type { TraceItem } from '../contracts';
-import { getSpaceByKey } from '../genie/registry';
+import type { SpaceRegistry } from '../genie/registry';
 
 // Turns the supervisor's stream into the scratchpad the UI shows: the agents' own working notes (the text they write before
 // a tool call or handover), one entry per tool call or handover, and Genie's progress under the call that produced it.
-// The text of a step that calls no tool is the final answer. Nothing about the business is written here: names come from the registry.
+// The text of a step that calls no tool is the final answer. Nothing about the business is written here: names come from the space registry.
 type Sink = {
   trace: (item: TraceItem) => void;
   answer: (delta: string) => void;
 };
 
 const HANDOVER = 'agent-genie_';
-const spaceName = (key: string) => getSpaceByKey(key)?.name ?? key;
 
 const clip = (s: unknown, max = 300) => {
   const text = String(s ?? '').replace(/\s+/g, ' ').trim();
   return text.length > max ? `${text.slice(0, max - 1)}…` : text;
 };
 
-const describeTool = (toolName: string): { label: string; by?: string } => {
+const describeTool = (toolName: string, spaceName: (key: string) => string): { label: string; by?: string } => {
   if (toolName.startsWith(HANDOVER)) return { label: `Hand over to ${spaceName(toolName.slice(HANDOVER.length))}` };
   const ask = /^ask-(.+)$/.exec(toolName);
   if (ask) return { label: 'Ask Genie', by: spaceName(ask[1]) };
@@ -29,7 +28,8 @@ const describeTool = (toolName: string): { label: string; by?: string } => {
 // What was sent to the tool or agent, shown under its entry.
 const detailOf = (args: any) => clip(args?.prompt ?? args?.question ?? args?.query);
 
-export function createTracer(sink: Sink) {
+export function createTracer(sink: Sink, registry: SpaceRegistry) {
+  const spaceName = (key: string) => registry.byKey(key)?.name ?? key;
   let n = 0;
   const nextId = (prefix: string) => `${prefix}${++n}`;
   let currentAsk: string | undefined; // the Ask Genie entry that Genie's progress lines belong to
@@ -55,12 +55,12 @@ export function createTracer(sink: Sink) {
         const toolName = String(p?.toolName ?? '');
         if (level === 'specialist' && toolName.startsWith('ask-')) currentAsk = p.toolCallId;
         const detail = type === 'tool-call' ? detailOf(p?.args) : '';
-        sink.trace({ id: p.toolCallId, kind: 'tool', ...describeTool(toolName), status: 'running', ...(detail ? { text: detail } : {}) });
+        sink.trace({ id: p.toolCallId, kind: 'tool', ...describeTool(toolName, spaceName), status: 'running', ...(detail ? { text: detail } : {}) });
         break;
       }
       case 'tool-result': {
         const error = typeof p?.result?.error === 'string' ? p.result.error : '';
-        sink.trace({ id: p.toolCallId, kind: 'tool', ...describeTool(String(p?.toolName ?? '')), status: error ? 'error' : 'done', ...(error ? { text: clip(error) } : {}) });
+        sink.trace({ id: p.toolCallId, kind: 'tool', ...describeTool(String(p?.toolName ?? ''), spaceName), status: error ? 'error' : 'done', ...(error ? { text: clip(error) } : {}) });
         break;
       }
       case 'step-finish': {

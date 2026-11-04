@@ -43,6 +43,7 @@ type Route = { path: string; method: string; handler: (c: unknown) => Promise<Re
 const ENV = {
   DATABRICKS_SERVER_HOSTNAME: 'workspace.example',
   DATABRICKS_TOKEN: 'test-pat',
+  ANTHROPIC_API_KEY: 'test-key',
   DATABRICKS_GENIE_SPACE_ID: 'space-a',
   DATABRICKS_GENIE_CAPACITY_SPACE_ID: 'space-b',
   SUGGEST_WAIT_MS: '200',

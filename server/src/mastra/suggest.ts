@@ -1,12 +1,12 @@
 import type { Agent } from '@mastra/core/agent';
 import { z } from 'zod';
-import { genieSpaces, getSpaceByKey } from '../genie/registry';
+import type { SpaceRegistry } from '../genie/registry';
 import type { Turn } from './history';
 
 // Follow-ups use only what the data agents say they cover (their descriptions, in the agent's instructions) and the chat so far.
 // Each follow-up names the one data agent that can answer it, so we only offer questions the assistant can really handle.
-const spaceKeys = genieSpaces.map((s) => s.key) as [string, ...string[]];
-const Suggestions = z.object({ questions: z.array(z.object({ question: z.string(), space: z.enum(spaceKeys) })).max(3) });
+const suggestionsSchema = (registry: SpaceRegistry) =>
+  z.object({ questions: z.array(z.object({ question: z.string(), space: z.enum(registry.spaces.map((s) => s.key) as [string, ...string[]]) })).max(3) });
 
 export type SuggestInput = {
   question: string; // the question the user has just asked
@@ -30,14 +30,14 @@ const promptOf = ({ question, history }: SuggestInput) =>
     .join('\n');
 
 // Best effort: follow-ups are a nicety, so any failure just means none are shown. Never rejects.
-export async function suggestFollowUps(agent: Agent, input: SuggestInput): Promise<string[]> {
+export async function suggestFollowUps(agent: Agent, registry: SpaceRegistry, input: SuggestInput): Promise<string[]> {
   try {
-    const out = await agent.generate(promptOf(input), { structuredOutput: { schema: Suggestions } });
+    const out = await agent.generate(promptOf(input), { structuredOutput: { schema: suggestionsSchema(registry) } });
     const seen = new Set([input.question, ...input.history.flatMap((t) => [t.question, ...t.suggested])].map(norm));
     const questions: string[] = [];
     for (const { question, space } of out.object?.questions ?? []) {
       const q = question.trim();
-      if (!q || !getSpaceByKey(space) || seen.has(norm(q))) continue;
+      if (!q || !registry.byKey(space) || seen.has(norm(q))) continue;
       seen.add(norm(q));
       questions.push(q);
     }

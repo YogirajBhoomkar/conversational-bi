@@ -5,8 +5,6 @@ import { getConversationId, getLastResult, setConversationId, setLastResult } fr
 import { getCollector, getThreadId } from '../collector';
 import { parseGenieChartJson } from '../chartSpec';
 
-const FULL_ROW_CAP = Number(process.env.GENIE_FULL_ROW_CAP ?? 5000);
-
 export const createAskGenieTool = (space: GenieSpace, client: GenieClient) =>
   createTool({
     id: `ask-${space.key}`,
@@ -66,7 +64,7 @@ export const createAskGenieTool = (space: GenieSpace, client: GenieClient) =>
   });
 
 // Loads the complete result of this space's previous query when the user asked for all rows (the UI otherwise shows a preview).
-export const createFetchFullResultsTool = (space: GenieSpace, client: GenieClient) =>
+export const createFetchFullResultsTool = (space: GenieSpace, client: GenieClient, fullRowCap: number) =>
   createTool({
     id: `fetch-full-${space.key}`,
     description: `Load ALL rows of the previous "${space.name}" query into the UI table. Only use this after the user has asked for the full/complete results.`,
@@ -80,7 +78,7 @@ export const createFetchFullResultsTool = (space: GenieSpace, client: GenieClien
       try {
         const full = await client.fetchFullResult({
           statementId: last.statementId,
-          cap: FULL_ROW_CAP,
+          cap: fullRowCap,
           sessionId: requestContext?.get('sessionId') as string | undefined,
         });
         const result = { ...last, columns: full.columns.length ? full.columns : last.columns, rows: full.rows, totalRows: full.totalRows };

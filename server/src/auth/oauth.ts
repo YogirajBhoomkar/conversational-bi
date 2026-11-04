@@ -1,16 +1,9 @@
 import { createHash, randomBytes } from 'node:crypto';
 
-// Databricks OAuth (authorization code + PKCE, public client). Mirrors the External_UI_OAuth reference app.
-export const oauthConfig = () => {
-  const port = process.env.PORT ?? '4111';
-  return {
-    host: `https://${(process.env.DATABRICKS_SERVER_HOSTNAME ?? '').replace(/^https?:\/\//, '')}`,
-    clientId: process.env.DATABRICKS_CLIENT_ID ?? '',
-    redirectUri: process.env.DATABRICKS_REDIRECT_URI ?? `http://localhost:${port}/auth/callback`,
-    scopes: 'all-apis offline_access',
-  };
-};
-export const oauthEnabled = () => Boolean(process.env.DATABRICKS_CLIENT_ID);
+// Databricks OAuth (authorization code + PKCE, public client). Mirrors the External_UI_OAuth reference app. Local mode only.
+export type OAuthSettings = { host: string; clientId: string; redirectUri: string };
+const SCOPES = 'all-apis offline_access';
+const origin = (cfg: OAuthSettings) => `https://${cfg.host}`;
 
 export type Tokens = { accessToken: string; refreshToken?: string; expiresAt: number };
 
@@ -21,8 +14,7 @@ const PENDING_TTL_MS = 10 * 60 * 1000;
 const b64url = (b: Buffer) => b.toString('base64url');
 export const challengeOf = (verifier: string) => b64url(createHash('sha256').update(verifier, 'ascii').digest());
 
-export function buildLoginUrl(): string {
-  const cfg = oauthConfig();
+export function buildLoginUrl(cfg: OAuthSettings): string {
   for (const [s, p] of pending) if (Date.now() - p.at > PENDING_TTL_MS) pending.delete(s);
   const state = b64url(randomBytes(32));
   const verifier = b64url(randomBytes(64));
@@ -31,17 +23,16 @@ export function buildLoginUrl(): string {
     client_id: cfg.clientId,
     response_type: 'code',
     redirect_uri: cfg.redirectUri,
-    scope: cfg.scopes,
+    scope: SCOPES,
     state,
     code_challenge: challengeOf(verifier),
     code_challenge_method: 'S256',
   });
-  return `${cfg.host}/oidc/v1/authorize?${params}`;
+  return `${origin(cfg)}/oidc/v1/authorize?${params}`;
 }
 
-async function tokenRequest(body: Record<string, string>, fetchFn: typeof fetch): Promise<Tokens> {
-  const cfg = oauthConfig();
-  const res = await fetchFn(`${cfg.host}/oidc/v1/token`, {
+async function tokenRequest(cfg: OAuthSettings, body: Record<string, string>, fetchFn: typeof fetch): Promise<Tokens> {
+  const res = await fetchFn(`${origin(cfg)}/oidc/v1/token`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({ client_id: cfg.clientId, ...body }),
@@ -51,22 +42,23 @@ async function tokenRequest(body: Record<string, string>, fetchFn: typeof fetch)
   return { accessToken: t.access_token, refreshToken: t.refresh_token, expiresAt: Date.now() + (t.expires_in ?? 3600) * 1000 };
 }
 
-export async function exchangeCode(code: string, state: string, fetchFn: typeof fetch = fetch): Promise<Tokens> {
+export async function exchangeCode(cfg: OAuthSettings, code: string, state: string, fetchFn: typeof fetch = fetch): Promise<Tokens> {
   const entry = pending.get(state);
   pending.delete(state); // single use
   if (!entry || Date.now() - entry.at > PENDING_TTL_MS) throw new Error('Login session not recognised or already used. Please log in again.');
   return tokenRequest(
-    { grant_type: 'authorization_code', redirect_uri: oauthConfig().redirectUri, code, code_verifier: entry.verifier },
+    cfg,
+    { grant_type: 'authorization_code', redirect_uri: cfg.redirectUri, code, code_verifier: entry.verifier },
     fetchFn,
   );
 }
 
-export const refreshTokens = (refreshToken: string, fetchFn: typeof fetch = fetch) =>
-  tokenRequest({ grant_type: 'refresh_token', refresh_token: refreshToken }, fetchFn);
+export const refreshTokens = (cfg: OAuthSettings, refreshToken: string, fetchFn: typeof fetch = fetch) =>
+  tokenRequest(cfg, { grant_type: 'refresh_token', refresh_token: refreshToken }, fetchFn);
 
-export async function fetchUserName(accessToken: string, fetchFn: typeof fetch = fetch): Promise<string> {
+export async function fetchUserName(cfg: OAuthSettings, accessToken: string, fetchFn: typeof fetch = fetch): Promise<string> {
   try {
-    const res = await fetchFn(`${oauthConfig().host}/api/2.0/preview/scim/v2/Me`, { headers: { Authorization: `Bearer ${accessToken}` } });
+    const res = await fetchFn(`${origin(cfg)}/api/2.0/preview/scim/v2/Me`, { headers: { Authorization: `Bearer ${accessToken}` } });
     if (res.ok) return ((await res.json()) as { userName?: string }).userName ?? 'user';
   } catch { /* display name is optional */ }
   return 'user';

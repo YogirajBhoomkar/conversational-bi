@@ -85,5 +85,12 @@ export interface GenieClient {
 }
 // Auth (server/src/auth/tokenProvider.ts)
 export interface TokenProvider { getToken(ctx?: { sessionId?: string }): Promise<string> }
-// Registry entry (server/src/genie/registry.ts)
-export type GenieSpace = { key: string; name: string; description: string; spaceId: string };
+// One Genie space, from configuration (server/src/config/spaces.ts)
+export type GenieSpace = {
+  key: string;          // [a-z0-9_]+, used in agent and tool names
+  name: string;
+  description: string;  // what the space covers; shown to the supervisor and the follow-up writer
+  routing?: string;     // when to route here; defaults to the description
+  spaceId: string;
+  enabled?: boolean;    // false leaves the space out of routing and prompts
+};

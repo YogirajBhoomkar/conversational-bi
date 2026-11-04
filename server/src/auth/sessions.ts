@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import type { TokenProvider } from '../contracts';
-import { refreshTokens, type Tokens } from './oauth';
+import type { Tokens } from './oauth';
 
 export class AuthError extends Error {}
 
@@ -26,7 +26,7 @@ export const cookie = (value: string, maxAgeSec: number, secure: boolean) =>
 
 // Per-user token for Genie calls. Refreshes shortly before expiry; a dead session raises AuthError.
 export class SessionTokenProvider implements TokenProvider {
-  constructor(private readonly refresh: typeof refreshTokens = refreshTokens) {}
+  constructor(private readonly refresh: (refreshToken: string) => Promise<Tokens>) {}
 
   async getToken({ sessionId }: { sessionId?: string } = {}): Promise<string> {
     const s = getSession(sessionId);
@@ -51,13 +51,5 @@ export class SessionTokenProvider implements TokenProvider {
       await p;
     }
     return s.accessToken;
-  }
-}
-
-// Picks the PAT in dev (no OAuth client configured) and falls through to the session token otherwise.
-export class FallbackTokenProvider implements TokenProvider {
-  constructor(private readonly oauth: boolean, private readonly pat: TokenProvider, private readonly session: TokenProvider) {}
-  getToken(ctx?: { sessionId?: string }) {
-    return this.oauth ? this.session.getToken(ctx) : this.pat.getToken(ctx);
   }
 }

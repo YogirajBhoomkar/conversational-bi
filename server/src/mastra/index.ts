@@ -5,27 +5,34 @@ import { registerApiRoute } from '@mastra/core/server';
 import { LibSQLStore } from '@mastra/libsql';
 import type { z } from 'zod';
 import { ChatRequestSchema, FeedbackRequestSchema, type ChatEvent, type FinalAnswer } from '../contracts';
+import { loadProcessConfig } from '../config/load';
+import type { TokenProvider } from '../contracts';
 import { PatTokenProvider } from '../auth/tokenProvider';
-import { buildLoginUrl, exchangeCode, fetchUserName, oauthEnabled } from '../auth/oauth';
-import { AuthError, COOKIE, FallbackTokenProvider, SessionTokenProvider, cookie, createSession, destroySession, getSession, readSessionId } from '../auth/sessions';
+import { buildLoginUrl, exchangeCode, fetchUserName, refreshTokens } from '../auth/oauth';
+import { AuthError, COOKIE, SessionTokenProvider, cookie, createSession, destroySession, getSession, readSessionId } from '../auth/sessions';
 import { DatabricksGenieAgentClient } from '../genie/agentClient';
 import { DatabricksGenieClient } from '../genie/client';
-import { genieSpaces, getSpaceById } from '../genie/registry';
+import { createSpaceRegistry } from '../genie/registry';
+import { retryPolicy } from '../genie/retry';
 import { createAgents, modelLabel } from './agents';
 import { newCollector } from './collector';
 import { recentTurns, recordTurn } from './history';
 import { createTracer } from './trace';
 import { suggestFollowUps } from './suggest';
 
-// OAuth (per-user Databricks login) when DATABRICKS_CLIENT_ID is set; otherwise the shared PAT (dev only).
-const oauth = oauthEnabled();
-if (!oauth) console.warn('DATABRICKS_CLIENT_ID not set: using the shared DATABRICKS_TOKEN, no user login.');
-const tokens = new FallbackTokenProvider(oauth, new PatTokenProvider(), new SessionTokenProvider());
-// GENIE_MODE=agent uses the Agent mode API (GA): streams the agent's real reasoning. Default is the Conversation API.
-const genie = process.env.GENIE_MODE === 'agent' ? new DatabricksGenieAgentClient(tokens) : new DatabricksGenieClient(tokens);
-const { supervisor, genieAgents, suggestAgent } = createAgents(genie);
+const { config, warnings } = loadProcessConfig();
+warnings.forEach((w) => console.warn(`[config] ${w}`));
+if (config.mode === 'gc') throw new Error('BI_MODE=gc needs the Okta sign-in, which is not wired in yet.'); // TODO(GC:okta-verifier)
+const registry = createSpaceRegistry(config.spaces);
 
-const SUGGEST_WAIT_MS = Number(process.env.SUGGEST_WAIT_MS ?? 8000); // how long, after the answer, to wait for our own follow-ups
+// OAuth (per-user Databricks login) when DATABRICKS_CLIENT_ID is set; otherwise the shared PAT (dev only).
+const oauth = config.databricks.oauth;
+if (!oauth) console.warn('DATABRICKS_CLIENT_ID not set: using the shared DATABRICKS_TOKEN, no user login.');
+const tokens: TokenProvider = oauth ? new SessionTokenProvider((refreshToken) => refreshTokens(oauth, refreshToken)) : new PatTokenProvider(config.databricks.token);
+// GENIE_MODE=agent uses the Agent mode API (GA): streams the agent's real reasoning. Default is the Conversation API.
+const genieOptions = { host: config.databricks.host, rowCap: config.genie.rowCap, timeoutMs: config.genie.timeoutMs, retry: retryPolicy(config.genie.retryAttempts) };
+const genie = config.genie.mode === 'agent' ? new DatabricksGenieAgentClient(tokens, genieOptions) : new DatabricksGenieClient(tokens, genieOptions);
+const { supervisor, genieAgents, suggestAgent } = createAgents(genie, { registry, model: config.model, domainRules: config.domainRules, fullRowCap: config.genie.fullRowCap });
 const sse = (e: ChatEvent) => `data: ${JSON.stringify(e)}\n\n`;
 
 // Resolves the caller. In PAT mode everyone is the shared dev user; in OAuth mode a valid, refreshable session is required.
@@ -61,7 +68,7 @@ const chatRoute = registerApiRoute('/bi/chat', {
     const threadId = `${who.user}::${rawThread}`; // threads are per user
 
     // Follow-ups need only the Genie descriptions and the chat so far, so they are written in parallel with the answer, not after it.
-    const pendingSuggestions = suggestFollowUps(suggestAgent, { question: message, history: recentTurns(threadId) });
+    const pendingSuggestions = suggestFollowUps(suggestAgent, registry, { question: message, history: recentTurns(threadId) });
 
     const collector = newCollector();
     const requestContext = new RequestContext();
@@ -83,9 +90,9 @@ const chatRoute = registerApiRoute('/bi/chat', {
             answer += delta;
             send({ type: 'text', delta });
           },
-        });
+        }, registry);
         collector.emit = tracer.progress;
-        send({ type: 'trace', item: { id: 'model', kind: 'meta', label: 'Using model', text: modelLabel() } });
+        send({ type: 'trace', item: { id: 'model', kind: 'meta', label: 'Using model', text: modelLabel(config.model) } });
         let ours: string[] = [];
         void pendingSuggestions.then((questions) => {
           ours = questions;
@@ -116,7 +123,7 @@ const chatRoute = registerApiRoute('/bi/chat', {
             chartSpec: collector.chart,
             sources: sources.map((r) => ({
               spaceId: r.spaceId,
-              spaceName: getSpaceById(r.spaceId)?.name ?? r.spaceId,
+              spaceName: registry.byId(r.spaceId)?.name ?? r.spaceId,
               question: r.question,
               sql: r.sql,
               messageId: r.messageId,
@@ -128,7 +135,7 @@ const chatRoute = registerApiRoute('/bi/chat', {
           // Genie's own follow-ups (Conversation API) win. Otherwise ours are usually ready already; give them a short moment, but never hold the stream open for long.
           if (!final.suggestedQuestions.length) {
             let timer: ReturnType<typeof setTimeout> | undefined;
-            await Promise.race([pendingSuggestions, new Promise((resolve) => (timer = setTimeout(resolve, SUGGEST_WAIT_MS)))]);
+            await Promise.race([pendingSuggestions, new Promise((resolve) => (timer = setTimeout(resolve, config.suggestWaitMs)))]);
             clearTimeout(timer);
           }
           recordTurn(threadId, { question: message, answer, suggested: final.suggestedQuestions.length ? final.suggestedQuestions : ours });
@@ -154,7 +161,7 @@ const feedbackRoute = registerApiRoute('/bi/feedback', {
     if (who instanceof Response) return who;
     const body = await readBody(c, FeedbackRequestSchema);
     if (body instanceof Response) return body;
-    if (!getSpaceById(body.spaceId)) return c.json({ error: 'unknown space' }, 400);
+    if (!registry.byId(body.spaceId)) return c.json({ error: 'unknown space' }, 400);
     try {
       await genie.feedback({ ...body, sessionId: who.sessionId });
       return c.json({ ok: true });
@@ -175,7 +182,7 @@ const authRoutes = [
   }),
   registerApiRoute('/auth/login', {
     method: 'GET',
-    handler: async (c) => (oauth ? c.redirect(buildLoginUrl()) : c.redirect('/')),
+    handler: async (c) => (oauth ? c.redirect(buildLoginUrl(oauth)) : c.redirect('/')),
   }),
   registerApiRoute('/auth/callback', {
     method: 'GET',
@@ -186,9 +193,10 @@ const authRoutes = [
       const state = c.req.query('state');
       if (err) return fail(err);
       if (!code || !state) return fail('Login response was incomplete. Please log in again.');
+      if (!oauth) return fail('Login is not configured.');
       try {
-        const t = await exchangeCode(code, state);
-        const id = createSession(t, await fetchUserName(t.accessToken));
+        const t = await exchangeCode(oauth, code, state);
+        const id = createSession(t, await fetchUserName(oauth, t.accessToken));
         c.header('Set-Cookie', cookie(id, 8 * 3600, new URL(c.req.url).protocol === 'https:'));
         return c.redirect('/');
       } catch (e) {
@@ -212,7 +220,7 @@ const MIME: Record<string, string> = {
   json: 'application/json', png: 'image/png', ico: 'image/x-icon', woff2: 'font/woff2', map: 'application/json',
 };
 const serveUi = async (c: any, next: () => Promise<void>) => {
-  const dist = process.env.UI_DIST;
+  const dist = config.uiDist;
   const path: string = c.req.path;
   if (!dist || c.req.method !== 'GET' || path.startsWith('/api') || path.startsWith('/bi') || path.startsWith('/auth/') || path.startsWith('/swagger')) return next();
   const { readFile } = await import('node:fs/promises');
@@ -232,11 +240,10 @@ export const mastra = new Mastra({
   agents: { supervisor, suggestAgent, ...genieAgents },
   storage: new LibSQLStore({ id: 'mastra-storage', url: 'file:./mastra.db' }),
   server: {
-    port: Number(process.env.PORT ?? 4111),
+    port: config.port,
     cors: { origin: ['http://localhost:5173'], allowMethods: ['GET', 'POST', 'OPTIONS'], allowHeaders: ['Content-Type'] },
     middleware: [{ path: '/*', handler: serveUi }],
     apiRoutes: [chatRoute, feedbackRoute, ...authRoutes],
   },
 });
 
-export const spaces = genieSpaces;

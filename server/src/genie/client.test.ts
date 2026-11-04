@@ -15,7 +15,7 @@ function mockFetch(routes: Array<[RegExp, () => Response]>) {
   return { fn, calls };
 }
 
-const client = (fn: typeof fetch) => new DatabricksGenieClient(tokens, 'host', fn, [0], NO_WAIT);
+const client = (fn: typeof fetch) => new DatabricksGenieClient(tokens, { host: 'host', rowCap: 200, timeoutMs: 180_000, retry: NO_WAIT, fetch: fn, pollDelaysMs: [0] });
 
 describe('DatabricksGenieClient', () => {
   it('polls until COMPLETED, fetches rows, caps them', async () => {

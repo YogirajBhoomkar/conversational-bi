@@ -1,0 +1,16 @@
+[
+  {
+    "key": "placement",
+    "name": "Lab – Placement Core",
+    "description": "Insurance placement analytics: placement count, layer count, total limit and total FOT premium by underwriting year, region, client, branch office, line of business and placement status. Owns ALL placement, status, layer and FOT premium questions, including chart requests. No policy-level or transaction detail.",
+    "routing": "Placement, status, layer, total limit and FOT premium questions, including chart requests.",
+    "spaceId": "REPLACE_ME"
+  },
+  {
+    "key": "capacity",
+    "name": "Lab – Capacity & Reinsurer",
+    "description": "Reinsurance capacity and reinsurer activity: authorized vs signed limit, unused capacity, declines to quote and quoted premium by reinsurer, rating, underwriting year, region, placement status and line of business. Owns reinsurer, capacity, authorized/signed, declines and quoted premium questions. Not for FOT premium, total limit, placement count or layer count. No contract terms, policy-level detail, claims or qualitative placement reasons.",
+    "routing": "Reinsurer, capacity, authorized/signed, declines to quote and quoted premium questions.",
+    "spaceId": "REPLACE_ME"
+  }
+]

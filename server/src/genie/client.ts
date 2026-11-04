@@ -1,8 +1,14 @@
 import type { FeedbackRequest, GenieClient, GenieResult, TokenProvider } from '../contracts';
-import { DEFAULT_RETRY, fetchWithRetry, GenieRunFailed, type RetryPolicy, withRetry } from './retry';
+import { fetchWithRetry, GenieRunFailed, type RetryPolicy, withRetry } from './retry';
 
-const ROW_CAP = Number(process.env.GENIE_ROW_CAP ?? 200);
-const TIMEOUT_MS = Number(process.env.GENIE_TIMEOUT_MS ?? 180_000);
+export type GenieClientOptions = {
+  host: string;           // workspace host, without https://
+  rowCap: number;         // rows kept per result
+  timeoutMs: number;      // how long one question may take
+  retry: RetryPolicy;
+  fetch?: typeof fetch;
+  pollDelaysMs?: number[]; // Conversation API only: waits between status polls
+};
 
 type Attachment = {
   attachment_id?: string;
@@ -46,15 +52,14 @@ export const failedResult = ({ spaceId, question }: AskArgs, run: Run, error: un
 
 export class DatabricksGenieClient implements GenieClient {
   private readonly base: string;
-  constructor(
-    private readonly tokens: TokenProvider,
-    host = process.env.DATABRICKS_SERVER_HOSTNAME,
-    private readonly fetchFn: typeof fetch = fetch,
-    private readonly pollDelaysMs = [1000, 1500, 2000, 3000, 5000],
-    private readonly retry: RetryPolicy = DEFAULT_RETRY,
-  ) {
-    if (!host) throw new Error('DATABRICKS_SERVER_HOSTNAME is not set');
-    this.base = `https://${host.replace(/^https?:\/\//, '')}/api/2.0/genie/spaces`;
+  private readonly fetchFn: typeof fetch;
+  private readonly pollDelaysMs: number[];
+  private readonly retry: RetryPolicy;
+  constructor(private readonly tokens: TokenProvider, private readonly options: GenieClientOptions) {
+    this.base = `https://${options.host}/api/2.0/genie/spaces`;
+    this.fetchFn = options.fetch ?? fetch;
+    this.pollDelaysMs = options.pollDelaysMs ?? [1000, 1500, 2000, 3000, 5000];
+    this.retry = options.retry;
   }
 
   private async call<T>(method: string, path: string, body?: unknown, sessionId?: string): Promise<T> {
@@ -91,7 +96,7 @@ export class DatabricksGenieClient implements GenieClient {
     run.messageId = (started as any).message_id ?? (started as any).id;
     const { conversationId: cid, messageId: mid } = run;
 
-    const deadline = Date.now() + TIMEOUT_MS;
+    const deadline = Date.now() + this.options.timeoutMs;
     let msg: Message;
     let lastStatus = '';
     let seenThoughts = 0;
@@ -124,7 +129,7 @@ export class DatabricksGenieClient implements GenieClient {
       columns = (sr.manifest?.schema?.columns ?? []).map((c: any) => c.name);
       const data: unknown[][] = sr.result?.data_array ?? [];
       totalRows = sr.manifest?.total_row_count ?? data.length;
-      rows = data.slice(0, ROW_CAP);
+      rows = data.slice(0, this.options.rowCap);
     }
     return {
       spaceId, question,

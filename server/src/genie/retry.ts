@@ -3,11 +3,7 @@
 
 export type RetryPolicy = { attempts: number; baseDelayMs: number; maxDelayMs: number };
 
-export const DEFAULT_RETRY: RetryPolicy = {
-  attempts: Number(process.env.GENIE_RETRY_ATTEMPTS) || 3,
-  baseDelayMs: 1000,
-  maxDelayMs: 8000,
-};
+export const retryPolicy = (attempts: number): RetryPolicy => ({ attempts, baseDelayMs: 1000, maxDelayMs: 8000 });
 
 // Genie reported that its own run failed. Worth another try, unless the failure is about access, which a retry cannot fix.
 export class GenieRunFailed extends Error {

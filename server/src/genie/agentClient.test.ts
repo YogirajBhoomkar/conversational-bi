@@ -3,6 +3,7 @@ import { DatabricksGenieAgentClient } from './agentClient';
 import { RETRY_NOTE } from './client';
 
 const NO_WAIT = { attempts: 3, baseDelayMs: 0, maxDelayMs: 0 };
+const options = (fetch: typeof globalThis.fetch) => ({ host: 'host.example', rowCap: 200, timeoutMs: 180_000, retry: NO_WAIT, fetch });
 const ev = (type: string, data: object) => `event:${type}\ndata:${JSON.stringify({ type, ...data })}\n\n`;
 const item = (it: object) => ev('response.output_item.done', { item: it });
 
@@ -33,7 +34,7 @@ const streamOf = (s: string, chunk = 17) =>
   });
 
 const client = (res: Response | (() => Response)) =>
-  new DatabricksGenieAgentClient({ getToken: async () => 't' }, 'host.example', (async () => (typeof res === 'function' ? res() : res)) as typeof fetch, NO_WAIT);
+  new DatabricksGenieAgentClient({ getToken: async () => 't' }, options((async () => (typeof res === 'function' ? res() : res)) as typeof fetch));
 
 describe('DatabricksGenieAgentClient', () => {
   it('streams reasoning and maps the final message to a GenieResult', async () => {
@@ -75,11 +76,11 @@ describe('DatabricksGenieAgentClient', () => {
       item({ type: 'message', content: [{ type: 'output_text', text: 'Premium grew.' }] }),
     ].join('');
     const urls: string[] = [];
-    const c = new DatabricksGenieAgentClient({ getToken: async () => 't' }, 'host.example', (async (u: string) => {
+    const c = new DatabricksGenieAgentClient({ getToken: async () => 't' }, options((async (u: string) => {
       if (String(u).includes('/responses')) return new Response(streamOf(stream), { status: 200 });
       urls.push(new URL(u).pathname);
       return new Response(JSON.stringify({ manifest: { total_row_count: 1, schema: { columns: [{ name: 'chart_json' }] } }, result: { data_array: [[chart]] } }), { status: 200 });
-    }) as unknown as typeof fetch, NO_WAIT);
+    }) as unknown as typeof fetch));
     const r = await c.ask({ spaceId: 's', question: 'chart it' });
     expect(urls).toEqual(['/api/2.0/sql/statements/s3']);
     expect(r.columns).toEqual(['chart_json']);
@@ -94,10 +95,10 @@ describe('DatabricksGenieAgentClient', () => {
       '/api/2.0/sql/statements/s/result/chunks/1': { data_array: [['3'], ['4']], next_chunk_internal_link: '/api/2.0/sql/statements/s/result/chunks/2' },
       '/api/2.0/sql/statements/s/result/chunks/2': { data_array: [['5']] },
     };
-    const c = new DatabricksGenieAgentClient({ getToken: async () => 't' }, 'host.example', (async (u: string) => {
+    const c = new DatabricksGenieAgentClient({ getToken: async () => 't' }, options((async (u: string) => {
       urls.push(new URL(u).pathname);
       return new Response(JSON.stringify(pages[new URL(u).pathname]), { status: 200 });
-    }) as unknown as typeof fetch, NO_WAIT);
+    }) as unknown as typeof fetch));
     expect(await c.fetchFullResult({ statementId: 's', cap: 100 })).toEqual({ columns: ['a'], rows: [['1'], ['2'], ['3'], ['4'], ['5']], totalRows: 5 });
     urls.length = 0;
     const capped = await c.fetchFullResult({ statementId: 's', cap: 3 });
@@ -118,10 +119,10 @@ describe('DatabricksGenieAgentClient', () => {
     const bodies: any[] = [];
     let call = 0;
     const lines: string[] = [];
-    const c = new DatabricksGenieAgentClient({ getToken: async () => 't' }, 'host.example', (async (_u: string, init: RequestInit) => {
+    const c = new DatabricksGenieAgentClient({ getToken: async () => 't' }, options((async (_u: string, init: RequestInit) => {
       bodies.push(JSON.parse(String(init.body)));
       return new Response(streamOf(++call === 1 ? failed : STREAM), { status: 200 });
-    }) as unknown as typeof fetch, NO_WAIT);
+    }) as unknown as typeof fetch));
     const r = await c.ask({ spaceId: 's', question: 'q', onProgress: (l) => lines.push(l) });
     expect(r).toMatchObject({ error: null, conversationId: 'conv1', rows: [['APAC', '1'], ['EMEA', '2']] });
     expect(bodies.map((b) => b.conversation_id)).toEqual([undefined, 'conv1']);

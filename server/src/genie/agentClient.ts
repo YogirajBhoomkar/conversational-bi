@@ -1,9 +1,6 @@
 import type { FeedbackRequest, GenieClient, GenieResult, TokenProvider } from '../contracts';
-import { type AskArgs, DatabricksGenieClient, failedResult, isRetryableRun, RETRY_NOTE, type Run } from './client';
-import { DEFAULT_RETRY, fetchWithRetry, GenieRunFailed, type RetryPolicy, withRetry } from './retry';
-
-const ROW_CAP = Number(process.env.GENIE_ROW_CAP ?? 200);
-const TIMEOUT_MS = Number(process.env.GENIE_TIMEOUT_MS ?? 180_000);
+import { type AskArgs, DatabricksGenieClient, failedResult, type GenieClientOptions, isRetryableRun, RETRY_NOTE, type Run } from './client';
+import { fetchWithRetry, GenieRunFailed, type RetryPolicy, withRetry } from './retry';
 
 // Citation links Genie appends to its prose, e.g. \[[1](https://...)\]
 const CITATION = /\\?\[\[\d+\]\([^)]*\)\\?\]/g;
@@ -41,15 +38,13 @@ type Item = {
 export class DatabricksGenieAgentClient implements GenieClient {
   private readonly origin: string;
   private readonly chat: DatabricksGenieClient;
-  constructor(
-    private readonly tokens: TokenProvider,
-    host = process.env.DATABRICKS_SERVER_HOSTNAME,
-    private readonly fetchFn: typeof fetch = fetch,
-    private readonly retry: RetryPolicy = DEFAULT_RETRY,
-  ) {
-    if (!host) throw new Error('DATABRICKS_SERVER_HOSTNAME is not set');
-    this.origin = `https://${host.replace(/^https?:\/\//, '')}`;
-    this.chat = new DatabricksGenieClient(tokens, host, fetchFn, undefined, retry); // feedback still uses the Conversation API
+  private readonly fetchFn: typeof fetch;
+  private readonly retry: RetryPolicy;
+  constructor(private readonly tokens: TokenProvider, private readonly options: GenieClientOptions) {
+    this.origin = `https://${options.host}`;
+    this.fetchFn = options.fetch ?? fetch;
+    this.retry = options.retry;
+    this.chat = new DatabricksGenieClient(tokens, options); // feedback still uses the Conversation API
   }
 
   async ask(args: AskArgs): Promise<GenieResult> {
@@ -64,7 +59,7 @@ export class DatabricksGenieAgentClient implements GenieClient {
   private async askOnce({ spaceId, question, sessionId, onProgress }: AskArgs, run: Run): Promise<GenieResult> {
     const result: GenieResult = { spaceId, question, summary: '', sql: null, columns: [], rows: [], totalRows: 0, thinking: [], suggestedQuestions: [], statementId: null, conversationId: run.conversationId, messageId: run.messageId, error: null };
     const abort = new AbortController();
-    const timer = setTimeout(() => abort.abort(), TIMEOUT_MS);
+    const timer = setTimeout(() => abort.abort(), this.options.timeoutMs);
     try {
       const res = await fetchWithRetry(
         this.fetchFn,
@@ -152,7 +147,7 @@ export class DatabricksGenieAgentClient implements GenieClient {
           result.sql = meta.sql;
           result.columns = (meta.columns ?? []).map((c: { name: string }) => c.name);
           const rows: unknown[][] = meta.preview_rows ?? [];
-          result.rows = rows.slice(0, ROW_CAP);
+          result.rows = rows.slice(0, this.options.rowCap);
           result.totalRows = meta.total_row_count ?? rows.length;
         } else if (part.text) {
           const text = part.text.replace(CITATION, '').replace(EMBED_CHART, '').replace(/\n{3,}/g, '\n\n').trim();

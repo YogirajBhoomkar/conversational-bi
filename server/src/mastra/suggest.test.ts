@@ -1,6 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 import { recentTurns, recordTurn } from './history';
+import { createSpaceRegistry } from '../genie/registry';
 import { suggestFollowUps, type SuggestInput } from './suggest';
+
+const registry = createSpaceRegistry([
+  { key: 'placement', name: 'Lab – Placement Core', description: 'Placement counts and premium.', spaceId: 's1' },
+  { key: 'capacity', name: 'Lab – Capacity & Reinsurer', description: 'Reinsurer capacity.', spaceId: 's2' },
+]);
 
 const base: SuggestInput = { question: 'Chart FOT premium by region', history: [] };
 
@@ -10,7 +16,7 @@ const agentReturning = (questions: Q[]) => ({ generate: vi.fn().mockResolvedValu
 describe('suggestFollowUps', () => {
   it('gives the model only the chat so far and the question just asked', async () => {
     const agent = agentReturning([]);
-    await suggestFollowUps(agent, { ...base, history: [{ question: 'How many placements by status?', answer: '5 statuses', suggested: ['Placements by region'] }] });
+    await suggestFollowUps(agent, registry, { ...base, history: [{ question: 'How many placements by status?', answer: '5 statuses', suggested: ['Placements by region'] }] });
     const prompt: string = agent.generate.mock.calls[0][0];
     expect(prompt).toContain('Asked: How many placements by status?');
     expect(prompt).toContain('Answer: 5 statuses');
@@ -20,7 +26,7 @@ describe('suggestFollowUps', () => {
 
   it('works on the very first question of a chat', async () => {
     const agent = agentReturning([{ question: 'FOT premium by underwriting year', space: 'placement' }]);
-    expect(await suggestFollowUps(agent, base)).toEqual(['FOT premium by underwriting year']);
+    expect(await suggestFollowUps(agent, registry, base)).toEqual(['FOT premium by underwriting year']);
     expect(agent.generate.mock.calls[0][0]).not.toContain('Earlier in this chat');
   });
 
@@ -29,7 +35,7 @@ describe('suggestFollowUps', () => {
       { question: 'FOT premium by underwriting year', space: 'placement' },
       { question: 'Weather forecast by region', space: 'weather' },
     ]);
-    expect(await suggestFollowUps(agent, base)).toEqual(['FOT premium by underwriting year']);
+    expect(await suggestFollowUps(agent, registry, base)).toEqual(['FOT premium by underwriting year']);
   });
 
   it('drops repeats of the current question, earlier questions and earlier suggestions', async () => {
@@ -40,17 +46,17 @@ describe('suggestFollowUps', () => {
       { question: 'Unused capacity by reinsurer', space: 'capacity' },
     ]);
     const history = [{ question: 'How many placements by status?', answer: '', suggested: ['Placements by region'] }];
-    expect(await suggestFollowUps(agent, { ...base, history })).toEqual(['Unused capacity by reinsurer']);
+    expect(await suggestFollowUps(agent, registry, { ...base, history })).toEqual(['Unused capacity by reinsurer']);
   });
 
   it('returns at most three, without duplicates within the batch', async () => {
     const agent = agentReturning(['a', 'b', 'b', 'c', 'd'].map((q) => ({ question: q, space: 'placement' })));
-    expect(await suggestFollowUps(agent, base)).toEqual(['a', 'b', 'c']);
+    expect(await suggestFollowUps(agent, registry, base)).toEqual(['a', 'b', 'c']);
   });
 
   it('returns nothing, without throwing, when the model call fails', async () => {
     const agent = { generate: vi.fn().mockRejectedValue(new Error('boom')) } as any;
-    expect(await suggestFollowUps(agent, base)).toEqual([]);
+    expect(await suggestFollowUps(agent, registry, base)).toEqual([]);
   });
 });
 
