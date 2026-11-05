@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { TraceItem } from '../../contracts';
 import { createSpaceRegistry } from '../genie/registry';
-import { createTracer, crisp } from './trace';
+import { createTracer } from './trace';
 
 const registry = createSpaceRegistry([
   { key: 'placement', name: 'Lab – Placement Core', description: 'Placement counts and premium.', spaceId: 's1' },
@@ -114,12 +114,12 @@ describe('createTracer', () => {
     t.handle(top('tool-call', { toolCallId: 'h1', toolName: 'agent-genie_placement', args: { prompt: 'q1' } }));
     t.handle(top('tool-call', { toolCallId: 'h2', toolName: 'agent-genie_capacity', args: { prompt: 'q2' } }));
     t.progress({ kind: 'thought', text: 'I will check which years exist. Then I will chart it.' }, 'placement');
+    t.progress({ kind: 'thought', text: 'I will check which years exist. Then I will chart it.' }, 'placement'); // the same thought again
     t.progress({ kind: 'query', id: 'm:1', title: 'Signed limit by region', status: 'running' }, 'capacity');
-    t.progress({ kind: 'thought', text: 'I will check which years exist.' }, 'placement'); // the same thought again
     t.progress({ kind: 'query', id: 'm:1', status: 'done' }, 'capacity');
     const progress = trace.filter((i) => i.kind === 'progress');
     expect(progress.map((i) => [i.parent, i.step, i.text, i.status])).toEqual([
-      ['h1', 'thought', 'I will check which years exist.', undefined],
+      ['h1', 'thought', 'I will check which years exist. Then I will chart it.', undefined], // in full
       ['h2', 'query', 'Signed limit by region', 'running'],
       ['h2', 'query', undefined, 'done'],
     ]);
@@ -133,18 +133,5 @@ describe('createTracer', () => {
 
   it('keeps leftover text as the answer when the stream ends without a closing step', () => {
     expect(run([top('text-delta', { text: 'Done.' })]).answer).toBe('Done.');
-  });
-});
-
-describe('crisp', () => {
-  it('keeps the first sentence of a thought', () => {
-    expect(crisp('I notice the data only has 2023 and 2024.  Let me check   2022.')).toBe('I notice the data only has 2023 and 2024.');
-  });
-
-  it('cuts a long sentence at a word', () => {
-    const long = `I'll query ${'the capacity metrics '.repeat(12)}now`;
-    const out = crisp(long);
-    expect(out.length).toBeLessThanOrEqual(140);
-    expect(out).toMatch(/metrics…$/);
   });
 });

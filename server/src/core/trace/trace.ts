@@ -5,7 +5,7 @@ import type { SpaceRegistry } from '../genie/registry';
 // Turns the supervisor's stream into the scratchpad the UI shows, keeping only what tells the user something:
 // - the supervisor's plan (the text it writes before handing over),
 // - one entry per data source it asks (label: the source's name, text: the question),
-// - under each source, Genie's short thoughts and each query it runs (updated in place when the query finishes).
+// - under each source, Genie's thoughts (in full) and each query it runs (updated in place when the query finishes).
 // The data agents' own notes repeat the plan, and their Ask Genie calls repeat the source entry, so neither is shown.
 // The text of a supervisor step that calls no tool is the final answer; all text streams as it is written (see below).
 // Names come from the space registry.
@@ -32,26 +32,18 @@ type Payload = {
 };
 export type TraceChunk = Payload & { type: string; payload?: Payload };
 
+// Everything the user reads is shown in full; only error texts (which can carry a whole HTTP body) are shortened.
+const tidy = (s: unknown) => String(s ?? '').replace(/\s+/g, ' ').trim();
 const clip = (s: unknown, max = 300) => {
-  const text = String(s ?? '').replace(/\s+/g, ' ').trim();
+  const text = tidy(s);
   return text.length > max ? `${text.slice(0, max - 1)}…` : text;
-};
-
-// A thought as one short line: its first sentence, cut at a word when that is still long.
-const THOUGHT_MAX = 140;
-export const crisp = (s: string) => {
-  const text = s.replace(/\s+/g, ' ').trim();
-  const first = /^.+?[.!?](?=\s|$)/.exec(text)?.[0] ?? text;
-  if (first.length <= THOUGHT_MAX) return first;
-  const cut = first.slice(0, THOUGHT_MAX - 1);
-  return `${cut.slice(0, cut.lastIndexOf(' ') > 60 ? cut.lastIndexOf(' ') : cut.length)}…`;
 };
 
 const describeTool = (toolName: string, spaceName: (key: string) => string): string =>
   toolName.startsWith(HANDOVER) ? spaceName(toolName.slice(HANDOVER.length)) : toolName.replace(/^agent-/, '').replace(/[-_]+/g, ' ');
 
 // What was sent to the tool or agent, shown under its entry.
-const detailOf = (args: Payload['args']) => clip(args?.prompt ?? args?.question ?? args?.query);
+const detailOf = (args: Payload['args']) => tidy(args?.prompt ?? args?.question ?? args?.query);
 
 export function createTracer(sink: Sink, registry: SpaceRegistry) {
   const spaceName = (key: string) => registry.byKey(key)?.name ?? key;
@@ -72,7 +64,7 @@ export function createTracer(sink: Sink, registry: SpaceRegistry) {
 
   const streamPlan = () => {
     noteId ??= nextId('note');
-    sink.trace({ id: noteId, kind: 'note', text: clip(text, 600) });
+    sink.trace({ id: noteId, kind: 'note', text: tidy(text) });
   };
 
   const supervisor = (type: string, p: Payload | undefined) => {
@@ -151,11 +143,11 @@ export function createTracer(sink: Sink, registry: SpaceRegistry) {
     progress(event: GenieProgress, spaceKey?: string) {
       const parent = (spaceKey && sourceOf.get(spaceKey)) || latestSource;
       if (event.kind === 'query') {
-        const title = event.title ? clip(event.title, 120) : undefined;
+        const title = event.title ? tidy(event.title) : undefined;
         sink.trace({ id: `${parent}:q:${event.id}`, kind: 'progress', step: 'query', parent, status: event.status, ...(title ? { text: title } : {}) });
         return;
       }
-      const text = event.kind === 'thought' ? crisp(event.text) : clip(event.text, 140);
+      const text = event.text.trim(); // shown in full: the user follows Genie's reasoning as it goes
       const key = parent ?? '';
       if (!text || lastThought.get(key) === text) return;
       lastThought.set(key, text);

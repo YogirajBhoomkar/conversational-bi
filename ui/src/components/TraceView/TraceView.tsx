@@ -7,9 +7,8 @@ import type { TraceItem } from '../../types';
 import './TraceView.css';
 
 // The scratchpad: what the assistant is doing while it works, then a collapsed record of it.
-// One loader for the whole turn. The plan, then one block per data source with Genie's thoughts and queries under it;
-// running steps pulse, finished ones get a tick. Long text wraps to two lines (the full text is in the tooltip).
-const LIVE_STEPS_PER_SOURCE = 4;
+// One loader for the whole turn. The plan, then one block per data source with Genie's thoughts and queries under it,
+// every step shown in full; running steps pulse, finished ones get a tick.
 
 const elapsed = (ms: number) => {
   const s = Math.max(0, Math.round(ms / 1000));
@@ -29,45 +28,42 @@ function Step({ item }: { item: TraceItem }) {
     return (
       <li className={`trace__step trace__step--query is-${item.status ?? 'running'}`}>
         <Status status={item.status} pulse />
-        <span className="trace__clamp" title={text}>{text}</span>
+        <span className="trace__text">{text}</span>
       </li>
     );
   }
   return (
     <li className={`trace__step trace__step--${item.step ?? 'thought'}${item.status === 'error' ? ' is-error' : ''}`}>
-      <span className="trace__clamp" title={text}>{text}</span>
+      {text}
     </li>
   );
 }
 
-function Source({ item, steps, live }: { item: TraceItem; steps: TraceItem[]; live: boolean }) {
-  const shown = live ? steps.slice(-LIVE_STEPS_PER_SOURCE) : steps;
-  const hidden = steps.length - shown.length;
+function Source({ item, steps }: { item: TraceItem; steps: TraceItem[] }) {
   return (
     <li className={`trace__source is-${item.status ?? 'running'}`}>
       <div className="trace__source-head">
         <Status status={item.status} />
         <span className="trace__source-name">{item.label}</span>
       </div>
-      {item.text && <p className="trace__question trace__clamp" title={item.text}>{item.text}</p>}
-      {shown.length > 0 && (
+      {item.text && <p className="trace__question">{item.text}</p>}
+      {steps.length > 0 && (
         <ul className="trace__steps">
-          {hidden > 0 && <li className="trace__step trace__step--more">{hidden} earlier {hidden === 1 ? 'step' : 'steps'}</li>}
-          {shown.map((s) => <Step key={s.id} item={s} />)}
+          {steps.map((s) => <Step key={s.id} item={s} />)}
         </ul>
       )}
     </li>
   );
 }
 
-function Timeline({ trace, live }: { trace: TraceItem[]; live: boolean }) {
+function Timeline({ trace }: { trace: TraceItem[] }) {
   const sources = new Set(trace.filter((t) => t.kind === 'tool').map((t) => t.id));
   const stepsOf = (id: string) => trace.filter((t) => t.kind === 'progress' && t.parent === id && (t.text || t.step !== 'query'));
   return (
     <ul className="trace__timeline">
       {trace.map((t) => {
         if (t.kind === 'note') return t.text ? <li key={t.id} className="trace__plan">{t.text}</li> : null; // an emptied note became the answer
-        if (t.kind === 'tool') return <Source key={t.id} item={t} steps={stepsOf(t.id)} live={live} />;
+        if (t.kind === 'tool') return <Source key={t.id} item={t} steps={stepsOf(t.id)} />;
         // A progress line whose source is unknown stands on its own.
         if (t.kind === 'progress' && !(t.parent && sources.has(t.parent)) && t.text) return <ul key={t.id} className="trace__steps"><Step item={t} /></ul>;
         return null;
@@ -103,7 +99,7 @@ export default function TraceView({ trace, pending, startedAt, endedAt }: { trac
           <span className="trace__headline">{headline(trace)}…</span>
           <span className="trace__time">{elapsed(now - startedAt)}</span>
         </div>
-        <Timeline trace={trace} live />
+        <Timeline trace={trace} />
       </div>
     );
   }
@@ -126,7 +122,7 @@ export default function TraceView({ trace, pending, startedAt, endedAt }: { trac
       </button>
       {open && (
         <div className="trace__record">
-          <Timeline trace={trace} live={false} />
+          <Timeline trace={trace} />
           {model && <p className="trace__model">{model.label}: {model.text}</p>}
         </div>
       )}

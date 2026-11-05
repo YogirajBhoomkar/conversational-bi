@@ -74,6 +74,12 @@ describe('parseGenieChartJson', () => {
     expect(SUPPORTED_CHART_TYPES).not.toContain('radar');
   });
 
+  it('keeps the table but draws nothing for a single data point', () => {
+    const r = parseGenieChartJson(['c'], [[blob({ data: [{ 'Underwriting Year': 2023, Region: 'APAC', 'FOT Premium USD': 1 }] })]])!;
+    expect(r.chart).toBeNull();
+    expect(r.rows).toEqual([[2023, 'APAC', 1]]);
+  });
+
   it('returns null for results that are not chart JSON', () => {
     expect(parseGenieChartJson(['a', 'b'], [['1', '2']])).toBeNull();
     expect(parseGenieChartJson(['c'], [['not json']])).toBeNull();

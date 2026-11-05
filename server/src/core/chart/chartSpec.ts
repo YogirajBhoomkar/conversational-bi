@@ -50,6 +50,8 @@ export const parseGenieChartJson = (columns: string[], rows: unknown[][]) => {
   // A flow needs at least two dimensions and a heatmap needs a second one (the series); otherwise there is nothing to draw.
   const complete = type && dims.length >= (type === 'sankey' ? 2 : 1) && (type !== 'heatmap' || color);
   const numericY = tableRows.every((r) => r[cols.indexOf(j.y)] === null || Number.isFinite(Number(r[cols.indexOf(j.y)])));
+  // A single data point has nothing to compare against: the answer and the table say it better than a chart.
+  if (tableRows.length < 2) return { columns: cols, rows: tableRows, chart: null };
   if (!complete || !numericY) {
     console.warn(`[chart] not drawing: type="${j.type}" numericY=${numericY}. Supported types: ${SUPPORTED_CHART_TYPES.join(', ')}.`);
     return { columns: cols, rows: tableRows, chart: null };
