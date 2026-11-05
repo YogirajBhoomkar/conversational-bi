@@ -35,13 +35,14 @@ export const createAskGenieTool = (space: GenieSpace, client: GenieClient) =>
         onProgress: (text) => collector.emit?.(text),
       });
       if (result.conversationId) setConversationId(threadId, space.spaceId, result.conversationId);
-      // If Genie answered with chart JSON, swap in the real table and build the chart from it (in code).
-      // A later answer from the same space replaces its chart; an answer from another space (one turn often asks
-      // several) leaves it in place.
-      const fromJson = parseGenieChartJson(result.columns, result.rows);
+      // If Genie answered with chart JSON, build the chart from it (in code). The JSON comes either as the result itself
+      // (a one-cell table) or, in Agent mode, next to a real table; the chart's data stands in for the table only when
+      // there is no real one. A later answer from the same space replaces its chart; an answer from another space
+      // (one turn often asks several) leaves it in place.
+      const fromJson = result.chartJson ? parseGenieChartJson(['chart_json'], [[result.chartJson]]) : parseGenieChartJson(result.columns, result.rows);
       if (fromJson?.chart) collector.chart = { spaceId: space.spaceId, spec: fromJson.chart };
       else if (collector.chart?.spaceId === space.spaceId) collector.chart = null;
-      if (fromJson) {
+      if (fromJson && !(result.chartJson && result.columns.length)) {
         result.columns = fromJson.columns;
         result.rows = fromJson.rows;
         result.totalRows = fromJson.rows.length;

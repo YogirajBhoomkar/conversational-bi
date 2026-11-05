@@ -60,8 +60,8 @@ describe('DatabricksGenieAgentClient', () => {
       ev('response.completed', { response: { id: 'm2', status: 'completed' } }),
     ].join('');
     const r = await client(new Response(streamOf(stream), { status: 200 })).ask({ spaceId: 's', question: 'chart it' });
-    expect(r.columns).toEqual(['chart_json']);
-    expect(r.rows).toEqual([[chart]]);
+    expect(r.chartJson).toBe(chart);
+    expect(r.columns).toEqual([]); // no table query ran; the tool builds the table from the chart data
     expect(r.sql).toBe('SELECT to_json(...) AS chart_json');
     expect(r.summary).toBe('## Premium\n\nPremium grew.'); // Databricks' embedChart placeholder removed
   });
@@ -83,9 +83,29 @@ describe('DatabricksGenieAgentClient', () => {
     }) as unknown as typeof fetch));
     const r = await c.ask({ spaceId: 's', question: 'chart it' });
     expect(urls).toEqual(['/api/2.0/sql/statements/s3']);
-    expect(r.columns).toEqual(['chart_json']);
-    expect(r.rows).toEqual([[chart]]); // the complete JSON, not the cut-off copy
+    expect(r.chartJson).toBe(chart); // the complete JSON, not the cut-off copy
     expect(r.error).toBeNull();
+  });
+
+  it('keeps both when Genie runs a chart query and a table query side by side', async () => {
+    const chart = JSON.stringify({ type: 'column', title: 'T', x: 'Region', y: 'Limit', data: [{ Region: 'APAC', Limit: 5 }] });
+    const stream = [
+      ev('response.created', { response: { id: 'm4', conversation_id: 'c4' } }),
+      item({ type: 'function_call', call_id: 'a', arguments: JSON.stringify({ title: 'Chart: limit', sql: 'SELECT to_json(...) AS chart_json' }) }),
+      item({ type: 'function_call', call_id: 'b', arguments: JSON.stringify({ title: 'Table: limit', sql: 'SELECT region, limit' }) }),
+      item({ type: 'function_call_output', call_id: 'b', output: '| Region | Limit |', metadata: { statement_id: 'table-stmt' } }),
+      item({ type: 'function_call_output', call_id: 'a', output: `| chart_json |\n| ${chart.slice(0, 30)}... |`, metadata: { statement_id: 'chart-stmt' } }),
+      item({ type: 'message', content: [{ type: 'output_text', text: '| t |', metadata: { sql: 'SELECT region, limit', columns: [{ name: 'Region' }, { name: 'Limit' }], preview_rows: [['APAC', 5]], total_row_count: 1 } }] }),
+    ].join('');
+    const urls: string[] = [];
+    const c = new DatabricksGenieAgentClient({ getToken: async () => 't' }, options((async (u: string) => {
+      if (String(u).includes('/responses')) return new Response(streamOf(stream), { status: 200 });
+      urls.push(new URL(u).pathname);
+      return new Response(JSON.stringify({ manifest: { total_row_count: 1, schema: { columns: [{ name: 'chart_json' }] } }, result: { data_array: [[chart]] } }), { status: 200 });
+    }) as unknown as typeof fetch));
+    const r = await c.ask({ spaceId: 's', question: 'chart and table' });
+    expect(urls).toEqual(['/api/2.0/sql/statements/chart-stmt']);
+    expect(r).toMatchObject({ chartJson: chart, columns: ['Region', 'Limit'], rows: [['APAC', 5]], statementId: 'table-stmt' });
   });
 
   it('pages through statement chunks and honours the row cap', async () => {

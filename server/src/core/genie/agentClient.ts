@@ -8,9 +8,9 @@ const CITATION = /\\?\[\[\d+\]\([^)]*\)\\?\]/g;
 // Databricks' own UI placeholder for a chart it would draw, e.g. :embedChart{:chart[uuid]}. Meaningless outside its UI.
 const EMBED_CHART = /:embedChart\{[^}]*\}\}?/g;
 
-// A chart request makes Genie run a `chart_json` query. That JSON only appears in the query output (a markdown table
-// with one JSON cell), not in the final message's result section. When the output is complete, pull it out so the
-// normal chart path can use it (otherwise `ask` loads it by statement id, see below).
+// A chart request makes Genie run a `chart_json` query, often next to a separate table query. The JSON only appears
+// in that query's output (a markdown table with one JSON cell), not in the final message's result section, which
+// holds the table. When the output is complete, pull it out (otherwise `ask` loads it by statement id, see below).
 const chartJsonOf = (output: string): string | null => {
   const start = output.indexOf('{');
   const end = output.lastIndexOf('}');
@@ -28,6 +28,7 @@ const chartJsonOf = (output: string): string | null => {
 type ResultMetadata = { sql?: string; columns?: Array<{ name: string }>; preview_rows?: unknown[][]; total_row_count?: number };
 type Item = {
   type: string;
+  call_id?: string;
   output?: string;
   metadata?: { statement_id?: string };
   arguments?: string;
@@ -40,7 +41,10 @@ type StreamEvent = {
   message?: string;
   error?: { message?: string };
 };
-type StatementChunk = { data_array?: unknown[][]; external_links?: unknown[]; next_chunk_internal_link?: string };
+// What one streamed answer accumulates besides the result: prose parts, queries still waiting for their output,
+// and the statement of a chart query whose JSON arrived cut off.
+type TurnState = { texts: string[]; calls: Array<{ callId?: string; isChart: boolean }>; chartStatementId: string | null };
+type StatementChunk ={ data_array?: unknown[][]; external_links?: unknown[]; next_chunk_internal_link?: string };
 type StatementPage = StatementChunk & { manifest?: { schema?: { columns?: Array<{ name: string }> }; total_row_count?: number }; result?: StatementChunk };
 
 // Genie Agent mode (GA; the Agent mode APIs went generally available on 27 Aug 2026, only the Flash option is Beta):
@@ -93,7 +97,7 @@ export class DatabricksGenieAgentClient implements GenieClient {
       );
       if (!res.ok || !res.body) throw new Error(`Genie agent responses failed: ${res.status} ${(await res.text()).slice(0, 300)}`);
 
-      const texts: string[] = [];
+      const turn: TurnState = { texts: [], calls: [], chartStatementId: null };
       for await (const data of sseData(res.body)) {
         switch (data.type) {
           case 'response.created':
@@ -101,7 +105,7 @@ export class DatabricksGenieAgentClient implements GenieClient {
             result.messageId = run.messageId = data.response?.id ?? run.messageId;
             break;
           case 'response.output_item.done':
-            if (data.item) this.onItem(data.item, result, texts, onProgress);
+            if (data.item) this.onItem(data.item, result, turn, onProgress);
             break;
           case 'response.failed':
             throw new GenieRunFailed(data.response?.error?.message ?? 'Genie agent failed');
@@ -111,15 +115,16 @@ export class DatabricksGenieAgentClient implements GenieClient {
       }
       // The stream cuts long query output off mid-way (~600 chars), so a chart's JSON often arrives incomplete.
       // The query itself is intact: load the one-cell result by statement id.
-      if (!result.columns.length && result.statementId && /chart_json/i.test(result.sql ?? '')) {
+      if (!result.chartJson && turn.chartStatementId) {
         try {
-          const full = await this.fetchFullResult({ statementId: result.statementId, cap: 1, ...scope });
-          if (full.rows.length) Object.assign(result, { columns: full.columns, rows: full.rows, totalRows: 1 });
+          const full = await this.fetchFullResult({ statementId: turn.chartStatementId, cap: 1, ...scope });
+          const cell = full.rows[0]?.[0];
+          if (typeof cell === 'string') result.chartJson = cell;
         } catch (e) {
           console.warn('[genie] could not load chart JSON:', e instanceof Error ? e.message : e);
         }
       }
-      result.summary = texts.join('\n\n');
+      result.summary = turn.texts.join('\n\n');
       return result;
     } catch (error) {
       throw timeout.signal.aborted ? new Error('Genie timed out') : error;
@@ -128,7 +133,7 @@ export class DatabricksGenieAgentClient implements GenieClient {
     }
   }
 
-  private onItem(item: Item, result: GenieResult, texts: string[], onProgress?: (line: string) => void) {
+  private onItem(item: Item, result: GenieResult, turn: TurnState, onProgress?: (line: string) => void) {
     if (item.type === 'reasoning') {
       const text = (item.content ?? []).map((c) => c.text ?? '').join('').trim();
       if (text) {
@@ -137,21 +142,24 @@ export class DatabricksGenieAgentClient implements GenieClient {
       }
     } else if (item.type === 'function_call') {
       let title = '';
+      let sql = '';
       try {
         const call = JSON.parse(item.arguments ?? '{}') as { title?: string; sql?: string };
         title = call.title ?? '';
-        result.sql ??= call.sql ?? null; // the message's result section may be missing (chart answers); keep the SQL anyway
+        sql = call.sql ?? '';
+        result.sql ??= sql || null; // the message's result section may be missing (chart answers); keep the SQL anyway
       } catch { /* arguments not JSON; fall back to a generic line */ }
+      turn.calls.push({ callId: item.call_id, isChart: /chart_json/i.test(sql) });
       onProgress?.(title ? `Running query: ${title}` : 'Running a query…');
     } else if (item.type === 'function_call_output') {
-      result.statementId = item.metadata?.statement_id ?? result.statementId;
+      // Pair the output with its call: by call id when Genie sends one, otherwise in the order the calls were made.
+      const i = item.call_id ? turn.calls.findIndex((c) => c.callId === item.call_id) : 0;
+      const [call] = i >= 0 ? turn.calls.splice(i, 1) : [];
+      const statementId = item.metadata?.statement_id ?? null;
       const chartJson = chartJsonOf(item.output ?? '');
-      if (chartJson) {
-        // Same shape chat mode returns for chart answers, so one code path turns it into a table and a chart.
-        result.columns = ['chart_json'];
-        result.rows = [[chartJson]];
-        result.totalRows = 1;
-      }
+      if (chartJson) result.chartJson = chartJson;
+      else if (call?.isChart && statementId) turn.chartStatementId = statementId;
+      if (!call?.isChart) result.statementId = statementId ?? result.statementId; // "show all rows" reloads the table, not the chart
       onProgress?.('Query finished, reading the results…');
     } else if (item.type === 'message') {
       for (const part of item.content ?? []) {
@@ -165,7 +173,7 @@ export class DatabricksGenieAgentClient implements GenieClient {
           result.totalRows = meta.total_row_count ?? rows.length;
         } else if (part.text) {
           const text = part.text.replace(CITATION, '').replace(EMBED_CHART, '').replace(/\n{3,}/g, '\n\n').trim();
-          if (text) texts.push(text);
+          if (text) turn.texts.push(text);
         }
       }
     }

@@ -12,6 +12,7 @@ export const GenieResultSchema = z.object({
   thinking: z.array(z.string()),           // Genie's internal reasoning steps (query attachment "thoughts")
   suggestedQuestions: z.array(z.string()), // Genie's recommended follow-up questions
   statementId: z.string().nullable(),      // SQL statement id of the result, used to load the full result set (Agent mode)
+  chartJson: z.string().nullable().optional(), // Agent mode: chart JSON from a chart query run next to the table query
   conversationId: z.string(),
   messageId: z.string(),
   error: z.string().nullable(),

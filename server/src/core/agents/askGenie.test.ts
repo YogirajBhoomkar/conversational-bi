@@ -28,7 +28,7 @@ async function turn(answers: Array<[GenieSpace, (spaceId: string) => GenieResult
     const out = await createAskGenieTool(s, client).execute!({ question: 'q' }, { requestContext } as never);
     chartReady.push((out as { chartReady: boolean }).chartReady);
   }
-  return { chart: collector.chart, chartReady };
+  return { chart: collector.chart, chartReady, results: collector.results };
 }
 
 describe('ask-genie tool: which chart the turn keeps', () => {
@@ -39,6 +39,14 @@ describe('ask-genie tool: which chart the turn keeps', () => {
     const { chart, chartReady } = await turn([[placement, CHART], [capacity, TABLE]]);
     expect(chart?.spaceId).toBe('id-placement');
     expect(chartReady).toEqual([true, false]);
+  });
+
+  it('draws the chart from Agent mode chart JSON and keeps the real table next to it', async () => {
+    const withTable = (spaceId: string) => ({ ...TABLE(spaceId), chartJson });
+    const { chart, chartReady, results } = await turn([[placement, withTable]]);
+    expect(chart?.spec).toMatchObject({ type: 'bar', x: 'Region', y: 'Limit' });
+    expect(chartReady).toEqual([true]);
+    expect(results[0].columns).toEqual(['Region', 'Unused']);
   });
 
   it('drops a chart when the same space answers again without one', async () => {
