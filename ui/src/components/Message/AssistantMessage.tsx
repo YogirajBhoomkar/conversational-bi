@@ -40,9 +40,11 @@ export default function AssistantMessage({
         {m.error && <div className="msg__error">{m.error}</div>}
         {r && (
           <>
-            {r.chartSpec && r.chartSpec.data.length > 0 && (
-              <ChartCard spec={r.chartSpec} />
-            )}
+            {r.charts
+              .filter((c) => c.data.length > 0)
+              .map((c, i) => (
+                <ChartCard key={`${i}-${c.title}`} spec={c} />
+              ))}
             {r.columns.length > 0 && (
               <DataTableCard
                 columns={r.columns}

@@ -12,7 +12,7 @@ export const GenieResultSchema = z.object({
   thinking: z.array(z.string()),           // Genie's internal reasoning steps (query attachment "thoughts")
   suggestedQuestions: z.array(z.string()), // Genie's recommended follow-up questions
   statementId: z.string().nullable(),      // SQL statement id of the result, used to load the full result set (Agent mode)
-  chartJson: z.string().nullable().optional(), // Agent mode: chart JSON from a chart query run next to the table query
+  chartJsons: z.array(z.string()).optional(), // Agent mode: chart JSON of each chart query, in the order they ran
   conversationId: z.string(),
   messageId: z.string(),
   error: z.string().nullable(),
@@ -37,7 +37,8 @@ export const FinalAnswerSchema = z.object({
   columns: z.array(z.string()),
   rows: z.array(z.array(z.unknown())),
   totalRows: z.number(),                  // rows.length < totalRows => the UI is showing a preview
-  chartSpec: ChartSpecSchema.nullable(),  // null => UI shows table only
+  charts: z.array(ChartSpecSchema),       // every chart of the turn, in the order they came back; empty => table only
+  chartSpec: ChartSpecSchema.nullable(),  // @deprecated: the first of `charts` (null when none), for UIs that draw one chart
   sources: z.array(z.object({ spaceId: z.string(), spaceName: z.string(), question: z.string(), sql: z.string().nullable(), messageId: z.string(), conversationId: z.string() })),
   suggestedQuestions: z.array(z.string()),
 });

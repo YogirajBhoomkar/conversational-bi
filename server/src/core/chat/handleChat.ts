@@ -84,7 +84,8 @@ async function runTurn(deps: ChatDeps, ctx: BiRequestContext, { threadId: rawThr
       columns: withData?.columns ?? [],
       rows: withData?.rows ?? [],
       totalRows: withData?.totalRows ?? 0,
-      chartSpec: collector.chart?.spec ?? null,
+      charts: collector.charts,
+      chartSpec: collector.charts[0] ?? null,
       sources: sources.map((r) => ({
         spaceId: r.spaceId,
         spaceName: deps.registry.byId(r.spaceId)?.name ?? r.spaceId,

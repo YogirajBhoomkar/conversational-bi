@@ -41,7 +41,7 @@ All in `server/src/contracts.ts`. Each has a zod schema and a TypeScript type.
 | `conversationId`, `messageId` | Genie ids, used for follow-ups and feedback |
 | `error` | Error text, or null |
 
-**`FinalAnswer`**: what the browser gets in the `final` event. It holds the answer text, `columns`, `rows`, `totalRows`, `chartSpec` or null, `sources`, `suggestedQuestions`. If `rows.length < totalRows`, the UI shows a "preview" label.
+**`FinalAnswer`**: what the browser gets in the `final` event. It holds the answer text, `columns`, `rows`, `totalRows`, `charts` (a list, empty for table only; `chartSpec` is the deprecated first one), `sources`, `suggestedQuestions`. If `rows.length < totalRows`, the UI shows a "preview" label.
 
 **`ChartSpec`**: see [07a-charts.md](07a-charts.md).
 

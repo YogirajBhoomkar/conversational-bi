@@ -15,7 +15,8 @@ export type FinalAnswer = {
   columns: string[];
   rows: unknown[][];
   totalRows: number;
-  chartSpec: ChartSpec | null;
+  charts: ChartSpec[];
+  chartSpec: ChartSpec | null; // deprecated: the first of `charts`
   sources: Source[];
   suggestedQuestions: string[];
 };

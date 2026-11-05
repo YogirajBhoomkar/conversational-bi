@@ -20,7 +20,8 @@ export const createAskGenieTool = (space: GenieSpace, client: GenieClient) =>
       totalRows: z.number(),
       shownRows: z.number().describe('rows the UI table shows; if less than totalRows it is only a preview'),
       truncated: z.boolean(),
-      chartReady: z.boolean().describe('true when a chart for this result will be shown in the UI'),
+      chartReady: z.boolean().describe('true when at least one chart for this result will be shown in the UI'),
+      chartCount: z.number().describe('how many charts from this result the UI will show'),
       error: z.string().nullable(),
     }),
     execute: async ({ question }, { requestContext }) => {
@@ -35,18 +36,26 @@ export const createAskGenieTool = (space: GenieSpace, client: GenieClient) =>
         onProgress: (text) => collector.emit?.(text),
       });
       if (result.conversationId) setConversationId(threadId, space.spaceId, result.conversationId);
-      // If Genie answered with chart JSON, build the chart from it (in code). The JSON comes either as the result itself
-      // (a one-cell table) or, in Agent mode, next to a real table; the chart's data stands in for the table only when
-      // there is no real one. A later answer from the same space replaces its chart; an answer from another space
-      // (one turn often asks several) leaves it in place.
-      const fromJson = result.chartJson ? parseGenieChartJson(['chart_json'], [[result.chartJson]]) : parseGenieChartJson(result.columns, result.rows);
-      if (fromJson?.chart) collector.chart = { spaceId: space.spaceId, spec: fromJson.chart };
-      else if (collector.chart?.spaceId === space.spaceId) collector.chart = null;
-      if (fromJson && !(result.chartJson && result.columns.length)) {
-        result.columns = fromJson.columns;
-        result.rows = fromJson.rows;
-        result.totalRows = fromJson.rows.length;
-      } else if (result.columns.length === 1 && result.rows.length === 1) {
+      // Charts are built in code from Genie's chart JSON. It comes as the result itself (a one-cell table) and, in
+      // Agent mode, once per chart query next to any real table. Every chart is kept; the first chart's data stands in
+      // for the table only when there is no real one.
+      const fromTable = parseGenieChartJson(result.columns, result.rows);
+      const parsed = [...(result.chartJsons ?? []).map((j) => parseGenieChartJson(['chart_json'], [[j]])), fromTable].filter((p) => p !== null);
+      const seen = new Set(collector.charts.map((c) => JSON.stringify(c))); // the same chart can arrive twice (query output and result section)
+      let chartCount = 0;
+      for (const { chart } of parsed) {
+        const key = JSON.stringify(chart);
+        if (chart && !seen.has(key)) {
+          seen.add(key);
+          collector.charts.push(chart);
+          chartCount++;
+        }
+      }
+      if (parsed[0] && (fromTable || !result.columns.length)) {
+        result.columns = parsed[0].columns;
+        result.rows = parsed[0].rows;
+        result.totalRows = parsed[0].rows.length;
+      } else if (!parsed.length && result.columns.length === 1 && result.rows.length === 1) {
         // A one-cell result is usually chart JSON in a shape we don't recognise; log it to diagnose.
         console.warn(`[genie] unparsed single-cell result, column=${result.columns[0]}: ${String(result.rows[0][0]).slice(0, 300)}`);
       }
@@ -61,7 +70,8 @@ export const createAskGenieTool = (space: GenieSpace, client: GenieClient) =>
         totalRows: result.totalRows,
         shownRows: result.rows.length,
         truncated: result.totalRows > result.rows.length,
-        chartReady: Boolean(fromJson?.chart),
+        chartReady: chartCount > 0,
+        chartCount,
         error: result.error,
       };
     },

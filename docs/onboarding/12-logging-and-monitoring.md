@@ -40,7 +40,7 @@ I did not verify what Studio shows. That comes from the README.
 ## How to debug common problems
 
 **No chart appears.**
-1. In the Network tab, find the `final` event. Is `chartSpec` null?
+1. In the Network tab, find the `final` event. Is `charts` empty?
 2. If yes, look at the server console for `[chart] not drawing` or `[genie] unparsed single-cell result`.
 3. If it is not null but nothing draws, look at the browser console for `[chart] could not draw`. A server still running an old build is the usual cause. See [14-gotchas.md](14-gotchas.md).
 

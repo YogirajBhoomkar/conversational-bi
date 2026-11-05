@@ -60,7 +60,7 @@ describe('DatabricksGenieAgentClient', () => {
       ev('response.completed', { response: { id: 'm2', status: 'completed' } }),
     ].join('');
     const r = await client(new Response(streamOf(stream), { status: 200 })).ask({ spaceId: 's', question: 'chart it' });
-    expect(r.chartJson).toBe(chart);
+    expect(r.chartJsons).toEqual([chart]);
     expect(r.columns).toEqual([]); // no table query ran; the tool builds the table from the chart data
     expect(r.sql).toBe('SELECT to_json(...) AS chart_json');
     expect(r.summary).toBe('## Premium\n\nPremium grew.'); // Databricks' embedChart placeholder removed
@@ -83,7 +83,7 @@ describe('DatabricksGenieAgentClient', () => {
     }) as unknown as typeof fetch));
     const r = await c.ask({ spaceId: 's', question: 'chart it' });
     expect(urls).toEqual(['/api/2.0/sql/statements/s3']);
-    expect(r.chartJson).toBe(chart); // the complete JSON, not the cut-off copy
+    expect(r.chartJsons).toEqual([chart]); // the complete JSON, not the cut-off copy
     expect(r.error).toBeNull();
   });
 
@@ -105,7 +105,7 @@ describe('DatabricksGenieAgentClient', () => {
     }) as unknown as typeof fetch));
     const r = await c.ask({ spaceId: 's', question: 'chart and table' });
     expect(urls).toEqual(['/api/2.0/sql/statements/chart-stmt']);
-    expect(r).toMatchObject({ chartJson: chart, columns: ['Region', 'Limit'], rows: [['APAC', 5]], statementId: 'table-stmt' });
+    expect(r).toMatchObject({ chartJsons: [chart], columns: ['Region', 'Limit'], rows: [['APAC', 5]], statementId: 'table-stmt' });
   });
 
   it('pages through statement chunks and honours the row cap', async () => {

@@ -65,7 +65,7 @@ Notice that the collector travels inside the request context. That is how tools 
 
 **7. Genie.** The tool calls `client.ask`. In the default mode (`server/src/genie/client.ts`) the client starts a conversation, then polls the message every 1 to 5 seconds until it is `COMPLETED`, fails, or 180 seconds pass. Each status change and each reasoning step goes to `onProgress`. The tool sends each line to the scratchpad with `collector.emit`, under the Ask Genie entry that is running.
 
-**8. Chart JSON becomes a chart spec.** For a chart question, Genie returns one cell holding JSON. `parseGenieChartJson` (`server/src/mastra/chartSpec.ts`) reads it, builds the real table, and builds a `ChartSpec`. The tool stores both in the collector. It also sets `collector.chart`. The chart always belongs to the **latest** result, so a later non-chart answer clears it.
+**8. Chart JSON becomes a chart spec.** For a chart question, Genie returns one cell holding JSON. `parseGenieChartJson` (`server/src/mastra/chartSpec.ts`) reads it, builds the real table, and builds a `ChartSpec`. The tool stores both in the collector. It also adds the chart to `collector.charts`. Every chart of the turn is kept (once each), so one answer can show several.
 
 **9. The tool answers the AI.** The tool returns a short object to the agent: summary, SQL, columns, 20 sample rows, `chartReady` and so on. The AI model never sees the full table.
 

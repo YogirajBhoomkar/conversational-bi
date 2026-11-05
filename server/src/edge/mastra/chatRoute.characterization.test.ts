@@ -143,6 +143,7 @@ describe('POST /bi/chat (characterization)', () => {
           columns: ['n'],
           rows: [[42]],
           totalRows: 1,
+          charts: [],
           chartSpec: null,
           sources: [{ spaceId: 'space-a', spaceName: 'Lab – Placement Core', question: 'How many placements?', sql: 'SELECT count(*) FROM p', messageId: 'msg-1', conversationId: 'conv-1' }],
           suggestedQuestions: [],

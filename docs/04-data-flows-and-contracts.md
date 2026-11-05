@@ -171,7 +171,7 @@ sequenceDiagram
     GA->>COL: table + chart saved
     GA-->>SUP: summary, chartReady = true
     SUP-->>UI: answer text
-    COL-->>UI: final event with table and chartSpec
+    COL-->>UI: final event with table and charts
     UI->>UI: chart library draws the chart
 ```
 
@@ -283,7 +283,8 @@ Skipped for small talk, clarifying questions and errors. If the suggestion step 
 | `answer` | The supervisor's written answer |
 | `columns`, `rows` | The table: from the **last** Genie result that had columns |
 | `totalRows` | Real row count. If bigger than `rows.length`, the table is a preview |
-| `chartSpec` | The chart spec (`type`, `x`, `y`, `color`, `xType`, `data`) or `null` |
+| `charts` | Every chart of the turn (`type`, `x`, `y`, `color`, `xType`, `data` each), in order; empty for table only |
+| `chartSpec` | Deprecated: the first of `charts`, or `null` |
 | `sources` | One entry per Genie message: space name, question, SQL, ids. Used for the SQL sections and feedback |
 | `suggestedQuestions` | Usually empty here; filled later by the `suggestions` event |
 

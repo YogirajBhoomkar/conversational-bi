@@ -263,7 +263,7 @@ Also has `getCollector(requestContext)` and `getThreadId(requestContext)` helper
 * **Does:**
   1. Calls the Genie client with the question, the stored conversation id, the person's session, and a callback that streams "thinking" lines to the browser.
   2. Saves the conversation id for follow-ups.
-  3. If the result is chart data (one cell of JSON), converts it to a real table and a chart (see `chartSpec.ts`). The chart always belongs to the **latest** result, so a later non-chart answer clears an earlier chart.
+  3. If the result is chart data (one cell of JSON), converts it to a real table and a chart (see `chartSpec.ts`). In Agent mode each chart query's JSON comes separately (`chartJsons`), next to any real table. Every chart of the turn is kept, once each, so one answer can show several charts from one or more spaces.
   4. Puts the full result in the collector and remembers it as the "last result".
 * **Comes out (to the AI):** a *short* package only: `summary`, `sql`, `columns`, up to 20 `sampleRows`, `totalRows`, `shownRows`, `truncated` (true if the table is only a preview), `chartReady` (true if a chart will be shown), `error`.
 

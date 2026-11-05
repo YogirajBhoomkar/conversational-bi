@@ -34,7 +34,7 @@ flowchart TD
 | Shape | Meaning |
 |-------|---------|
 | `Source` | One Genie call: space name, the question asked, the SQL, message and conversation ids |
-| `FinalAnswer` | Answer text, `columns`, `rows`, `totalRows`, `chartSpec`, `sources`, `suggestedQuestions` |
+| `FinalAnswer` | Answer text, `columns`, `rows`, `totalRows`, `charts` (plus the deprecated `chartSpec`, the first chart), `sources`, `suggestedQuestions` |
 | `ChatEvent` | One streamed message: `step`, `thinking`, `text`, `final`, `suggestions`, `error` |
 | `Message` | One chat bubble. Either the user's text, or an assistant bubble with `text`, `steps` (progress), `thinking` (log lines), optional `result`, optional `error`, and `pending` (still working?) |
 
@@ -146,7 +146,7 @@ flowchart TD
 
 **Good to know:**
 * Clicking a suggested follow-up calls `onAsk`, which is the chat's `send`. The buttons are disabled while an answer is being produced.
-* The chart is drawn only if the server sent a `chartSpec`. No chart spec means table only. The server builds the chart description from Genie's chart data; the browser's only job is to draw it.
+* Every chart in `charts` is drawn, in order. An empty list means table only. The server builds the chart description from Genie's chart data; the browser's only job is to draw it.
 
 ---
 
