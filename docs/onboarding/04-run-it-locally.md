@@ -25,8 +25,8 @@ Then fill in `server/.env`. Never commit it. At minimum:
 | Name | Value |
 |---|---|
 | `DATABRICKS_SERVER_HOSTNAME` | `<your-databricks-host>` |
-| `DATABRICKS_GENIE_SPACE_ID` | `<placement-genie-space-id>` |
-| `DATABRICKS_GENIE_CAPACITY_SPACE_ID` | `<capacity-genie-space-id>` |
+| `BI_SPACE_ID_PLACEMENT` | `<placement-genie-space-id>` |
+| `BI_SPACE_ID_CAPACITY` | `<capacity-genie-space-id>` |
 | `ANTHROPIC_API_KEY` | `<anthropic-api-key>` |
 | `DATABRICKS_TOKEN` | `<personal-access-token>` (dev only) |
 

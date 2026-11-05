@@ -88,7 +88,7 @@ flowchart TD
 
 Each entry has a `description`. **The supervisor reads these descriptions to decide who gets a question**, so they must be specific.
 
-**Goes in:** Environment variables `DATABRICKS_GENIE_SPACE_ID` and `DATABRICKS_GENIE_CAPACITY_SPACE_ID`. If missing, built-in default ids are used.
+**Goes in:** Environment variables `BI_SPACE_ID_PLACEMENT` and `BI_SPACE_ID_CAPACITY`. If missing, built-in default ids are used.
 **Comes out:** The array `genieSpaces`, plus helpers `getSpaceByKey(key)` and `getSpaceById(id)`.
 **Talks to:** `agents/index.ts` builds one sub-agent for each entry. `mastra/index.ts` uses it to show the space name next to the SQL.
 

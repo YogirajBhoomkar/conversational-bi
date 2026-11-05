@@ -18,7 +18,7 @@ const EXAMPLES = files({
   [EXAMPLE_DOMAIN_RULES_FILE]: 'Year means underwriting year.\n',
 });
 
-const LOCAL = { DATABRICKS_SERVER_HOSTNAME: 'https://ws.example/', DATABRICKS_TOKEN: 'secret-pat-value', ANTHROPIC_API_KEY: 'secret-model-key', DATABRICKS_GENIE_SPACE_ID: 'id-a', DATABRICKS_GENIE_CAPACITY_SPACE_ID: 'id-b' };
+const LOCAL = { DATABRICKS_SERVER_HOSTNAME: 'https://ws.example/', DATABRICKS_TOKEN: 'secret-pat-value', ANTHROPIC_API_KEY: 'secret-model-key', BI_SPACE_ID_PLACEMENT: 'id-a', BI_SPACE_ID_CAPACITY: 'id-b' };
 const GC = { BI_MODE: 'gc', DATABRICKS_SERVER_HOSTNAME: 'ws.example', ANTHROPIC_API_KEY: 'k', BI_SPACES_JSON: JSON.stringify([space('one', 'id-1')]) };
 
 const problemsOf = (env: Record<string, string | undefined>, io: ConfigIO = EXAMPLES): string[] => {
@@ -32,7 +32,7 @@ const problemsOf = (env: Record<string, string | undefined>, io: ConfigIO = EXAM
 };
 
 describe('loadConfig', () => {
-  it('keeps today\'s local behaviour: defaults, example spaces with the old id variables, example domain rules', () => {
+  it('keeps today\'s local behaviour: defaults, example spaces with ids from BI_SPACE_ID_<KEY>, example domain rules', () => {
     const { config, warnings } = loadConfig(LOCAL, EXAMPLES);
     expect(warnings).toEqual([]);
     expect(config).toMatchObject({
@@ -79,15 +79,13 @@ describe('loadConfig', () => {
     expect(loadConfig({ ...LOCAL, BI_MODEE: 'gc' }, EXAMPLES).warnings).toEqual(['BI_MODEE is not a known setting (a typo?); it is ignored']);
   });
 
-  it('gc mode: needs a spaces list, refuses a shared token and UI serving, ignores the old id variables and example files', () => {
+  it('gc mode: needs a spaces list, refuses a shared token and UI serving, does not fall back to the example files', () => {
     const { config } = loadConfig(GC, files({}));
     expect(config).toMatchObject({ mode: 'gc', domainRules: '', uiDist: undefined, databricks: { token: undefined, oauth: undefined } });
     expect(config.spaces.map((s) => s.spaceId)).toEqual(['id-1']);
 
     const problems = problemsOf({ ...GC, BI_SPACES_JSON: undefined, DATABRICKS_TOKEN: 't', UI_DIST: '/ui' }, files({}));
     expect(problems).toEqual(expect.arrayContaining([expect.stringMatching(/^BI_SPACES_FILE: /), expect.stringMatching(/^DATABRICKS_TOKEN: /), expect.stringMatching(/^UI_DIST: /)]));
-
-    expect(loadConfig({ ...GC, DATABRICKS_GENIE_SPACE_ID: 'legacy' }, files({})).config.spaces[0].spaceId).toBe('id-1');
   });
 
   it('reads spaces from a file and domain rules from a file', () => {
@@ -111,9 +109,15 @@ describe('loadConfig', () => {
     expect(problemsOf({ ...GC, BI_SPACES_JSON: undefined, BI_SPACES_FILE: 'missing.json' }, files({}))).toEqual(['BI_SPACES_FILE: could not be read']);
   });
 
-  it('local mode: a space id left as REPLACE_ME says which variable to set', () => {
-    const problems = problemsOf({ ...LOCAL, DATABRICKS_GENIE_CAPACITY_SPACE_ID: undefined });
-    expect(problems).toEqual(['BI_SPACES_FILE[1.spaceId]: still the placeholder REPLACE_ME: set DATABRICKS_GENIE_CAPACITY_SPACE_ID in server/.env']);
+  it('a space id left as REPLACE_ME names the variable for that space key', () => {
+    const problems = problemsOf({ ...LOCAL, BI_SPACE_ID_CAPACITY: undefined });
+    expect(problems).toEqual(['BI_SPACES_FILE[1.spaceId]: still the placeholder REPLACE_ME: set BI_SPACE_ID_CAPACITY (in server/.env when running locally)']);
+  });
+
+  it('takes the id of any space from BI_SPACE_ID_<KEY>, in every mode, and warns about one with no matching space', () => {
+    const { config, warnings } = loadConfig({ ...GC, BI_SPACE_ID_ONE: 'from-env', BI_SPACE_ID_NOPE: 'x' }, files({}));
+    expect(config.spaces[0].spaceId).toBe('from-env');
+    expect(warnings).toEqual(['BI_SPACE_ID_NOPE is set but no space has that key; it is ignored']);
   });
 
   it('resolves relative files from the server folder, also when Mastra runs the build from .mastra/output', () => {

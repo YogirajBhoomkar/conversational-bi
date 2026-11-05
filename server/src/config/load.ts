@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { GenieSpace } from '../contracts';
 import { crossCheck, SettingsSchema, type Settings } from './schema';
-import { type ConfigIO, loadSpaces } from './spaces';
+import { type ConfigIO, loadSpaces, SPACE_ID_PREFIX } from './spaces';
 
 // Databricks per-user login (local mode): the workspace host, the OAuth app's client id and the callback address.
 export type OAuthSettings = { host: string; clientId: string; redirectUri: string };
@@ -53,7 +53,7 @@ export function loadConfig(env: Record<string, string | undefined>, io: ConfigIO
   const given = Object.fromEntries(Object.entries(env).filter(([, v]) => v !== undefined && v.trim() !== ''));
   const known = new Set(Object.keys(SettingsSchema.shape));
   const warnings = Object.keys(given)
-    .filter((k) => k.startsWith('BI_') && !known.has(k))
+    .filter((k) => k.startsWith('BI_') && !known.has(k) && !k.startsWith(SPACE_ID_PREFIX))
     .map((k) => `${k} is not a known setting (a typo?); it is ignored`);
 
   const parsed = SettingsSchema.safeParse(given);
@@ -61,7 +61,8 @@ export function loadConfig(env: Record<string, string | undefined>, io: ConfigIO
   const s = parsed.data;
 
   const problems = crossCheck(s).map((p) => `${p.name}: ${p.message}`);
-  const spaces = loadSpaces(s, io);
+  const spaceIds = Object.fromEntries(Object.entries(given).filter(([k]) => k.startsWith(SPACE_ID_PREFIX))) as Record<string, string>;
+  const spaces = loadSpaces(s, io, spaceIds);
   problems.push(...spaces.problems.map((p) => `${p.name}: ${p.message}`));
   warnings.push(...spaces.warnings);
   const domainRules = readDomainRules(s, io, problems);

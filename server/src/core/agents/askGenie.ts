@@ -4,6 +4,7 @@ import type { ChartSpec, GenieClient, GenieSpace } from '../../contracts';
 import { getConversationId, getLastResult, setConversationId, setLastResult } from '../genie/conversations';
 import { getCaller, getCollector, getSignal, getThreadId } from '../chat/collector';
 import { parseGenieChartJson } from '../chart/chartSpec';
+import { askToolName, fetchFullToolName } from './prompts';
 
 // What a chart shows, whatever its type and title: the same fields over the same rows (in any order; a line chart
 // sorts its rows by date).
@@ -12,7 +13,7 @@ const viewOf = ({ x, y, color, path, data }: ChartSpec) =>
 
 export const createAskGenieTool =(space: GenieSpace, client: GenieClient) =>
   createTool({
-    id: `ask-${space.key}`,
+    id: askToolName(space.key),
     description: `Ask the Databricks Genie space "${space.name}" a natural-language data question. ${space.description}`,
     inputSchema: z.object({
       question: z.string().describe('A self-contained natural-language data question'),
@@ -84,7 +85,7 @@ export const createAskGenieTool =(space: GenieSpace, client: GenieClient) =>
 // Loads the complete result of this space's previous query when the user asked for all rows (the UI otherwise shows a preview).
 export const createFetchFullResultsTool = (space: GenieSpace, client: GenieClient, fullRowCap: number) =>
   createTool({
-    id: `fetch-full-${space.key}`,
+    id: fetchFullToolName(space.key),
     description: `Load ALL rows of the previous "${space.name}" query into the UI table. Only use this after the user has asked for the full/complete results.`,
     inputSchema: z.object({}),
     outputSchema: z.object({ ok: z.boolean(), message: z.string(), totalRows: z.number(), shownRows: z.number() }),

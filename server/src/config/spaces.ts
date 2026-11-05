@@ -31,12 +31,14 @@ export type ConfigIO = { readFile(path: string): string; resolve(path: string): 
 
 export const EXAMPLE_SPACES_FILE = 'config/examples/spaces.example.json';
 
-// Older .env files name these two spaces' ids directly. Honoured in local mode only, never with a built-in id.
-const LEGACY_SPACE_IDS = { placement: 'DATABRICKS_GENIE_SPACE_ID', capacity: 'DATABRICKS_GENIE_CAPACITY_SPACE_ID' } as const;
+// A space's id can also come from the environment, for any key: BI_SPACE_ID_<KEY in capitals>. It wins over the file,
+// so one spaces file serves every environment (dev, QC, UAT) and the ids come from that environment's settings.
+export const SPACE_ID_PREFIX = 'BI_SPACE_ID_';
+export const spaceIdVar = (key: string) => `${SPACE_ID_PREFIX}${key.toUpperCase()}`;
 
 type Problem = { name: string; message: string };
 
-export function loadSpaces(s: Settings, io: ConfigIO): { spaces: GenieSpace[]; problems: Problem[]; warnings: string[] } {
+export function loadSpaces(s: Settings, io: ConfigIO, spaceIds: Record<string, string> = {}): { spaces: GenieSpace[]; problems: Problem[]; warnings: string[] } {
   const source = s.BI_SPACES_JSON ? 'BI_SPACES_JSON' : 'BI_SPACES_FILE';
   const warnings: string[] = [];
   let raw: unknown;
@@ -52,13 +54,12 @@ export function loadSpaces(s: Settings, io: ConfigIO): { spaces: GenieSpace[]; p
     return { spaces: [], problems: [{ name: source, message: why }], warnings };
   }
 
-  if (s.BI_MODE === 'local' && Array.isArray(raw)) {
-    for (const [key, name] of Object.entries(LEGACY_SPACE_IDS)) {
-      const id = s[name];
-      if (!id) continue;
-      const entry = raw.find((e): e is { key: string; spaceId?: string } => typeof e === 'object' && e !== null && (e as { key?: unknown }).key === key);
+  if (Array.isArray(raw)) {
+    const entries = raw.filter((e): e is { key: string; spaceId?: string } => typeof e === 'object' && e !== null && typeof (e as { key?: unknown }).key === 'string');
+    for (const [name, id] of Object.entries(spaceIds)) {
+      const entry = entries.find((e) => spaceIdVar(e.key) === name);
       if (entry) entry.spaceId = id;
-      else warnings.push(`${name} is set but there is no space with key "${key}"; it is ignored`);
+      else warnings.push(`${name} is set but no space has that key; it is ignored`);
     }
   }
 
@@ -67,16 +68,13 @@ export function loadSpaces(s: Settings, io: ConfigIO): { spaces: GenieSpace[]; p
     const keyAt = (i: PropertyKey | undefined) => (Array.isArray(raw) && typeof i === 'number' ? (raw[i] as { key?: unknown } | undefined)?.key : undefined);
     return {
       spaces: [],
-      problems: parsed.error.issues.map((i) => ({ name: `${source}${i.path.length ? `[${i.path.join('.')}]` : ''}`, message: hint(s, i.message, keyAt(i.path[0])) })),
+      problems: parsed.error.issues.map((i) => ({ name: `${source}${i.path.length ? `[${i.path.join('.')}]` : ''}`, message: hint(i.message, keyAt(i.path[0])) })),
       warnings,
     };
   }
   return { spaces: parsed.data, problems: [], warnings };
 }
 
-// In local mode a placeholder id usually means the space id is missing from .env: name the variable to set.
-const hint = (s: Settings, message: string, key: unknown) => {
-  if (s.BI_MODE !== 'local' || !message.includes('REPLACE_ME')) return message;
-  const name = LEGACY_SPACE_IDS[key as keyof typeof LEGACY_SPACE_IDS];
-  return `${message}: ${name ? `set ${name} in server/.env` : 'set the space id in the spaces file'}`;
-};
+// A placeholder id means the space's id has not been given: name the variable that sets it.
+const hint = (message: string, key: unknown) =>
+  message.includes('REPLACE_ME') && typeof key === 'string' ? `${message}: set ${spaceIdVar(key)} (in server/.env when running locally)` : message;

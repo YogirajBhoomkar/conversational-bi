@@ -2,6 +2,7 @@
 // Written by `npm run env:example`; envExample.test.ts fails when the committed file is out of date.
 import { z } from 'zod';
 import { type SettingName, SettingsSchema, settingMeta } from './schema';
+import { spaceIdVar } from './spaces';
 
 const HEADER = `# Generated from server/src/config/schema.ts by "npm run env:example". Do not edit by hand.
 # Copy this file to server/.env for local development and fill in the values. Never commit server/.env.
@@ -11,7 +12,14 @@ const HEADER = `# Generated from server/src/config/schema.ts by "npm run env:exa
 # An empty value (NAME=) counts as not set, so the default applies.
 # The full list for a deployment, with who provides each value, is in docs/lift/GC-CONFIG.md.`;
 
-const defaultOf = (name: SettingName): string | undefined => {
+// The per-space id variables are named after the space keys in the spaces file, so they are not in the schema.
+const SPACE_ID_LINES = [
+  `# The Genie space id of each space, one line per space key: ${spaceIdVar('<key>')} (the key in capitals). Wins over the spaceId in the`,
+  '# spaces file, so one file can serve every environment. Needed for every space whose spaceId is REPLACE_ME (the example file).',
+  `# ${spaceIdVar('<key>')}=`,
+];
+
+const defaultOf =(name: SettingName): string | undefined => {
   const r = SettingsSchema.shape[name].safeParse(undefined);
   return r.success && r.data !== undefined ? String(r.data) : undefined;
 };
@@ -35,6 +43,7 @@ export function renderEnvExample(): string {
     const notes = [meta.secret ? 'SECRET.' : '', options ? `One of: ${options.join(', ')}.` : ''].filter(Boolean).join(' ');
     out.push(`# ${SettingsSchema.shape[name].description}${notes ? ` ${notes}` : ''}`);
     out.push(meta.required ? `${name}=` : `# ${name}=${defaultOf(name) ?? meta.example ?? ''}`);
+    if (name === 'BI_SPACES_JSON') out.push(...SPACE_ID_LINES);
   }
   return `${out.join('\n')}\n`;
 }

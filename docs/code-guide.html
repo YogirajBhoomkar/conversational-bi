@@ -403,9 +403,9 @@ export type GenieSpace = { key: string; name: string; description: string; space
     key: 'placement',
     name: 'Lab – Placement Core',
     description: 'Insurance placement analytics: placement count, layer count, total limit and total FOT premium by ... Owns ALL placement, status, layer and FOT premium questions, including chart requests. ...',
-    spaceId: process.env.DATABRICKS_GENIE_SPACE_ID ?? '&lt;fallback-id&gt;',
+    spaceId: process.env.BI_SPACE_ID_PLACEMENT ?? '&lt;fallback-id&gt;',
   },
-  { key: 'capacity', name: 'Lab – Capacity &amp; Reinsurer', description: '...', spaceId: process.env.DATABRICKS_GENIE_CAPACITY_SPACE_ID ?? '&lt;fallback-id&gt;' },
+  { key: 'capacity', name: 'Lab – Capacity &amp; Reinsurer', description: '...', spaceId: process.env.BI_SPACE_ID_CAPACITY ?? '&lt;fallback-id&gt;' },
 ];
 export const getSpaceByKey = (key: string) =&gt; genieSpaces.find((s) =&gt; s.key === key);
 export const getSpaceById = (id: string) =&gt; genieSpaces.find((s) =&gt; s.spaceId === id);</code></pre>
@@ -1080,8 +1080,8 @@ export { Chart } from './RechartsChart';
 <tr><td><code>DATABRICKS_TOKEN</code></td><td><strong>yes</strong></td><td>Shared token for dev mode</td><td>none</td></tr>
 <tr><td><code>DATABRICKS_CLIENT_ID</code></td><td>no</td><td>Turns on per-user OAuth when set</td><td>unset (dev mode)</td></tr>
 <tr><td><code>DATABRICKS_REDIRECT_URI</code></td><td>no</td><td>Overrides the OAuth callback address</td><td><code>http://localhost:&lt;PORT&gt;/auth/callback</code></td></tr>
-<tr><td><code>DATABRICKS_GENIE_SPACE_ID</code></td><td>no</td><td>Placement Genie space</td><td>a fallback id in code</td></tr>
-<tr><td><code>DATABRICKS_GENIE_CAPACITY_SPACE_ID</code></td><td>no</td><td>Capacity Genie space</td><td>a fallback id in code</td></tr>
+<tr><td><code>BI_SPACE_ID_PLACEMENT</code></td><td>no</td><td>Placement Genie space</td><td>a fallback id in code</td></tr>
+<tr><td><code>BI_SPACE_ID_CAPACITY</code></td><td>no</td><td>Capacity Genie space</td><td>a fallback id in code</td></tr>
 <tr><td><code>GENIE_MODE</code></td><td>no</td><td><code>agent</code> selects Agent mode (GA)</td><td>unset (Conversation API)</td></tr>
 <tr><td><code>GENIE_ROW_CAP</code></td><td>no</td><td>Rows kept per result</td><td>200</td></tr>
 <tr><td><code>GENIE_TIMEOUT_MS</code></td><td>no</td><td>Max wait for Genie</td><td>180000</td></tr>

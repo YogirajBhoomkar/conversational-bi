@@ -2,10 +2,10 @@
 // changed nothing. Everything outside our code is faked: no network, no model, no Genie, and server/.env is never read.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ChatEvent, GenieResult } from '../../contracts';
+import type { Collector } from '../../core/chat/collector';
 
 type Chunk = { type: string; payload?: Record<string, unknown> };
 type StreamOptions = { requestContext: { get(key: string): unknown }; memory: { thread: string; resource: string }; abortSignal: AbortSignal };
-type Collector = { results: GenieResult[]; chart: unknown; emit?: (line: string) => void };
 
 const scenario = vi.hoisted(() => ({
   chunks: (_opts: StreamOptions): AsyncIterable<Chunk> => (async function* () {})(),
@@ -44,8 +44,8 @@ const ENV = {
   DATABRICKS_TOKEN: 'test-pat',
   ANTHROPIC_API_KEY: 'test-key',
   ANTHROPIC_MODEL: 'test-model',
-  DATABRICKS_GENIE_SPACE_ID: 'space-a',
-  DATABRICKS_GENIE_CAPACITY_SPACE_ID: 'space-b',
+  BI_SPACE_ID_PLACEMENT: 'space-a',
+  BI_SPACE_ID_CAPACITY: 'space-b',
   SUGGEST_WAIT_MS: '200',
 };
 

@@ -19,7 +19,7 @@ A beginner-friendly code walkthrough is in [`docs/code-guide.html`](docs/code-gu
 
 ## Quick start
 1. `npm run setup` installs both apps and creates `server/.env` from `server/.env.example`.
-2. Edit `server/.env` (see [Settings](#settings)). At minimum set `DATABRICKS_SERVER_HOSTNAME`, `DATABRICKS_GENIE_SPACE_ID`, `ANTHROPIC_API_KEY`, and either `DATABRICKS_TOKEN` or `DATABRICKS_CLIENT_ID`.
+2. Edit `server/.env` (see [Settings](#settings)). At minimum set `DATABRICKS_SERVER_HOSTNAME`, `BI_SPACE_ID_PLACEMENT`, `ANTHROPIC_API_KEY`, and either `DATABRICKS_TOKEN` or `DATABRICKS_CLIENT_ID`.
 3. `npm run build`, then `npm start`.
 4. Open http://localhost:1976. Set the `PORT` environment variable to use another port.
 
@@ -33,7 +33,7 @@ All settings live in `server/.env`, which is git-ignored. Never commit it or put
 | Name | Purpose |
 |---|---|
 | `DATABRICKS_SERVER_HOSTNAME` | Workspace host, for example `adb-123.18.azuredatabricks.net` (required) |
-| `DATABRICKS_GENIE_SPACE_ID` | Genie space to query (falls back to the ID in `registry.ts`) |
+| `BI_SPACE_ID_PLACEMENT` | Genie space to query (falls back to the ID in `registry.ts`) |
 | `DATABRICKS_TOKEN` | Shared personal access token. Dev only; unused once OAuth is on |
 | `DATABRICKS_CLIENT_ID` | Turns on per-user login when set |
 | `DATABRICKS_REDIRECT_URI` | Optional override of the login callback |

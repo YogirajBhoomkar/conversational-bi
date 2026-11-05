@@ -1,4 +1,5 @@
 import type { GenieProgress, TraceItem } from '../../contracts';
+import { agentName, fetchFullToolName } from '../agents/prompts';
 import type { SpaceRegistry } from '../genie/registry';
 
 // Turns the supervisor's stream into the scratchpad the UI shows, keeping only what tells the user something:
@@ -12,7 +13,9 @@ type Sink = {
   answer: (delta: string) => void;
 };
 
-const HANDOVER = 'agent-genie_';
+// Tool names come from the one place that names agents and tools. Mastra names an agent's handover tool agent-<agent name>.
+const HANDOVER = `agent-${agentName('')}`;
+const FETCH_FULL = fetchFullToolName('');
 
 // The parts of a Mastra stream chunk the tracer reads. Mastra puts them under `payload`; older chunks have them at the top.
 type Payload = {
@@ -93,7 +96,7 @@ export function createTracer(sink: Sink, registry: SpaceRegistry) {
   // Inside a handover only the data agent's tool calls matter: loading all rows, and errors from Genie.
   const specialist = (source: string, type: string, p: Payload | undefined) => {
     const error = type === 'tool-result' && typeof p?.result?.error === 'string' ? clip(p.result.error, 200) : '';
-    if (String(p?.toolName ?? '').startsWith('fetch-full-') && (type === 'tool-call' || type === 'tool-result')) {
+    if (String(p?.toolName ?? '').startsWith(FETCH_FULL) && (type === 'tool-call' || type === 'tool-result')) {
       const status = type === 'tool-call' ? 'running' : error ? 'error' : 'done';
       sink.trace({ id: `${source}:${p?.toolCallId}`, kind: 'progress', step: 'query', parent: source, text: error || 'Loading all rows', status });
     } else if (error) {

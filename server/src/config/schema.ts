@@ -33,8 +33,6 @@ export const SettingsSchema = z.object({
   // ---------------------------------------------------------------- Genie spaces and domain text
   BI_SPACES_FILE: setting(z.string().optional(), 'JSON file listing the Genie spaces (see config/examples/spaces.example.json). Relative paths start from the server folder. Default in local mode: the example file.', { group: 'Genie spaces', example: 'config/spaces.json' }),
   BI_SPACES_JSON: setting(z.string().optional(), 'The same list as BI_SPACES_FILE, inline as JSON. Wins over BI_SPACES_FILE.', { group: 'Genie spaces' }),
-  DATABRICKS_GENIE_SPACE_ID: setting(z.string().optional(), 'local only: Genie space id for the space with key "placement". Needed while BI_SPACES_FILE is the example file (its ids are REPLACE_ME).', { group: 'Genie spaces', required: true }),
-  DATABRICKS_GENIE_CAPACITY_SPACE_ID: setting(z.string().optional(), 'local only: Genie space id for the space with key "capacity". Needed while BI_SPACES_FILE is the example file.', { group: 'Genie spaces', required: true }),
   BI_DOMAIN_RULES_FILE: setting(z.string().optional(), 'Plain-text business rules appended to the supervisor prompt (see config/examples/domain-rules.example.md). Default in local mode: the example file.', { group: 'Genie spaces', example: 'config/domain-rules.md' }),
 
   // ---------------------------------------------------------------- Genie behaviour

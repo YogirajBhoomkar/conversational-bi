@@ -23,8 +23,8 @@ All settings are in `server/.env`. A blank template is `server/.env.example`.
 | `DATABRICKS_TOKEN` | A shared personal token. **Development only.** Not used once login is on | If `DATABRICKS_CLIENT_ID` is empty |
 | `DATABRICKS_CLIENT_ID` | Turns on "Log in with Databricks" (each person uses their own token) | Optional |
 | `DATABRICKS_REDIRECT_URI` | Overrides where Databricks sends people back after login | Optional |
-| `DATABRICKS_GENIE_SPACE_ID` | Id of the **placement** Genie space (a default is built in) | Optional |
-| `DATABRICKS_GENIE_CAPACITY_SPACE_ID` | Id of the **capacity** Genie space (a default is built in). *Not listed in `.env.example`* | Optional |
+| `BI_SPACE_ID_PLACEMENT` | Id of the **placement** Genie space (a default is built in) | Optional |
+| `BI_SPACE_ID_CAPACITY` | Id of the **capacity** Genie space (a default is built in). *Not listed in `.env.example`* | Optional |
 | `GENIE_MODE` | `agent` = streaming Agent mode (current setting). Empty = older chat mode | Optional |
 | `DATABRICKS_HTTP_PATH`, `DATABRICKS_CATALOG`, `DATABRICKS_SCHEMA`, `DATABRICKS_PRODUCT_CATALOG` | Present in the template but **not used by the current code** | No |
 
@@ -162,7 +162,7 @@ Be aware of these before showing or shipping the app.
 
 | Document | Out-of-date point |
 |----------|-------------------|
-| Main `README.md` | Says Node 20 is enough (needs 22.13+); describes one Genie space (now two); does not mention `GENIE_MODE`, `GENIE_FULL_ROW_CAP`, `DATABRICKS_GENIE_CAPACITY_SPACE_ID`, live thinking, Agent mode, full-result loading or follow-up suggestions |
+| Main `README.md` | Says Node 20 is enough (needs 22.13+); describes one Genie space (now two); does not mention `GENIE_MODE`, `GENIE_FULL_ROW_CAP`, `BI_SPACE_ID_CAPACITY`, live thinking, Agent mode, full-result loading or follow-up suggestions |
 | `docs/code-guide.html` | Written before Agent mode, streaming thinking, follow-up suggestions and full-result loading. Uses older names such as `genie_gcmp` and `mastra_supervisor/` |
 
 These Markdown files in `docs/` match the current code.

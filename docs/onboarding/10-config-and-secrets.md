@@ -28,8 +28,8 @@ I listed these by searching the source for `process.env`. "Secret" means: do not
 | `DATABRICKS_TOKEN` | **yes** | Shared token for dev mode | none (throws if used and unset) | `auth/tokenProvider.ts` |
 | `DATABRICKS_CLIENT_ID` | no | Turns on per-user OAuth when set | unset (dev mode) | `auth/oauth.ts` |
 | `DATABRICKS_REDIRECT_URI` | no | Overrides the OAuth callback address | `http://localhost:<PORT>/auth/callback` | `auth/oauth.ts` |
-| `DATABRICKS_GENIE_SPACE_ID` | no | Placement Genie space | a fallback id in code | `genie/registry.ts` |
-| `DATABRICKS_GENIE_CAPACITY_SPACE_ID` | no | Capacity Genie space | a fallback id in code | `genie/registry.ts` |
+| `BI_SPACE_ID_PLACEMENT` | no | Placement Genie space | a fallback id in code | `genie/registry.ts` |
+| `BI_SPACE_ID_CAPACITY` | no | Capacity Genie space | a fallback id in code | `genie/registry.ts` |
 | `GENIE_MODE` | no | `agent` selects Agent mode. Anything else is the Conversation API | unset | `mastra/index.ts` |
 | `GENIE_ROW_CAP` | no | Rows kept per result | 200 | `genie/client.ts`, `genie/agentClient.ts` |
 | `GENIE_TIMEOUT_MS` | no | Max wait for Genie | 180000 | same |

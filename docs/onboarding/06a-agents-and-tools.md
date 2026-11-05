@@ -75,34 +75,35 @@ All the rules are plain text inside the supervisor's `instructions`:
 - Ask one short question if unclear.
 - Chart requests: pass the word "chart" in the question to Genie, in one call. The list of drawable chart types comes from `SUPPORTED_CHART_TYPES` in `server/src/mastra/chartSpec.ts`.
 - If the result is truncated, say so and ask before loading the rest.
-- Final answer is short plain prose. No tables, no lists.
+- Final answer is Markdown: a bold headline, 3 to 5 key findings with their figures, what it means, and a one-line data note. Simple answers are one or two sentences.
 
 Because the rules are text, changing wording can change behaviour in ways tests will not catch. There are no tests for the agents.
 
 ## How to add a Genie space
 
-1. Open `server/src/genie/registry.ts`.
-2. Add an entry to `genieSpaces`:
-   ```ts
-   {
-     key: 'mynew',                 // used in agent and tool names
-     name: 'Display name',
-     description: 'What it owns, and what it does not.',
-     spaceId: process.env.DATABRICKS_GENIE_MYNEW_SPACE_ID ?? '<space-id>',
-   },
-   ```
-3. Write the `description` carefully. The supervisor routes by it (`README.md`, "Adding a Genie space").
-4. Add routing words for the new space to the `ROUTING` block of the supervisor instructions in `server/src/mastra/agents/index.ts`. The current routing lines name `genie_placement` and `genie_capacity` explicitly.
-5. The agent, the two tools and the registration in the `Mastra` object are created automatically from the list (`createAgents`, and `genieAgents` in `server/src/mastra/index.ts`).
-6. Use the setting name pattern of the existing entries, add it to `server/.env.example`, and rebuild.
+No code changes. Everything comes from configuration:
 
-Step 4 is my reading of the code. The README says only that routing uses the `description`, but the supervisor prompt also has hard-coded routing lines. See [14-gotchas.md](14-gotchas.md).
+1. Add an entry to the spaces file (`BI_SPACES_FILE`, see `server/config/examples/spaces.example.json`):
+   ```json
+   {
+     "key": "treaty",
+     "name": "Lab – Treaty Terms",
+     "description": "Treaty terms per programme: layers, attachment, limit, reinstatements. Does not hold placement status or reinsurer capacity.",
+     "routing": "Questions about treaty structure, layers or reinstatements.",
+     "spaceId": "REPLACE_ME"
+   }
+   ```
+2. Give its id with `BI_SPACE_ID_TREATY` (the key in capitals), or put the real id in the file. The environment variable wins, so one file serves dev, QC and UAT.
+3. Write the `description` carefully: say what the space holds and what it does not. The supervisor routes by `routing` when it is set, otherwise by the `description`, and the follow-up writer only suggests what a description mentions.
+4. Restart. The agent (`genie_treaty`), its two tools (`ask-treaty`, `fetch-full-treaty`), the routing line and the scratchpad name are all created from the entry.
+
+Business rules that apply to every space (what "Year" means, units, status order, which measures can share a chart) belong in the domain rules file (`BI_DOMAIN_RULES_FILE`), not in a space description.
 
 ## Key takeaways
 - Supervisor, one specialist per Genie space, and a follow-up writer.
 - Tools return small summaries to the AI and put the big data in the collector.
 - Agent behaviour is controlled by instruction text, and it is untested.
-- Adding a space is a few lines in `registry.ts`, plus a routing line in the supervisor.
+- Adding a space is a configuration change: one entry in the spaces file and its id.
 
 ## Where to look in the code
 - `server/src/mastra/agents/index.ts`: `createAgents`, `model`.
