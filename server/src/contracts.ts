@@ -67,7 +67,8 @@ export type GenieProgress =
 // SSE events streamed by POST /bi/chat. One JSON object per `data:` line.
 export type ChatEvent =
   | { type: 'trace'; item: TraceItem }  // one entry of the agents' working notes; sending the same id again updates that entry
-  | { type: 'text'; delta: string }
+  | { type: 'text'; delta: string }      // the answer, streamed as it is written
+  | { type: 'text-reset' }                 // the answer text streamed so far was a working note after all: clear it
   | { type: 'final'; result: FinalAnswer }
   | { type: 'suggestions'; questions: string[] }  // follow-ups, sent after `final` once the supervisor model has written them
   | { type: 'error'; message: string };

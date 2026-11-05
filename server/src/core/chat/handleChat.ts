@@ -55,6 +55,10 @@ async function runTurn(deps: ChatDeps, ctx: BiRequestContext, { threadId: rawThr
         answer += delta;
         send({ type: 'text', delta });
       },
+      retract: () => {
+        answer = '';
+        send({ type: 'text-reset' });
+      },
     },
     deps.registry,
   );

@@ -7,10 +7,12 @@ import type { SpaceRegistry } from '../genie/registry';
 // - one entry per data source it asks (label: the source's name, text: the question),
 // - under each source, Genie's short thoughts and each query it runs (updated in place when the query finishes).
 // The data agents' own notes repeat the plan, and their Ask Genie calls repeat the source entry, so neither is shown.
-// The text of a supervisor step that calls no tool is the final answer. Names come from the space registry.
+// The text of a supervisor step that calls no tool is the final answer; all text streams as it is written (see below).
+// Names come from the space registry.
 type Sink = {
   trace: (item: TraceItem) => void;
   answer: (delta: string) => void;
+  retract: () => void; // the answer streamed so far was a plan after all: clear it
 };
 
 // Tool names come from the one place that names agents and tools. Mastra names an agent's handover tool agent-<agent name>.
@@ -57,20 +59,41 @@ export function createTracer(sink: Sink, registry: SpaceRegistry) {
   const nextId = (prefix: string) => `${prefix}${++n}`;
   const sourceOf = new Map<string, string>(); // space key -> the source entry its progress belongs to
   let latestSource: string | undefined;
-  let plan = '';                              // the supervisor's text of its current step
   const lastThought = new Map<string, string>(); // per source, to drop a thought that repeats the previous one
+
+  // The supervisor's text streams as it is written. Whether a step's text is the plan or the answer is only certain when
+  // the step ends (a step that calls a tool wrote its plan), so: before any data has come back it streams into a plan
+  // note; once data has come back it streams as the answer. Should a tool call still follow, the streamed answer is
+  // taken back and kept as a note; should a "plan" step end without a tool call, it was the answer after all.
+  let text = '';                      // the supervisor's text of its current step
+  let noteId: string | undefined;     // the plan note that text is streaming into
+  let asAnswer = false;               // this step streams as the answer
+  let dataBack = false;               // a data source has answered in this turn
+
+  const streamPlan = () => {
+    noteId ??= nextId('note');
+    sink.trace({ id: noteId, kind: 'note', text: clip(text, 600) });
+  };
 
   const supervisor = (type: string, p: Payload | undefined) => {
     switch (type) {
-      case 'text-delta':
-        plan += p?.text ?? p?.textDelta ?? '';
+      case 'text-delta': {
+        const delta = p?.text ?? p?.textDelta ?? '';
+        text += delta;
+        if (asAnswer) sink.answer(delta);
+        else if (text.trim()) streamPlan();
         break;
+      }
       case 'tool-call-input-streaming-start':
       case 'tool-call': {
         // Text written before a tool call is the plan, not the answer.
-        const note = clip(plan, 600);
-        plan = '';
-        if (note) sink.trace({ id: nextId('note'), kind: 'note', text: note });
+        if (asAnswer && text.trim()) {
+          sink.retract();
+          streamPlan();
+        }
+        text = '';
+        noteId = undefined;
+        asAnswer = false;
         const toolName = String(p?.toolName ?? '');
         const detail = type === 'tool-call' ? detailOf(p?.args) : '';
         if (toolName.startsWith(HANDOVER) && p?.toolCallId) {
@@ -83,14 +106,23 @@ export function createTracer(sink: Sink, registry: SpaceRegistry) {
       case 'tool-result': {
         const error = typeof p?.result?.error === 'string' ? p.result.error : '';
         sink.trace({ id: String(p?.toolCallId), kind: 'tool', label: describeTool(String(p?.toolName ?? ''), spaceName), status: error ? 'error' : 'done', ...(error ? { text: clip(error) } : {}) });
+        dataBack = true;
         break;
       }
       case 'step-finish':
-        // A step that called no tool is the final answer.
-        if (p?.stepResult?.reason !== 'tool-calls' && plan) sink.answer(plan);
-        plan = '';
+        if (p?.stepResult?.reason !== 'tool-calls') finishAnswer();
+        text = '';
+        noteId = undefined;
+        asAnswer = dataBack; // the next step streams as the answer once data is back
         break;
     }
+  };
+
+  // A step that called no tool is the final answer. If it streamed as a plan note, move it to the answer.
+  const finishAnswer = () => {
+    if (asAnswer || !text.trim()) return;
+    if (noteId) sink.trace({ id: noteId, kind: 'note', text: '' });
+    sink.answer(text);
   };
 
   // Inside a handover only the data agent's tool calls matter: loading all rows, and errors from Genie.
@@ -131,8 +163,8 @@ export function createTracer(sink: Sink, registry: SpaceRegistry) {
     },
     // Safety net: if the stream ended without a closing step, whatever text is left is the answer.
     end() {
-      if (plan) sink.answer(plan);
-      plan = '';
+      finishAnswer();
+      text = '';
     },
   };
 }

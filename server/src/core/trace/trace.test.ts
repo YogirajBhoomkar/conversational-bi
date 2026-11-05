@@ -13,18 +13,22 @@ const top = (type: string, payload: object) => ({ type, payload });
 const nested = (outerTool: string, type: string, payload: object, outer = 'outer') => ({ type: 'tool-output', payload: { toolName: outerTool, toolCallId: outer, output: { type, payload } } });
 const finish = (reason: string) => ({ stepResult: { reason } });
 
+// Records what the UI would receive: trace items, and the answer as streamed deltas (a retraction clears it).
 const tracer = () => {
   const trace: TraceItem[] = [];
+  const deltas: string[] = [];
   let answer = '';
-  const t = createTracer({ trace: (i) => trace.push(i), answer: (d) => (answer += d) }, registry);
-  return { t, trace, answer: () => answer };
+  const t = createTracer({ trace: (i) => trace.push(i), answer: (d) => (deltas.push(d), (answer += d)), retract: () => (deltas.push('<retract>'), (answer = '')) }, registry);
+  return { t, trace, deltas, answer: () => answer };
 };
 const run = (chunks: any[]) => {
-  const { t, trace, answer } = tracer();
+  const { t, trace, deltas, answer } = tracer();
   chunks.forEach((c) => t.handle(c));
   t.end();
-  return { trace, answer: answer() };
+  return { trace, deltas, answer: answer() };
 };
+// The latest state of each trace entry, as the UI shows it after applying every update.
+const latest = (trace: TraceItem[]) => [...trace.reduce((m, i) => m.set(i.id, { ...m.get(i.id), ...i }), new Map<string, TraceItem>()).values()];
 
 describe('createTracer', () => {
   it('shows the plan as a note and one entry per data source, named after the source, with its question', () => {
@@ -37,16 +41,46 @@ describe('createTracer', () => {
       top('step-finish', finish('tool-calls')),
     ]);
     expect(answer).toBe('');
-    expect(trace[0]).toMatchObject({ kind: 'note', text: 'Comparing placed limit with signed capacity.' });
-    expect(trace[1]).toMatchObject({ id: 'c1', kind: 'tool', label: 'Lab – Placement Core', status: 'running' });
-    expect(trace[2]).toMatchObject({ id: 'c1', text: 'Placed limit by region' });
-    expect(trace[3]).toMatchObject({ id: 'c1', status: 'done' });
+    // The plan streams into one note as it is written.
+    expect(trace.slice(0, 2)).toEqual([
+      { id: 'note1', kind: 'note', text: 'Comparing placed limit' },
+      { id: 'note1', kind: 'note', text: 'Comparing placed limit with signed capacity.' },
+    ]);
+    expect(trace[2]).toMatchObject({ id: 'c1', kind: 'tool', label: 'Lab – Placement Core', status: 'running' });
+    expect(trace[3]).toMatchObject({ id: 'c1', text: 'Placed limit by region' });
+    expect(trace[4]).toMatchObject({ id: 'c1', status: 'done' });
+  });
+
+  it('streams the answer word by word once data is back', () => {
+    const { deltas, answer } = run([
+      top('tool-call', { toolCallId: 'c1', toolName: 'agent-genie_placement', args: { prompt: 'q' } }),
+      top('tool-result', { toolCallId: 'c1', toolName: 'agent-genie_placement', result: {} }),
+      top('step-finish', finish('tool-calls')),
+      top('text-delta', { text: '**EMEA leads** ' }),
+      top('text-delta', { text: 'with 1,737.2M.' }),
+      top('step-finish', finish('stop')),
+    ]);
+    expect(deltas).toEqual(['**EMEA leads** ', 'with 1,737.2M.']);
+    expect(answer).toBe('**EMEA leads** with 1,737.2M.');
+  });
+
+  it('takes a streamed answer back into the plan when another data source is asked after all', () => {
+    const { trace, deltas, answer } = run([
+      top('tool-call', { toolCallId: 'c1', toolName: 'agent-genie_placement', args: { prompt: 'q' } }),
+      top('tool-result', { toolCallId: 'c1', toolName: 'agent-genie_placement', result: {} }),
+      top('step-finish', finish('tool-calls')),
+      top('text-delta', { text: 'Now checking capacity.' }),
+      top('tool-call', { toolCallId: 'c2', toolName: 'agent-genie_capacity', args: { prompt: 'q2' } }),
+    ]);
+    expect(deltas).toEqual(['Now checking capacity.', '<retract>']);
+    expect(answer).toBe('');
+    expect(latest(trace).filter((i) => i.kind === 'note').map((i) => i.text)).toEqual(['Now checking capacity.']);
   });
 
   it('treats the text of a step that calls no tool as the final answer', () => {
     const { trace, answer } = run([top('text-delta', { text: 'Hello. ' }), top('text-delta', { text: 'Ask me about placements.' }), top('step-finish', finish('stop'))]);
     expect(answer).toBe('Hello. Ask me about placements.');
-    expect(trace).toEqual([]);
+    expect(latest(trace)).toEqual([{ id: 'note1', kind: 'note', text: '' }]); // it streamed as a plan, then left the scratchpad
   });
 
   it("leaves out what repeats the source entry: the data agent's notes, its Ask Genie call and its closing report", () => {

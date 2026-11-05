@@ -66,7 +66,7 @@ function Timeline({ trace, live }: { trace: TraceItem[]; live: boolean }) {
   return (
     <ul className="trace__timeline">
       {trace.map((t) => {
-        if (t.kind === 'note') return <li key={t.id} className="trace__plan">{t.text}</li>;
+        if (t.kind === 'note') return t.text ? <li key={t.id} className="trace__plan">{t.text}</li> : null; // an emptied note became the answer
         if (t.kind === 'tool') return <Source key={t.id} item={t} steps={stepsOf(t.id)} live={live} />;
         // A progress line whose source is unknown stands on its own.
         if (t.kind === 'progress' && !(t.parent && sources.has(t.parent)) && t.text) return <ul key={t.id} className="trace__steps"><Step item={t} /></ul>;
@@ -108,7 +108,7 @@ export default function TraceView({ trace, pending, startedAt, endedAt }: { trac
     );
   }
 
-  if (!trace.some((t) => t.kind !== 'meta')) return null;
+  if (!trace.some((t) => t.kind !== 'meta' && (t.kind !== 'note' || t.text))) return null;
   const sources = trace.filter((t) => t.kind === 'tool').length;
   const queries = trace.filter((t) => t.step === 'query').length;
   const model = trace.find((t) => t.kind === 'meta');

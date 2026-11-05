@@ -56,6 +56,9 @@ export function useChat() {
           case 'text':
             patch(aid, (m) => ({ ...m, text: m.text + e.delta }));
             break;
+          case 'text-reset': // what streamed as the answer was a working note; it is in the scratchpad now
+            patch(aid, (m) => ({ ...m, text: '' }));
+            break;
           case 'final':
             patch(aid, (m) => ({ ...m, result: e.result, text: e.result.answer || m.text, pending: false, endedAt: Date.now() }));
             break;

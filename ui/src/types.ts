@@ -33,6 +33,7 @@ export type TraceItem = {
 export type ChatEvent =
   | { type: 'trace'; item: TraceItem }
   | { type: 'text'; delta: string }
+  | { type: 'text-reset' }
   | { type: 'final'; result: FinalAnswer }
   | { type: 'suggestions'; questions: string[] }
   | { type: 'error'; message: string };

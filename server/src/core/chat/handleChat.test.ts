@@ -49,7 +49,8 @@ describe('handleChat', () => {
       { type: 'text-delta', payload: { text: 'Hello' } },
       { type: 'step-finish', payload: { stepResult: { reason: 'stop' } } },
     ]), ctx(), { threadId: 'a', message: 'q' }));
-    expect(events.map((e) => e.type)).toEqual(['trace', 'text', 'final']);
+    // model, the text streaming as a possible plan, that note cleared once the step ends without a tool call, the answer, final
+    expect(events.map((e) => e.type)).toEqual(['trace', 'trace', 'trace', 'text', 'final']);
   });
 });
 

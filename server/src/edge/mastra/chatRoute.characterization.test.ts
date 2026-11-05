@@ -135,7 +135,8 @@ describe('POST /bi/chat (characterization)', () => {
       { type: 'trace', item: { id: 'call-1', kind: 'tool', label: 'Lab – Placement Core', status: 'running', text: 'How many placements?' } },
       { type: 'trace', item: { id: 'progress2', kind: 'progress', step: 'status', parent: 'call-1', text: 'Running the query…' } },
       { type: 'trace', item: { id: 'call-1', kind: 'tool', label: 'Lab – Placement Core', status: 'done' } },
-      { type: 'text', delta: 'There are 42 placements.' },
+      { type: 'text', delta: 'There are 42 ' }, // the answer streams as the model writes it
+      { type: 'text', delta: 'placements.' },
       {
         type: 'final',
         result: {
