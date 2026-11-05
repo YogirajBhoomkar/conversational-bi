@@ -19,7 +19,7 @@ describe('prompts', () => {
       expect(p).toContain(`- ${agentName(s.key)}: ${s.description}`);
       expect(p).toContain(`- ${i % 2 === 0 ? s.routing : s.description} -> ${agentName(s.key)}`);
     });
-    expect(p).toContain('These chart types can be drawn: bar, line.');
+    expect(p).toContain('These chart types can be drawn: bar, line. Every type in that list is supported');
   });
 
   it('the supervisor appends the domain rules, and leaves the section out when there are none', () => {
