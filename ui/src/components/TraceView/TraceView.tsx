@@ -33,9 +33,11 @@ function TraceList({ trace, limit }: { trace: TraceItem[]; limit?: number }) {
                 ) : (
                   <CircularProgress size={11} thickness={6} className="trace__icon trace__icon--run" />
                 )}
-                <b>{t.label}</b>
-                {t.by ? ` · ${t.by}` : ''}
-                {t.text ? ` — ${t.text}` : ''}
+                <span className="trace__text">
+                  <b>{t.label}</b>
+                  {t.by ? ` · ${t.by}` : ''}
+                  {t.text ? ` — ${t.text}` : ''}
+                </span>
               </span>
               {subs.map((s) => (
                 <span key={s.id} className="trace__sub">

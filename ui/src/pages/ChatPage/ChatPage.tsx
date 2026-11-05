@@ -11,29 +11,31 @@ import "./ChatPage.css";
 export default function ChatPage() {
   useAuthGuard();
   const { messages, busy, send, newChat } = useChat();
-  console.log("messages", messages);
   const [draft, setDraft] = useState("");
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const threadRef = useRef<HTMLDivElement>(null);
   const stickToEnd = useRef(true);
 
-  // Keep the newest content in view, unless the person has scrolled up to read.
+  // The page itself scrolls (the composer is sticky). Keep the newest content in view,
+  // unless the person has scrolled up to read.
   useEffect(() => {
-    const el = threadRef.current;
-    if (el && stickToEnd.current) el.scrollTop = el.scrollHeight;
+    if (stickToEnd.current)
+      window.scrollTo({ top: document.documentElement.scrollHeight });
   }, [messages]);
+
+  useEffect(() => {
+    const onScroll = () => {
+      const el = document.documentElement;
+      stickToEnd.current =
+        el.scrollHeight - window.scrollY - window.innerHeight < 120;
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   // Give the input back to the person once the answer is in.
   useEffect(() => {
     if (!busy) inputRef.current?.focus();
   }, [busy]);
-
-  const onScroll = () => {
-    const el = threadRef.current;
-    if (el)
-      stickToEnd.current =
-        el.scrollHeight - el.scrollTop - el.clientHeight < 120;
-  };
 
   const submit = () => {
     const text = draft.trim();
@@ -59,11 +61,7 @@ export default function ChatPage() {
       <ChatHeader onNewChat={startNew} disabled={busy} />
       <div className="chat-page__body">
         <div className="chat-page__col">
-          <div
-            className="chat-page__thread"
-            ref={threadRef}
-            onScroll={onScroll}
-          >
+          <div className="chat-page__thread">
             <div className="chat-page__inner">
               {messages.length === 0 && <EmptyState />}
               {messages.map((m) =>
