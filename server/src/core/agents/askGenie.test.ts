@@ -10,9 +10,10 @@ const result = (spaceId: string, columns: string[], rows: unknown[][], extra: Pa
   sql: null, columns, rows, totalRows: rows.length, summary: '', thinking: [], suggestedQuestions: [], error: null, ...extra,
 });
 
-const chartJson = (title: string) => JSON.stringify({
-  type: 'column', title, x: 'Region', y: 'Limit',
-  data: [{ Region: 'APAC', Limit: 1 }, { Region: 'EMEA', Limit: 2 }],
+// Charts with different titles hold different data, so they count as different views.
+const chartJson = (title: string, type = 'column') => JSON.stringify({
+  type, title, x: 'Region', y: 'Limit',
+  data: [{ Region: 'APAC', Limit: title.charCodeAt(0) }, { Region: 'EMEA', Limit: 2 }],
 });
 const CHART = (spaceId: string) => result(spaceId, ['chart_json'], [[chartJson('Limit')]]);
 const TABLE = (spaceId: string) => result(spaceId, ['Region', 'Unused'], [['APAC', 3]]);
@@ -55,6 +56,13 @@ describe('ask-genie tool: charts of a turn', () => {
     const { titles, results } = await turn([[placement, answer]]);
     expect(titles).toEqual(['Limit', 'Trend']);
     expect(results[0].columns).toEqual(['Region', 'Limit']);
+  });
+
+  it('shows the same data once, not again as another chart type (the UI switches types)', async () => {
+    const answer = (spaceId: string) => ({ ...TABLE(spaceId), chartJsons: [chartJson('Limit'), chartJson('Limit', 'line'), chartJson('Limit', 'area')] });
+    const { titles, chartCount } = await turn([[placement, answer]]);
+    expect(titles).toEqual(['Limit']);
+    expect(chartCount).toEqual([1]);
   });
 
   it('collects charts across spaces and answers', async () => {

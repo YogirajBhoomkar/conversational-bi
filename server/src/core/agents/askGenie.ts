@@ -1,11 +1,16 @@
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
-import type { GenieClient, GenieSpace } from '../../contracts';
+import type { ChartSpec, GenieClient, GenieSpace } from '../../contracts';
 import { getConversationId, getLastResult, setConversationId, setLastResult } from '../genie/conversations';
 import { getCaller, getCollector, getSignal, getThreadId } from '../chat/collector';
 import { parseGenieChartJson } from '../chart/chartSpec';
 
-export const createAskGenieTool = (space: GenieSpace, client: GenieClient) =>
+// What a chart shows, whatever its type and title: the same fields over the same rows (in any order; a line chart
+// sorts its rows by date).
+const viewOf = ({ x, y, color, path, data }: ChartSpec) =>
+  JSON.stringify({ x, y, color, path, rows: data.map((d) => JSON.stringify(d)).sort() });
+
+export const createAskGenieTool =(space: GenieSpace, client: GenieClient) =>
   createTool({
     id: `ask-${space.key}`,
     description: `Ask the Databricks Genie space "${space.name}" a natural-language data question. ${space.description}`,
@@ -37,19 +42,18 @@ export const createAskGenieTool = (space: GenieSpace, client: GenieClient) =>
       });
       if (result.conversationId) setConversationId(threadId, space.spaceId, result.conversationId);
       // Charts are built in code from Genie's chart JSON. It comes as the result itself (a one-cell table) and, in
-      // Agent mode, once per chart query next to any real table. Every chart is kept; the first chart's data stands in
-      // for the table only when there is no real one.
+      // Agent mode, once per chart query next to any real table. Each distinct view is kept once: the same data drawn
+      // as another type (or arriving twice) adds nothing, since the user can switch a chart's type in the UI. The first
+      // chart's data stands in for the table only when there is no real one.
       const fromTable = parseGenieChartJson(result.columns, result.rows);
       const parsed = [...(result.chartJsons ?? []).map((j) => parseGenieChartJson(['chart_json'], [[j]])), fromTable].filter((p) => p !== null);
-      const seen = new Set(collector.charts.map((c) => JSON.stringify(c))); // the same chart can arrive twice (query output and result section)
+      const seen = new Set(collector.charts.map(viewOf));
       let chartCount = 0;
       for (const { chart } of parsed) {
-        const key = JSON.stringify(chart);
-        if (chart && !seen.has(key)) {
-          seen.add(key);
-          collector.charts.push(chart);
-          chartCount++;
-        }
+        if (!chart || seen.has(viewOf(chart))) continue;
+        seen.add(viewOf(chart));
+        collector.charts.push(chart);
+        chartCount++;
       }
       if (parsed[0] && (fromTable || !result.columns.length)) {
         result.columns = parsed[0].columns;
