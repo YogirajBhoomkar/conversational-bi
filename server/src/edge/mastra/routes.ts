@@ -21,7 +21,7 @@ export function createBiRoutes(service: BiService, authenticator: Authenticator,
         const request = await readBody(c, ChatRequestSchema);
         if (request instanceof Response) return request;
         const { ctx, abort } = requestContext(c, identity);
-        return sseResponse(service.handleChat(ctx, request), abort);
+        return sseResponse(service.handleChat(ctx, request), abort, ctx.traceId);
       },
     }),
     registerApiRoute(`${prefix}/feedback`, {

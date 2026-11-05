@@ -148,6 +148,7 @@ describe('POST /bi/chat (characterization)', () => {
           chartSpec: null,
           sources: [{ spaceId: 'space-a', spaceName: 'Lab – Placement Core', question: 'How many placements?', sql: 'SELECT count(*) FROM p', messageId: 'msg-1', conversationId: 'conv-1' }],
           suggestedQuestions: [],
+          traceId: expect.any(String),
         },
       },
       { type: 'suggestions', questions: ['How has that changed by year?'] },

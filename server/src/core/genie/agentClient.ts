@@ -1,6 +1,7 @@
 import type { GenieClient, GenieProgress, GenieResult } from '../../contracts';
 import type { TokenProvider } from '../../ports/auth';
 import { type AskArgs, DatabricksGenieClient, failedResult, type FeedbackArgs, type GenieClientOptions, isRetryableRun, RETRY_NOTE, type Run, scopeOf } from './client';
+import { log } from '../log';
 import { fetchWithRetry, GenieRunFailed, type RetryPolicy, withRetry } from './retry';
 
 // Citation links Genie appends to its prose, e.g. \[[1](https://...)\]
@@ -126,7 +127,7 @@ export class DatabricksGenieAgentClient implements GenieClient {
           const cell = full.rows[0]?.[0];
           if (typeof cell === 'string') chartJsons.push(cell);
         } catch (e) {
-          console.warn('[genie] could not load chart JSON:', e instanceof Error ? e.message : e);
+          log().warn('genie.chart_load_failed', { error: e });
         }
       }
       if (chartJsons.length) result.chartJsons = chartJsons;

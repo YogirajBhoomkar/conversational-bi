@@ -41,6 +41,7 @@ export const FinalAnswerSchema = z.object({
   chartSpec: ChartSpecSchema.nullable(),  // @deprecated: the first of `charts` (null when none), for UIs that draw one chart
   sources: z.array(z.object({ spaceId: z.string(), spaceName: z.string(), question: z.string(), sql: z.string().nullable(), messageId: z.string(), conversationId: z.string() })),
   suggestedQuestions: z.array(z.string()),
+  traceId: z.string().optional(),          // the request's trace id: quote it when reporting a problem; it finds every log line of the turn
 });
 export type FinalAnswer = z.infer<typeof FinalAnswerSchema>;
 

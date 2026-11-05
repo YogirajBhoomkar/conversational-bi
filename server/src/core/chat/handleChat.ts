@@ -4,6 +4,8 @@ import type { Agent } from '@mastra/core/agent';
 import { RequestContext } from '@mastra/core/request-context';
 import type { ChatEvent, ChatRequest, FeedbackRequest, FinalAnswer, GenieClient } from '../../contracts';
 import type { BiRequestContext } from '../../ports/context';
+import type { BiLogger } from '../../ports/logger';
+import { log, requestLogger, withLogger } from '../log';
 import { ValidationError, UpstreamError } from '../errors';
 import type { SpaceRegistry } from '../genie/registry';
 import { recentTurns, recordTurn } from '../suggest/history';
@@ -17,6 +19,7 @@ export type ChatDeps = {
   registry: SpaceRegistry;
   modelLabel: string;
   suggestWaitMs: number; // after `final`, how long to wait for our own follow-ups
+  logger: BiLogger;      // the base logger; each turn logs through a child carrying its trace id
 };
 
 type StreamChunk = TraceChunk & { payload?: { error?: unknown }; error?: unknown };
@@ -31,12 +34,15 @@ export const threadKey = (ctx: Pick<BiRequestContext, 'userId'>, threadId: strin
 
 export async function* handleChat(deps: ChatDeps, ctx: BiRequestContext, request: ChatRequest): AsyncGenerator<ChatEvent> {
   const queue = eventQueue();
-  void runTurn(deps, ctx, request, queue.push).finally(queue.close);
+  // Everything the turn calls, however deep, logs with this request's trace id (see core/log.ts).
+  void withLogger(requestLogger(deps.logger, ctx), () => runTurn(deps, ctx, request, queue.push)).finally(queue.close);
   yield* queue.drain();
 }
 
 async function runTurn(deps: ChatDeps, ctx: BiRequestContext, { threadId: rawThread, message }: ChatRequest, send: (e: ChatEvent) => void) {
   const threadId = threadKey(ctx, rawThread);
+  const started = Date.now();
+  let firstAnswerMs: number | undefined;
   // Follow-ups need only the space descriptions and the chat so far, so they are written in parallel with the answer.
   const pendingSuggestions = suggestFollowUps(deps.suggestAgent, deps.registry, { question: message, history: recentTurns(threadId) });
 
@@ -52,6 +58,7 @@ async function runTurn(deps: ChatDeps, ctx: BiRequestContext, { threadId: rawThr
     {
       trace: (item) => send({ type: 'trace', item }),
       answer: (delta) => {
+        firstAnswerMs ??= Date.now() - started;
         answer += delta;
         send({ type: 'text', delta });
       },
@@ -99,8 +106,15 @@ async function runTurn(deps: ChatDeps, ctx: BiRequestContext, { threadId: rawThr
         conversationId: r.conversationId,
       })),
       suggestedQuestions: [...collector.results].reverse().find((r) => r.suggestedQuestions.length)?.suggestedQuestions ?? [],
+      traceId: ctx.traceId,
     };
     send({ type: 'final', result: final });
+    // The supervisor's own model use (the data agents' is not included); absent when the model does not report it.
+    const usage = await Promise.resolve(stream.totalUsage).catch(() => undefined);
+    log().info('chat.turn', {
+      durationMs: Date.now() - started, firstAnswerMs, genieCalls: collector.results.length, failedCalls: collector.results.filter((r) => r.error).length,
+      charts: collector.charts.length, rows: final.totalRows, inputTokens: usage?.inputTokens, outputTokens: usage?.outputTokens,
+    });
     // Genie's own follow-ups win. Otherwise ours are usually ready already; give them a short moment, never long.
     if (!final.suggestedQuestions.length) {
       let timer: ReturnType<typeof setTimeout> | undefined;
@@ -109,18 +123,23 @@ async function runTurn(deps: ChatDeps, ctx: BiRequestContext, { threadId: rawThr
     }
     recordTurn(threadId, { question: message, answer, suggested: final.suggestedQuestions.length ? final.suggestedQuestions : ours });
   } catch (err) {
+    if (ctx.signal.aborted) log().info('chat.cancelled', { durationMs: Date.now() - started });
+    else log().error('chat.failed', { durationMs: Date.now() - started, error: err });
     send({ type: 'error', message: err instanceof Error ? err.message : String(err) });
   }
 }
 
-export type FeedbackDeps = { genie: GenieClient; registry: SpaceRegistry };
+export type FeedbackDeps = { genie: GenieClient; registry: SpaceRegistry; logger: BiLogger };
 
 // Passes a rating on to Genie. Throws ValidationError for an unknown space, UpstreamError when Genie refuses.
 export async function handleFeedback(deps: FeedbackDeps, ctx: BiRequestContext, request: FeedbackRequest): Promise<void> {
   if (!deps.registry.byId(request.spaceId)) throw new ValidationError('unknown space');
+  const logger = requestLogger(deps.logger, ctx);
   try {
-    await deps.genie.feedback({ ...request, caller: { userId: ctx.userId, userToken: ctx.userToken, sessionId: ctx.sessionId }, signal: ctx.signal });
+    await withLogger(logger, () => deps.genie.feedback({ ...request, caller: { userId: ctx.userId, userToken: ctx.userToken, sessionId: ctx.sessionId }, signal: ctx.signal }));
+    logger.info('feedback', { spaceId: request.spaceId, rating: request.rating });
   } catch (e) {
+    logger.warn('feedback.failed', { spaceId: request.spaceId, error: e });
     throw new UpstreamError(e instanceof Error ? e.message : String(e));
   }
 }

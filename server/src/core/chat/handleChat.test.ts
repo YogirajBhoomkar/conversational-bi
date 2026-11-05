@@ -3,6 +3,7 @@ import type { ChatEvent, GenieClient } from '../../contracts';
 import type { BiRequestContext } from '../../ports/context';
 import { UpstreamError, ValidationError } from '../errors';
 import { createSpaceRegistry } from '../genie/registry';
+import { silentLogger } from '../log';
 import { type ChatDeps, handleChat, handleFeedback } from './handleChat';
 
 const registry = createSpaceRegistry([{ key: 'one', name: 'One', description: 'The first fake space.', spaceId: 'id-1' }]);
@@ -22,6 +23,7 @@ function deps(chunks: Array<{ type: string; payload?: object }>, seen: Seen[] = 
     registry,
     modelLabel: 'm',
     suggestWaitMs: 0,
+    logger: silentLogger,
   };
 }
 
@@ -57,8 +59,8 @@ describe('handleChat', () => {
 describe('handleFeedback', () => {
   it('rejects an unknown space and reports Genie failures as upstream errors', async () => {
     const genie = { feedback: vi.fn().mockRejectedValue(new Error('down')) } as unknown as GenieClient;
-    await expect(handleFeedback({ genie, registry }, ctx(), { spaceId: 'nope', conversationId: 'c', messageId: 'm', rating: 'POSITIVE' })).rejects.toBeInstanceOf(ValidationError);
-    await expect(handleFeedback({ genie, registry }, ctx(), { spaceId: 'id-1', conversationId: 'c', messageId: 'm', rating: 'POSITIVE' })).rejects.toBeInstanceOf(UpstreamError);
+    await expect(handleFeedback({ genie, registry, logger: silentLogger }, ctx(), { spaceId: 'nope', conversationId: 'c', messageId: 'm', rating: 'POSITIVE' })).rejects.toBeInstanceOf(ValidationError);
+    await expect(handleFeedback({ genie, registry, logger: silentLogger }, ctx(), { spaceId: 'id-1', conversationId: 'c', messageId: 'm', rating: 'POSITIVE' })).rejects.toBeInstanceOf(UpstreamError);
     expect(genie.feedback).toHaveBeenCalledWith(expect.objectContaining({ caller: { userId: 'u1', userToken: 'identity-token', sessionId: undefined } }));
   });
 });

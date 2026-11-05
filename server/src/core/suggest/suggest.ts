@@ -1,6 +1,7 @@
 import type { Agent } from '@mastra/core/agent';
 import { z } from 'zod';
 import type { SpaceRegistry } from '../genie/registry';
+import { log } from '../log';
 import type { Turn } from './history';
 
 // Follow-ups use only what the data agents say they cover (their descriptions, in the agent's instructions) and the chat so far.
@@ -43,7 +44,7 @@ export async function suggestFollowUps(agent: Pick<Agent, 'generate'>, registry:
     }
     return questions.slice(0, 3);
   } catch (e) {
-    console.warn('[suggest] failed:', e instanceof Error ? e.message : e);
+    log().warn('suggest.failed', { error: e });
     return [];
   }
 }

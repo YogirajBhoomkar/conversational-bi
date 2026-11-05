@@ -28,7 +28,8 @@ export const buildChartSpec = (a: { type: ChartSpec['type']; x: string; y: strin
 
 // Genie answers a chart request with a single `chart_json` cell: {type, title, x, y, series, data:[{...}]}.
 // Charts that show a hierarchy, a share or a flow (pie, donut, treemap, sunburst, sankey) send `path`, a list of dimensions, instead of `x`.
-// Returns the real table plus a chart spec (null when the chart type isn't supported, so the UI shows the table only).
+// Returns the real table plus a chart spec (null when there is nothing worth drawing, so the UI shows the table only;
+// `skipped` then says why when Genie sent a chart the app cannot draw).
 // Returns null when the result isn't of that shape at all.
 export const parseGenieChartJson = (columns: string[], rows: unknown[][]) => {
   if (columns.length !== 1 || rows.length !== 1 || typeof rows[0][0] !== 'string') return null;
@@ -53,8 +54,8 @@ export const parseGenieChartJson = (columns: string[], rows: unknown[][]) => {
   // A single data point has nothing to compare against: the answer and the table say it better than a chart.
   if (tableRows.length < 2) return { columns: cols, rows: tableRows, chart: null };
   if (!complete || !numericY) {
-    console.warn(`[chart] not drawing: type="${j.type}" numericY=${numericY}. Supported types: ${SUPPORTED_CHART_TYPES.join(', ')}.`);
-    return { columns: cols, rows: tableRows, chart: null };
+    const skipped = !type ? `type "${j.type}" is not supported` : !numericY ? 'the values are not numbers' : 'the dimensions it needs are missing';
+    return { columns: cols, rows: tableRows, chart: null, skipped };
   }
   return {
     columns: cols,

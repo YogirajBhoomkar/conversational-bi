@@ -50,6 +50,11 @@ export const SettingsSchema = z.object({
   LLM_API_KEY: setting(z.string().optional(), 'API key for LLM_BASE_URL.', { group: 'AI model', secret: true }),
   LLM_MODEL: setting(z.string().min(1).default('gpt-5.1'), 'Model name at LLM_BASE_URL.', { group: 'AI model' }),
 
+  // ---------------------------------------------------------------- Logging
+  BI_LOG_FORMAT: setting(z.enum(['pretty', 'json']).optional(), 'pretty: one readable line per event (default locally). json: one JSON object per line, for Datadog (default in gc mode).', { group: 'Logging' }),
+  BI_LOG_LEVEL: setting(z.enum(['debug', 'info', 'warn', 'error']).default('info'), 'The lowest level written.', { group: 'Logging' }),
+  BI_LOG_CONTENT: setting(flag().default(false), 'true: also log question and answer text and SQL (for debugging only). Secrets are removed either way.', { group: 'Logging' }),
+
   // ---------------------------------------------------------------- Local UI
   UI_DIST: setting(z.string().optional(), 'local only: folder of the built UI to serve from the same port. npm start sets it; do not put it in .env.', { group: 'Local UI' }),
 });

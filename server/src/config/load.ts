@@ -14,6 +14,8 @@ export type ModelSettings =
   | { provider: 'anthropic'; model: string; apiKey: string }
   | { provider: 'openai-compatible'; model: string; baseUrl: string; apiKey?: string };
 
+export type LogSettings = { format: 'pretty' | 'json'; level: 'debug' | 'info' | 'warn' | 'error'; content: boolean };
+
 export type BiConfig = {
   mode: 'local' | 'gc';
   port: number;
@@ -26,6 +28,7 @@ export type BiConfig = {
   genie: { mode: 'conversation' | 'agent'; rowCap: number; fullRowCap: number; timeoutMs: number; retryAttempts: number };
   suggestWaitMs: number;
   model: ModelSettings;
+  logging: LogSettings;
   spaces: GenieSpace[];
   domainRules: string;
   uiDist?: string;
@@ -102,6 +105,7 @@ function toConfig(s: Settings, spaces: GenieSpace[], domainRules: string): BiCon
     model: s.LLM_BASE_URL
       ? { provider: 'openai-compatible', model: s.LLM_MODEL, baseUrl: s.LLM_BASE_URL, apiKey: s.LLM_API_KEY }
       : { provider: 'anthropic', model: s.ANTHROPIC_MODEL, apiKey: s.ANTHROPIC_API_KEY ?? '' },
+    logging: { format: s.BI_LOG_FORMAT ?? (local ? 'pretty' : 'json'), level: s.BI_LOG_LEVEL, content: s.BI_LOG_CONTENT },
     spaces,
     domainRules,
     uiDist: local ? s.UI_DIST : undefined,

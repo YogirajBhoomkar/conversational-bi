@@ -4,6 +4,7 @@ import type { ChartSpec, GenieClient, GenieSpace } from '../../contracts';
 import { getConversationId, getLastResult, setConversationId, setLastResult } from '../genie/conversations';
 import { getCaller, getCollector, getSignal, getThreadId } from '../chat/collector';
 import { parseGenieChartJson } from '../chart/chartSpec';
+import { log } from '../log';
 import { askToolName, fetchFullToolName } from './prompts';
 
 // What a chart shows, whatever its type and title: the same fields over the same rows (in any order; a line chart
@@ -33,6 +34,7 @@ export const createAskGenieTool =(space: GenieSpace, client: GenieClient) =>
     execute: async ({ question }, { requestContext }) => {
       const threadId = getThreadId(requestContext);
       const collector = getCollector(requestContext);
+      const started = Date.now();
       const result = await client.ask({
         spaceId: space.spaceId,
         question,
@@ -50,7 +52,8 @@ export const createAskGenieTool =(space: GenieSpace, client: GenieClient) =>
       const parsed = [...(result.chartJsons ?? []).map((j) => parseGenieChartJson(['chart_json'], [[j]])), fromTable].filter((p) => p !== null);
       const seen = new Set(collector.charts.map(viewOf));
       let chartCount = 0;
-      for (const { chart } of parsed) {
+      for (const { chart, skipped } of parsed) {
+        if (skipped) log().warn('chart.skipped', { space: space.key, reason: skipped });
         if (!chart || seen.has(viewOf(chart))) continue;
         seen.add(viewOf(chart));
         collector.charts.push(chart);
@@ -62,8 +65,9 @@ export const createAskGenieTool =(space: GenieSpace, client: GenieClient) =>
         result.totalRows = parsed[0].rows.length;
       } else if (!parsed.length && result.columns.length === 1 && result.rows.length === 1) {
         // A one-cell result is usually chart JSON in a shape we don't recognise; log it to diagnose.
-        console.warn(`[genie] unparsed single-cell result, column=${result.columns[0]}: ${String(result.rows[0][0]).slice(0, 300)}`);
+        log().warn('genie.unparsed_cell', { space: space.key, column: result.columns[0], content: String(result.rows[0][0]).slice(0, 300) });
       }
+      log().info('genie.ask', { space: space.key, durationMs: Date.now() - started, rows: result.totalRows, charts: chartCount, failed: Boolean(result.error) });
       collector.results.push(result);
       setLastResult(threadId, space.spaceId, result);
       // Keep the LLM context small; the full capped rows go to the UI via the collector.
