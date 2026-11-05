@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Conversational BI · Preview</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header>
+    <h1>Conversational BI</h1>
+    <span class="tag">Preview</span>
+  </header>
+  <main>
+    <p id="login" class="note" hidden>Please <a href="/auth/login">sign in with Databricks</a>, then come back to this page.</p>
+    <section id="history"></section>
+    <form id="ask">
+      <textarea id="question" rows="3" placeholder="Ask a question about your data…" required></textarea>
+      <button type="submit" id="send">Ask</button>
+    </form>
+  </main>
+  <script src="/app.js"></script>
+</body>
+</html>

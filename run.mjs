@@ -1,5 +1,5 @@
 // Convenience launcher: node run.mjs <setup|build|start|all>
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { copyFileSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -40,6 +40,8 @@ const start = () => {
   }
   const port = process.env.PORT ?? '1976';
   console.log(`\nStarting on http://localhost:${port}`);
+  const demo = join(root, 'demo-ui', 'serve.mjs'); // DEMO-UI (temporary): remove with the demo-ui folder
+  if (existsSync(demo)) spawn(process.execPath, [demo], { stdio: 'inherit', env: { ...process.env, API_PORT: port } }); // DEMO-UI
   run('npx mastra start --env .env', server, { PORT: port, UI_DIST: join(ui, 'dist') });
 };
 
