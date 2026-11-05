@@ -36,9 +36,11 @@ export const createAskGenieTool = (space: GenieSpace, client: GenieClient) =>
       });
       if (result.conversationId) setConversationId(threadId, space.spaceId, result.conversationId);
       // If Genie answered with chart JSON, swap in the real table and build the chart from it (in code).
-      // The chart always belongs to the latest result, so a later non-chart answer clears an earlier chart.
+      // A later answer from the same space replaces its chart; an answer from another space (one turn often asks
+      // several) leaves it in place.
       const fromJson = parseGenieChartJson(result.columns, result.rows);
-      collector.chart = fromJson?.chart ?? null;
+      if (fromJson?.chart) collector.chart = { spaceId: space.spaceId, spec: fromJson.chart };
+      else if (collector.chart?.spaceId === space.spaceId) collector.chart = null;
       if (fromJson) {
         result.columns = fromJson.columns;
         result.rows = fromJson.rows;
@@ -58,7 +60,7 @@ export const createAskGenieTool = (space: GenieSpace, client: GenieClient) =>
         totalRows: result.totalRows,
         shownRows: result.rows.length,
         truncated: result.totalRows > result.rows.length,
-        chartReady: collector.chart !== null,
+        chartReady: Boolean(fromJson?.chart),
         error: result.error,
       };
     },
