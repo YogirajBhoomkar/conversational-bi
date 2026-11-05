@@ -61,7 +61,7 @@ const MIME: Record<string, string> = {
 
 // Serves the built React UI (UI_DIST). Falls through for API paths, and does nothing when UI_DIST is unset.
 export function serveUi(config: BiConfig) {
-  const api = ['/api', config.routePrefix, '/auth/', '/swagger'];
+  const api = ['/api', config.routePrefix, '/auth/', '/swagger', '/health'];
   return async (c: RouteContext, next: () => Promise<void>) => {
     const dist = config.uiDist;
     const path = c.req.path;

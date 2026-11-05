@@ -10,9 +10,11 @@ import { PatTokenProvider } from '../adapters/local/auth/tokenProvider';
 import { createLogger } from '../adapters/logging/logger';
 import { createModelProvider } from '../adapters/model';
 import { loadProcessConfig } from '../config/load';
+import { createAdmission } from '../core/admission';
 import { createBiService } from '../core/service';
 import { localAuthRoutes, serveUi } from '../edge/mastra/local-dev';
 import { createBiRoutes } from '../edge/mastra/routes';
+import { securityHeaders } from '../edge/mastra/security';
 import type { TokenProvider } from '../ports/auth';
 
 const { config, warnings } = loadProcessConfig();
@@ -29,14 +31,43 @@ const model = createModelProvider(config.model);
 const service = createBiService(config, { tokens, model, logger });
 logger.info('service.started', { mode: config.mode, port: config.port, spaces: config.spaces.map((s) => s.key), genieMode: config.genie.mode, model: model.label });
 const authenticator = new LocalAuthenticator(Boolean(oauth), tokens);
+const { service: limits } = config;
+const admission = createAdmission({ enabled: limits.enabled, maxPerUser: limits.maxConcurrentPerUser, maxTotal: limits.maxConcurrentTotal });
+
+// Shutdown: Mastra stops taking connections on SIGTERM and lets open ones finish for drainTimeout. We also refuse new
+// questions at once (503) and report not ready, so traffic moves to other pods while running answers complete.
+process.once('SIGTERM', () => {
+  admission.drain();
+  logger.info('service.stopping', { running: admission.running(), graceMs: limits.shutdownGraceMs });
+});
+// A bug that escapes a request is logged, never silent; an uncaught exception leaves the process in an unknown state,
+// so it exits and the orchestrator starts a fresh one.
+process.on('unhandledRejection', (error) => logger.error('process.unhandled_rejection', { error }));
+process.on('uncaughtException', (error) => {
+  logger.error('process.uncaught_exception', { error });
+  process.exit(1);
+});
 
 export const mastra = new Mastra({
   agents: service.agents,
   storage: new LibSQLStore({ id: 'mastra-storage', url: 'file:./mastra.db' }),
   server: {
     port: config.port,
-    cors: { origin: ['http://localhost:5173'], allowMethods: ['GET', 'POST', 'OPTIONS'], allowHeaders: ['Content-Type'] },
-    middleware: [{ path: '/*', handler: serveUi(config) }],
-    apiRoutes: [...createBiRoutes(service, authenticator, config.routePrefix), ...localAuthRoutes(config)],
+    drainTimeout: limits.shutdownGraceMs,
+    cors: {
+      origin: limits.corsOrigins,
+      allowMethods: ['GET', 'POST', 'OPTIONS'],
+      allowHeaders: ['Content-Type', 'Authorization', 'traceparent', 'X-Trace-Id'],
+      exposeHeaders: ['X-Trace-Id', 'Retry-After'],
+      credentials: config.mode === 'local', // the local login uses a cookie; GC sends a bearer token
+    },
+    middleware: [
+      { path: '/*', handler: securityHeaders(limits.frameAncestors) },
+      { path: '/*', handler: serveUi(config) },
+    ],
+    apiRoutes: [
+      ...createBiRoutes(service, authenticator, admission, logger, { prefix: config.routePrefix, maxBodyBytes: limits.maxBodyBytes, heartbeatMs: limits.sseHeartbeatMs }),
+      ...localAuthRoutes(config),
+    ],
   },
 });

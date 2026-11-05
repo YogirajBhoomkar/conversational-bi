@@ -14,6 +14,18 @@ export type ModelSettings =
   | { provider: 'anthropic'; model: string; apiKey: string }
   | { provider: 'openai-compatible'; model: string; baseUrl: string; apiKey?: string };
 
+export type ServiceSettings = {
+  enabled: boolean;
+  maxBodyBytes: number;
+  maxConcurrentPerUser: number;
+  maxConcurrentTotal: number;
+  turnTimeoutMs: number;
+  sseHeartbeatMs: number;
+  shutdownGraceMs: number;
+  corsOrigins: string[];
+  frameAncestors: string;
+};
+
 export type LogSettings = { format: 'pretty' | 'json'; level: 'debug' | 'info' | 'warn' | 'error'; content: boolean };
 
 export type BiConfig = {
@@ -29,6 +41,7 @@ export type BiConfig = {
   suggestWaitMs: number;
   model: ModelSettings;
   logging: LogSettings;
+  service: ServiceSettings;
   spaces: GenieSpace[];
   domainRules: string;
   uiDist?: string;
@@ -105,6 +118,17 @@ function toConfig(s: Settings, spaces: GenieSpace[], domainRules: string): BiCon
     model: s.LLM_BASE_URL
       ? { provider: 'openai-compatible', model: s.LLM_MODEL, baseUrl: s.LLM_BASE_URL, apiKey: s.LLM_API_KEY }
       : { provider: 'anthropic', model: s.ANTHROPIC_MODEL, apiKey: s.ANTHROPIC_API_KEY ?? '' },
+    service: {
+      enabled: s.BI_ENABLED,
+      maxBodyBytes: s.BI_MAX_BODY_BYTES,
+      maxConcurrentPerUser: s.BI_MAX_CONCURRENT_PER_USER,
+      maxConcurrentTotal: s.BI_MAX_CONCURRENT_TOTAL,
+      turnTimeoutMs: s.BI_TURN_TIMEOUT_MS,
+      sseHeartbeatMs: s.BI_SSE_HEARTBEAT_MS,
+      shutdownGraceMs: s.BI_SHUTDOWN_GRACE_MS,
+      corsOrigins: s.BI_CORS_ORIGINS ? s.BI_CORS_ORIGINS.split(',').map((o) => o.trim()).filter(Boolean) : local ? ['http://localhost:5173'] : [],
+      frameAncestors: s.BI_FRAME_ANCESTORS?.trim() || "'self'",
+    },
     logging: { format: s.BI_LOG_FORMAT ?? (local ? 'pretty' : 'json'), level: s.BI_LOG_LEVEL, content: s.BI_LOG_CONTENT },
     spaces,
     domainRules,

@@ -24,6 +24,7 @@ function deps(chunks: Array<{ type: string; payload?: object }>, seen: Seen[] = 
     modelLabel: 'm',
     suggestWaitMs: 0,
     logger: silentLogger,
+    turnTimeoutMs: 60_000,
   };
 }
 
@@ -41,9 +42,21 @@ describe('handleChat', () => {
     const rc = seen[0].requestContext;
     expect(typeof rc.get('caller')).toBe('function');
     expect((rc.get('caller') as () => unknown)()).toEqual({ userId: 'u1', userToken: 'identity-token', sessionId: undefined });
-    expect(rc.get('signal')).toBe(abort.signal);
-    expect(seen[0].abortSignal).toBe(abort.signal);
+    // The turn's signal follows the caller's (and also fires on the turn timeout).
+    const signal = rc.get('signal') as AbortSignal;
+    expect(seen[0].abortSignal).toBe(signal);
+    expect(signal.aborted).toBe(false);
+    abort.abort();
+    expect(signal.aborted).toBe(true);
     expect(seen[0].memory).toEqual({ thread: 'u1::a', resource: 'u1' });
+  });
+
+  it('stops a turn that runs past the timeout and tells the user in plain words', async () => {
+    const hang = deps([]);
+    hang.turnTimeoutMs = 30;
+    hang.supervisor = { stream: (async (_m: string, opts: Seen) => ({ fullStream: (async function* () { await new Promise((_, reject) => opts.abortSignal.addEventListener('abort', () => reject(new Error('aborted')))); })() })) as unknown as ChatDeps['supervisor']['stream'] };
+    const events = await collect(handleChat(hang, ctx(), { threadId: 'a', message: 'q' }));
+    expect(events.at(-1)).toEqual({ type: 'error', message: expect.stringContaining('took longer than') });
   });
 
   it('ends with `final` for a turn that answers', async () => {

@@ -62,11 +62,8 @@ function context(body: unknown) {
   return {
     req: {
       header: () => undefined,
-      json: async () => {
-        if (body === NOT_JSON) throw new SyntaxError('Unexpected token');
-        return body;
-      },
-      raw: { signal: new AbortController().signal },
+      path: '/bi/chat',
+      raw: new Request('http://localhost/bi/chat', { method: 'POST', body: body === NOT_JSON ? 'not json' : JSON.stringify(body) }),
     },
     json: (value: unknown, status = 200) => new Response(JSON.stringify(value), { status, headers: { 'Content-Type': 'application/json' } }),
   };
@@ -128,7 +125,8 @@ describe('POST /bi/chat (characterization)', () => {
 
     expect(res.status).toBe(200);
     expect(res.headers.get('Content-Type')).toBe('text/event-stream');
-    expect(res.headers.get('Cache-Control')).toBe('no-cache');
+    expect(res.headers.get('Cache-Control')).toBe('no-cache, no-transform');
+    expect(res.headers.get('X-Accel-Buffering')).toBe('no'); // proxies must not hold the stream back
     expect(await events(res)).toEqual([
       { type: 'trace', item: { id: 'model', kind: 'meta', label: 'Using model', text: 'test-model' } },
       { type: 'trace', item: { id: 'note1', kind: 'note', text: 'I will ask the first data agent.' } },
@@ -192,7 +190,9 @@ describe('POST /bi/chat (characterization)', () => {
     };
     const evs = await events(await call(await loadRoutes(), '/bi/chat', { threadId: 't1', message: 'q' }));
     expect(evs[0]).toMatchObject({ type: 'trace', item: { id: 'model' } });
-    expect(evs.at(-1)).toEqual({ type: 'error', message: 'model unavailable' });
+    // The user gets a plain message with a reference; the model's error text stays in the log.
+    expect(evs.at(-1)).toEqual({ type: 'error', message: expect.stringMatching(/^Something went wrong while answering\. If it happens again, quote reference \S+\.$/) });
+    expect(JSON.stringify(evs)).not.toContain('model unavailable');
     expect(evs.some((e) => e.type === 'final')).toBe(false);
   });
 

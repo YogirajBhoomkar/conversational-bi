@@ -21,7 +21,7 @@ export function createBiService(config: BiConfig, adapters: BiAdapters) {
   // GENIE_MODE=agent uses Genie Agent mode (GA), which streams the agent's reasoning. Default is the Conversation API.
   const genie = config.genie.mode === 'agent' ? new DatabricksGenieAgentClient(adapters.tokens, genieOptions) : new DatabricksGenieClient(adapters.tokens, genieOptions);
   const { supervisor, genieAgents, suggestAgent } = createAgents(genie, { registry, model: adapters.model.model, domainRules: config.domainRules, fullRowCap: config.genie.fullRowCap });
-  const chatDeps = { supervisor, suggestAgent, registry, modelLabel: adapters.model.label, suggestWaitMs: config.suggestWaitMs, logger: adapters.logger };
+  const chatDeps = { supervisor, suggestAgent, registry, modelLabel: adapters.model.label, suggestWaitMs: config.suggestWaitMs, logger: adapters.logger, turnTimeoutMs: config.service.turnTimeoutMs };
 
   return {
     registry,

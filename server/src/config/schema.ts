@@ -50,6 +50,17 @@ export const SettingsSchema = z.object({
   LLM_API_KEY: setting(z.string().optional(), 'API key for LLM_BASE_URL.', { group: 'AI model', secret: true }),
   LLM_MODEL: setting(z.string().min(1).default('gpt-5.1'), 'Model name at LLM_BASE_URL.', { group: 'AI model' }),
 
+  // ---------------------------------------------------------------- Service limits and safety
+  BI_ENABLED: setting(flag().default(true), 'false switches chat and feedback off (503 with a friendly message) without taking the service down. Health checks keep answering.', { group: 'Service' }),
+  BI_MAX_BODY_BYTES: setting(int(1024, 1_048_576).default(16_384), 'Largest request body accepted, in bytes (413 above it).', { group: 'Service' }),
+  BI_MAX_CONCURRENT_PER_USER: setting(int(1, 20).default(2), 'Questions one user can have running at once (429 above it).', { group: 'Service' }),
+  BI_MAX_CONCURRENT_TOTAL: setting(int(1, 10_000).default(50), 'Questions this instance runs at once, all users together (429 above it).', { group: 'Service' }),
+  BI_TURN_TIMEOUT_MS: setting(int(10_000, 1_800_000).default(300_000), 'Longest one question may run, in milliseconds; then it is stopped and the user is told.', { group: 'Service' }),
+  BI_SSE_HEARTBEAT_MS: setting(int(0, 120_000).default(15_000), 'While an answer streams, a keep-alive comment is sent after this many milliseconds of silence, so proxies do not close the connection. 0 turns it off.', { group: 'Service' }),
+  BI_SHUTDOWN_GRACE_MS: setting(int(0, 600_000).default(25_000), 'On SIGTERM, new questions are refused at once and running ones get this long to finish. Keep it below the pod\'s terminationGracePeriodSeconds.', { group: 'Service' }),
+  BI_CORS_ORIGINS: setting(z.string().optional(), 'Comma-separated browser origins allowed to call the API from another origin. Default: http://localhost:5173 locally, none in gc mode (same origin only).', { group: 'Service', example: 'https://<gc-ui-host>' }),
+  BI_FRAME_ANCESTORS: setting(z.string().optional(), 'Space-separated origins allowed to show the served UI in a frame (Content-Security-Policy frame-ancestors). Default: \'self\'.', { group: 'Service', example: "'self' https://<gc-ui-host>" }),
+
   // ---------------------------------------------------------------- Logging
   BI_LOG_FORMAT: setting(z.enum(['pretty', 'json']).optional(), 'pretty: one readable line per event (default locally). json: one JSON object per line, for Datadog (default in gc mode).', { group: 'Logging' }),
   BI_LOG_LEVEL: setting(z.enum(['debug', 'info', 'warn', 'error']).default('info'), 'The lowest level written.', { group: 'Logging' }),

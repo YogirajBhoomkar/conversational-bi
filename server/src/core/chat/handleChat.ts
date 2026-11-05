@@ -20,6 +20,7 @@ export type ChatDeps = {
   modelLabel: string;
   suggestWaitMs: number; // after `final`, how long to wait for our own follow-ups
   logger: BiLogger;      // the base logger; each turn logs through a child carrying its trace id
+  turnTimeoutMs: number; // a turn running longer is stopped
 };
 
 type StreamChunk = TraceChunk & { payload?: { error?: unknown }; error?: unknown };
@@ -39,7 +40,16 @@ export async function* handleChat(deps: ChatDeps, ctx: BiRequestContext, request
   yield* queue.drain();
 }
 
-async function runTurn(deps: ChatDeps, ctx: BiRequestContext, { threadId: rawThread, message }: ChatRequest, send: (e: ChatEvent) => void) {
+// What the user is told when a turn fails. The details are in the log, found by the trace id.
+const failureMessage = (timedOut: boolean, deps: ChatDeps, traceId: string) =>
+  timedOut
+    ? `This question took longer than ${Math.round(deps.turnTimeoutMs / 60_000)} minutes and was stopped. Try asking for less at once.`
+    : `Something went wrong while answering. If it happens again, quote reference ${traceId}.`;
+
+async function runTurn(deps: ChatDeps, requestCtx: BiRequestContext, { threadId: rawThread, message }: ChatRequest, send: (e: ChatEvent) => void) {
+  // The turn stops when the caller goes away or it runs too long.
+  const timeout = AbortSignal.timeout(deps.turnTimeoutMs);
+  const ctx = { ...requestCtx, signal: AbortSignal.any([requestCtx.signal, timeout]) };
   const threadId = threadKey(ctx, rawThread);
   const started = Date.now();
   let firstAnswerMs: number | undefined;
@@ -123,9 +133,9 @@ async function runTurn(deps: ChatDeps, ctx: BiRequestContext, { threadId: rawThr
     }
     recordTurn(threadId, { question: message, answer, suggested: final.suggestedQuestions.length ? final.suggestedQuestions : ours });
   } catch (err) {
-    if (ctx.signal.aborted) log().info('chat.cancelled', { durationMs: Date.now() - started });
-    else log().error('chat.failed', { durationMs: Date.now() - started, error: err });
-    send({ type: 'error', message: err instanceof Error ? err.message : String(err) });
+    if (requestCtx.signal.aborted) return log().info('chat.cancelled', { durationMs: Date.now() - started }); // nobody is listening
+    log().error(timeout.aborted ? 'chat.timeout' : 'chat.failed', { durationMs: Date.now() - started, error: err });
+    send({ type: 'error', message: failureMessage(timeout.aborted, deps, ctx.traceId) });
   }
 }
 

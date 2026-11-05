@@ -31,6 +31,12 @@ What is never written: tokens, `Authorization` and cookie values, API keys, pass
 | `genie.chart_load_failed`, `genie.unparsed_cell`, `chart.skipped` | warn | `space`, `reason` | Genie sent a chart the app could not load or draw |
 | `suggest.failed` | warn | `error` | Follow-up suggestions could not be written (the answer is unaffected) |
 | `feedback`, `feedback.failed` | info, warn | `spaceId`, `rating` | A thumbs up or down was passed to Genie |
+| `chat.timeout` | error | `durationMs` | A turn ran past `BI_TURN_TIMEOUT_MS` and was stopped |
+| `chat.refused` | warn | `reason` (`disabled`, `draining`, `user-busy`, `busy`) | A question was refused with 503 or 429 |
+| `auth.rejected` | warn | `path`, `status` | A request without a valid identity |
+| `http.unexpected_error` | error | `error` | A bug reached the HTTP layer; the caller got a 500 with the trace id |
+| `service.stopping` | info | `running`, `graceMs` | SIGTERM received: new questions are refused, running ones finish |
+| `process.unhandled_rejection`, `process.uncaught_exception` | error | `error` | A bug outside any request (the second one restarts the process) |
 
 ## Datadog setup (template)
 
@@ -48,6 +54,7 @@ In Datadog, add facets for `event`, `traceId`, `user`, `space` and measures for 
 | Failed turns | `service:conversational-bi event:chat.failed`, more than 5 in 10 minutes |
 | Slow answers | p95 of `@durationMs` on `event:chat.turn` above 120000 |
 | Genie trouble | `event:retry` or `@failed:true` on `event:genie.ask`, rising |
+| Capacity | `event:chat.refused @reason:busy`, any |
 
 ## Linking to GC's traces
 
