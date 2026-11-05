@@ -110,8 +110,8 @@ describe('loadConfig', () => {
   });
 
   it('a space id left as REPLACE_ME names the variable for that space key', () => {
-    const problems = problemsOf({ ...LOCAL, BI_SPACE_ID_CAPACITY: undefined });
-    expect(problems).toEqual(['BI_SPACES_FILE[1.spaceId]: still the placeholder REPLACE_ME: set BI_SPACE_ID_CAPACITY (in server/.env when running locally)']);
+    const problems = problemsOf({ ...LOCAL, BI_SPACE_ID_PLACEMENT: undefined, BI_SPACE_ID_CAPACITY: undefined });
+    expect(problems).toEqual([0, 1].map((i) => `BI_SPACES_FILE[${i}.spaceId]: still the placeholder REPLACE_ME: set BI_SPACE_ID_${['PLACEMENT', 'CAPACITY'][i]} (in server/.env when running locally)`)); // and no "duplicate" noise
   });
 
   it('takes the id of any space from BI_SPACE_ID_<KEY>, in every mode, and warns about one with no matching space', () => {

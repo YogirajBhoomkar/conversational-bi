@@ -20,6 +20,7 @@ export const SpacesConfigSchema = z
     for (const field of ['key', 'spaceId'] as const) {
       const seen = new Set<string>();
       spaces.forEach((s, i) => {
+        if (s[field] === 'REPLACE_ME') return; // already reported as a placeholder
         if (seen.has(s[field])) ctx.addIssue({ code: 'custom', path: [i, field], message: `duplicate ${field}` });
         seen.add(s[field]);
       });
