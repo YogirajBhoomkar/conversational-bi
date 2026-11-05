@@ -1,15 +1,16 @@
 // The HTTP API on Mastra's server: POST <prefix>/chat (SSE), POST <prefix>/feedback, and the health checks.
 // Admission, authentication, body limits and encoding only; the work happens in the service.
 import { registerApiRoute } from '@mastra/core/server';
-import { ChatRequestSchema, FeedbackRequestSchema } from '../../contracts';
+import { ChatRequestSchema, CONTRACT_VERSION, FeedbackRequestSchema } from '../../contracts';
 import { type Admission, isRefusal } from '../../core/admission';
 import { requestLogger } from '../../core/log';
 import type { BiService } from '../../core/service';
 import type { Authenticator } from '../../ports/auth';
 import type { BiLogger } from '../../ports/logger';
-import { errorResponse, incoming, readBody, refusalResponse, requestContext, type RouteContext, sseResponse, traceIdOf } from './http';
+import { traceIdOf } from '../traceId';
+import { errorResponse, incoming, readBody, refusalResponse, requestContext, type RouteContext, sseResponse } from './http';
 
-export type RouteOptions = { prefix: string; maxBodyBytes: number; heartbeatMs: number };
+export type RouteOptions = { prefix: string; maxBodyBytes: number; heartbeatMs: number; build: string };
 
 export function createBiRoutes(service: BiService, authenticator: Authenticator, admission: Admission, logger: BiLogger, opts: RouteOptions) {
   // Authenticates the caller. A refusal is answered here (401/403, with whether to log in again) and logged.
@@ -63,6 +64,10 @@ export function createBiRoutes(service: BiService, authenticator: Authenticator,
           return errorResponse(e, logger.child({ traceId }), traceId);
         }
       },
+    }),
+    registerApiRoute(`${opts.prefix}/version`, {
+      method: 'GET',
+      handler: async (c) => c.json({ service: 'conversational-bi', contract: CONTRACT_VERSION, build: opts.build }),
     }),
     // Liveness: the process answers. Readiness: it takes new questions (false while shutting down). Neither calls
     // Databricks, so a Databricks outage does not make Kubernetes restart healthy pods.

@@ -24,6 +24,7 @@ export type ServiceSettings = {
   shutdownGraceMs: number;
   corsOrigins: string[];
   frameAncestors: string;
+  build: string;
 };
 
 export type LogSettings = { format: 'pretty' | 'json'; level: 'debug' | 'info' | 'warn' | 'error'; content: boolean };
@@ -128,6 +129,7 @@ function toConfig(s: Settings, spaces: GenieSpace[], domainRules: string): BiCon
       shutdownGraceMs: s.BI_SHUTDOWN_GRACE_MS,
       corsOrigins: s.BI_CORS_ORIGINS ? s.BI_CORS_ORIGINS.split(',').map((o) => o.trim()).filter(Boolean) : local ? ['http://localhost:5173'] : [],
       frameAncestors: s.BI_FRAME_ANCESTORS?.trim() || "'self'",
+      build: s.BI_BUILD_SHA,
     },
     logging: { format: s.BI_LOG_FORMAT ?? (local ? 'pretty' : 'json'), level: s.BI_LOG_LEVEL, content: s.BI_LOG_CONTENT },
     spaces,

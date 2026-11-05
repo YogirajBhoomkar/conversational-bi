@@ -1,0 +1,16 @@
+# What lift.mjs copies into GC's monorepo, one line per entry: <path in this repository> -> <path in the target repository>.
+# Folders are copied whole, except dependencies, build output, local databases and .env files.
+# <app> is the --app option (default apps/conversational-bi).
+server/src                  -> <app>/src
+server/config               -> <app>/config
+server/contracts            -> <app>/contracts
+server/scripts              -> <app>/scripts
+server/package.json         -> <app>/package.json
+server/tsconfig.json        -> <app>/tsconfig.json
+server/.env.example         -> <app>/.env.example
+server/Dockerfile           -> <app>/Dockerfile
+server/.dockerignore        -> <app>/.dockerignore
+lift/project.json.template  -> <app>/project.json
+lift/deps.manifest.json     -> <app>/deps.manifest.json
+docs/CONTRACT.md            -> <app>/docs/CONTRACT.md
+docs/lift                   -> <app>/docs/lift

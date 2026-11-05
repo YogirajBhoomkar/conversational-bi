@@ -1,45 +1,63 @@
-// Template, not compiled in this repository. Copy to <GC_ROOT>/apps/api/src/conversational-bi/bi.controller.ts.
-// Use it only if GC's API can host the Mastra-based core (Node 22.13 or later). Otherwise run our service standalone
-// and proxy to it; see README.md next to this file.
-import { Body, Controller, HttpException, Inject, Post, Req, Res, UseGuards } from '@nestjs/common';
+// Template, not compiled in this repository. Copy to <GC_ROOT>/apps/<app>/src/conversational-bi/bi.controller.ts.
+// The same HTTP contract as the Mastra routes (docs/CONTRACT.md), using the same core pieces: admission (limits and
+// shutdown), trace ids, the request logger and the error rules. GC's own Okta guard identifies the user.
+// Body size: set the app's JSON body limit to BI_MAX_BODY_BYTES (express.json({ limit })) in GC's main.ts.
+import { Body, Controller, Get, HttpException, Inject, Post, Req, Res, UseGuards } from '@nestjs/common';
 import type { Request, Response } from 'express';
-import { randomUUID } from 'node:crypto';
-// TODO(GC:nest-paths) point these at where the lifted core lives.
-import { ChatRequestSchema, FeedbackRequestSchema } from '../../../conversational-bi/server/src/contracts';
-import { AuthError, UpstreamError, ValidationError } from '../../../conversational-bi/server/src/core/errors';
-import type { BiService } from '../../../conversational-bi/server/src/core/service';
-import type { BiRequestContext } from '../../../conversational-bi/server/src/ports/context';
+// TODO(GC:nest-paths) point these at where the lifted code lives.
+import type { BiConfig } from '../../../conversational-bi/src/config/load';
+import { ChatRequestSchema, CONTRACT_VERSION, FeedbackRequestSchema } from '../../../conversational-bi/src/contracts';
+import { type Admission, isRefusal, type Refusal } from '../../../conversational-bi/src/core/admission';
+import { AuthError, UpstreamError, ValidationError } from '../../../conversational-bi/src/core/errors';
+import { requestLogger } from '../../../conversational-bi/src/core/log';
+import type { BiService } from '../../../conversational-bi/src/core/service';
+import { traceIdOf } from '../../../conversational-bi/src/edge/traceId';
+import type { BiRequestContext } from '../../../conversational-bi/src/ports/context';
+import type { BiLogger } from '../../../conversational-bi/src/ports/logger';
 // TODO(GC:okta-guard) GC's existing Okta guard, which validates the bearer token and puts the user on the request.
 import { OktaAuthGuard } from '../auth/okta-auth.guard';
 
 export const BI_SERVICE = Symbol('BI_SERVICE');
+export const BI_ADMISSION = Symbol('BI_ADMISSION');
+export const BI_CONFIG = Symbol('BI_CONFIG');
+export const BI_LOGGER = Symbol('BI_LOGGER');
 
 type OktaRequest = Request & { user?: { sub: string } }; // TODO(GC:okta-guard) GC's request user type
 
-const HEARTBEAT_MS = 15_000; // well under the ~60 s idle timeout of proxies; Genie can take minutes
+const invalid = (issues: { path: PropertyKey[]; message: string }[]) =>
+  new HttpException({ error: 'Invalid request', issues: issues.map((i) => `${i.path.join('.') || 'body'}: ${i.message}`) }, 400);
+const refused = (res: Response, r: Refusal) => res.status(r.status).set('Retry-After', String(r.retryAfterSeconds)).json({ error: r.message, reason: r.reason });
 
 @Controller('bi') // TODO(GC:route-prefix) GC's global prefix applies in front of this
-@UseGuards(OktaAuthGuard)
 export class BiController {
-  constructor(@Inject(BI_SERVICE) private readonly bi: BiService) {}
+  constructor(
+    @Inject(BI_SERVICE) private readonly bi: BiService,
+    @Inject(BI_ADMISSION) private readonly admission: Admission,
+    @Inject(BI_CONFIG) private readonly config: BiConfig,
+    @Inject(BI_LOGGER) private readonly logger: BiLogger,
+  ) {}
 
   private context(req: OktaRequest, signal: AbortSignal): BiRequestContext {
     const bearer = /^Bearer\s+(.+)$/i.exec(req.headers.authorization ?? '')?.[1];
     if (!req.user?.sub || !bearer) throw new HttpException({ error: 'Please sign in again.', relogin: true }, 401);
-    // The Okta token goes to the token-exchange provider only; it is never logged or sent to Databricks.
-    return { userId: req.user.sub, userToken: bearer, traceId: String(req.headers['x-trace-id'] ?? randomUUID()), signal };
+    // The Okta token goes to GC's token service only; it is never logged or sent to Databricks.
+    return { userId: req.user.sub, userToken: bearer, traceId: traceIdOf((n) => req.header(n)), signal };
   }
 
   @Post('chat')
+  @UseGuards(OktaAuthGuard)
   async chat(@Req() req: OktaRequest, @Res() res: Response, @Body() body: unknown): Promise<void> {
     const parsed = ChatRequestSchema.safeParse(body);
-    if (!parsed.success) {
-      res.status(400).json({ error: 'Invalid request', issues: parsed.error.issues.map((i) => `${i.path.join('.') || 'body'}: ${i.message}`) });
+    if (!parsed.success) throw invalid(parsed.error.issues);
+    const abort = new AbortController();
+    const ctx = this.context(req, abort.signal);
+    const slot = this.admission.admit(ctx.userId);
+    if (isRefusal(slot)) {
+      requestLogger(this.logger, ctx).warn('chat.refused', { reason: slot.reason });
+      refused(res, slot);
       return;
     }
-    const abort = new AbortController();
-    res.on('close', () => abort.abort()); // the browser tab closed: stop the supervisor and Genie polling
-    const ctx = this.context(req, abort.signal);
+    res.on('close', () => abort.abort()); // the browser left: stop the supervisor and Genie
 
     res.status(200).set({
       'Content-Type': 'text/event-stream',
@@ -49,7 +67,8 @@ export class BiController {
       'X-Trace-Id': ctx.traceId,
     });
     res.flushHeaders();
-    const heartbeat = setInterval(() => res.write(': keep-alive\n\n'), HEARTBEAT_MS);
+    const { sseHeartbeatMs } = this.config.service;
+    const heartbeat = sseHeartbeatMs > 0 ? setInterval(() => res.write(': keep-alive\n\n'), sseHeartbeatMs) : undefined;
     try {
       for await (const event of this.bi.handleChat(ctx, parsed.data)) {
         if (abort.signal.aborted) break;
@@ -57,22 +76,31 @@ export class BiController {
       }
     } finally {
       clearInterval(heartbeat);
+      slot.release();
       res.end();
     }
   }
 
   @Post('feedback')
+  @UseGuards(OktaAuthGuard)
   async feedback(@Req() req: OktaRequest, @Body() body: unknown) {
     const parsed = FeedbackRequestSchema.safeParse(body);
-    if (!parsed.success) throw new HttpException({ error: 'Invalid request', issues: parsed.error.issues.map((i) => `${i.path.join('.') || 'body'}: ${i.message}`) }, 400);
+    if (!parsed.success) throw invalid(parsed.error.issues);
+    const ctx = this.context(req, new AbortController().signal);
     try {
-      await this.bi.handleFeedback(this.context(req, new AbortController().signal), parsed.data);
+      await this.bi.handleFeedback(ctx, parsed.data);
       return { ok: true };
     } catch (e) {
       if (e instanceof ValidationError) throw new HttpException({ error: e.message }, 400);
       if (e instanceof AuthError) throw new HttpException({ error: e.message, relogin: true }, 401);
-      if (e instanceof UpstreamError) throw new HttpException({ error: 'Genie could not record the feedback.' }, 502);
-      throw e;
+      if (e instanceof UpstreamError) throw new HttpException({ error: 'Genie could not record the feedback.', traceId: ctx.traceId }, 502);
+      requestLogger(this.logger, ctx).error('http.unexpected_error', { error: e });
+      throw new HttpException({ error: 'Something went wrong. If it happens again, quote this reference.', traceId: ctx.traceId }, 500);
     }
+  }
+
+  @Get('version')
+  version() {
+    return { service: 'conversational-bi', contract: CONTRACT_VERSION, build: this.config.service.build };
   }
 }

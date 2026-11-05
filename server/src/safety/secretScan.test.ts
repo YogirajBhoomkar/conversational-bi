@@ -1,7 +1,7 @@
 // The repository is public. This fails the build if a tracked file looks like it holds a secret, a real workspace host
 // or a real Genie space id. It is a safety net, not a guarantee: keep the repository private for client work.
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -23,9 +23,12 @@ const SKIP = [/(^|\/)package-lock\.json$/, /\.(png|jpe?g|gif|ico|woff2?|ttf|pdf)
 
 const findSecrets = (text: string): string[] => PATTERNS.filter(([, re]) => re.test(text)).map(([name]) => name);
 
+// In this (public) source repository the whole repository is scanned. Lifted into a host monorepo, only this app's
+// folder is: the host's own files are not ours to judge.
 const repoRoot = (() => {
   try {
-    return execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
+    const top = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
+    return existsSync(join(top, 'lift', 'LIFT_MANIFEST.txt')) ? top : join(import.meta.dirname, '..', '..');
   } catch {
     return null; // not a git checkout (for example inside a container build)
   }

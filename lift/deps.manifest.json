@@ -1,0 +1,52 @@
+{
+  "$comment": "What Conversational BI needs from the host monorepo. Kept in sync with server/package.json by a test (lift.test.ts).",
+  "node": ">=22.13.0",
+  "dependencies": {
+    "@ai-sdk/anthropic": {
+      "version": "^4.0.89",
+      "why": "Anthropic model access (only used when LLM_BASE_URL is not set)"
+    },
+    "@mastra/core": {
+      "version": "^1.79.0",
+      "why": "Agents, tools and the HTTP server; needs Node 22.13 or later"
+    },
+    "@mastra/libsql": {
+      "version": "^1.27.0",
+      "why": "Storage for agent runs and memory (LibSQL file or in-memory)"
+    },
+    "@mastra/memory": {
+      "version": "^1.39.0",
+      "why": "Conversation memory per thread"
+    },
+    "dotenv": {
+      "version": "^18.0.9",
+      "why": "Reads server/.env in local development only"
+    },
+    "zod": {
+      "version": "^4.6.7",
+      "why": "Request, event and settings validation. Version 4: check GC's zod version before merging into one root package.json"
+    }
+  },
+  "devDependencies": {
+    "@types/node": {
+      "version": "^24.0.0",
+      "why": "Types"
+    },
+    "mastra": {
+      "version": "^1.35.0",
+      "why": "Mastra CLI: build and dev server"
+    },
+    "tsx": {
+      "version": "^4.23.15",
+      "why": "Runs the scripts (env:example, contracts)"
+    },
+    "typescript": {
+      "version": "^5.9.0",
+      "why": "Type check"
+    },
+    "vitest": {
+      "version": "^3.2.0",
+      "why": "Tests"
+    }
+  }
+}

@@ -1,0 +1,12 @@
+# Never in an image: secrets, local state, build output and dependencies (rebuilt inside the image).
+.env
+.env.*
+!.env.example
+*.db
+*.db-shm
+*.db-wal
+.mastra
+node_modules
+contracts
+scripts
+**/*.test.ts

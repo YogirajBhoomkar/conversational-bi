@@ -1,13 +1,15 @@
 {
   "name": "bi-supervisor-server",
   "private": true,
+  "engines": { "node": ">=22.13.0" },
   "type": "module",
   "scripts": {
     "dev": "mastra dev",
     "build": "mastra build",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "env:example": "tsx scripts/env-example.ts"
+    "env:example": "tsx scripts/env-example.ts",
+    "contracts": "tsx scripts/contracts.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.89",

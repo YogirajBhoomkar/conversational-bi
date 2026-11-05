@@ -1,5 +1,4 @@
 // The Mastra (Hono) request, seen through small framework-neutral helpers.
-import { randomUUID } from 'node:crypto';
 import type { registerApiRoute } from '@mastra/core/server';
 import type { z } from 'zod';
 import type { ChatEvent } from '../../contracts';
@@ -17,16 +16,6 @@ export const incoming = (c: RouteContext): IncomingRequestLike => ({
   header: (name) => c.req.header(name),
   signal: c.req.raw.signal,
 });
-
-// The trace id of a request: the caller's, when it sends one (W3C traceparent, or X-Trace-Id), so our log lines join the
-// caller's trace; otherwise a new one. Returned in the X-Trace-Id response header.
-const TRACEPARENT = /^[0-9a-f]{2}-([0-9a-f]{32})-[0-9a-f]{16}-[0-9a-f]{2}$/;
-const TRACE_ID = /^[A-Za-z0-9._-]{8,128}$/;
-export function traceIdOf(header: (name: string) => string | undefined): string {
-  const parent = TRACEPARENT.exec(header('traceparent')?.trim() ?? '')?.[1];
-  const given = header('x-trace-id')?.trim();
-  return parent ?? (given && TRACE_ID.test(given) ? given : randomUUID());
-}
 
 // The request context for one call. The signal aborts when the caller goes away or `abort` is called.
 export function requestContext(c: RouteContext, identity: Identity, traceId: string) {

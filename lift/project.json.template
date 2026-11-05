@@ -1,0 +1,34 @@
+{
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "name": "conversational-bi",
+  "projectType": "application",
+  "sourceRoot": "apps/conversational-bi/src",
+  "tags": ["scope:conversational-bi", "type:app"],
+  "targets": {
+    "build": {
+      "executor": "nx:run-commands",
+      "outputs": ["{projectRoot}/.mastra/output"],
+      "options": { "command": "npx mastra build", "cwd": "{projectRoot}" }
+    },
+    "serve": {
+      "executor": "nx:run-commands",
+      "options": { "command": "npx mastra dev", "cwd": "{projectRoot}" }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": { "command": "npx vitest run", "cwd": "{projectRoot}" }
+    },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "options": { "command": "npx tsc --noEmit", "cwd": "{projectRoot}" }
+    },
+    "contracts": {
+      "executor": "nx:run-commands",
+      "options": { "command": "npx tsx scripts/contracts.ts", "cwd": "{projectRoot}" }
+    },
+    "docker-build": {
+      "executor": "nx:run-commands",
+      "options": { "command": "docker build --build-arg BI_BUILD_SHA=$(git rev-parse --short HEAD) -t conversational-bi .", "cwd": "{projectRoot}" }
+    }
+  }
+}

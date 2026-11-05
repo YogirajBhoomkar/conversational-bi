@@ -61,6 +61,8 @@ export const SettingsSchema = z.object({
   BI_CORS_ORIGINS: setting(z.string().optional(), 'Comma-separated browser origins allowed to call the API from another origin. Default: http://localhost:5173 locally, none in gc mode (same origin only).', { group: 'Service', example: 'https://<gc-ui-host>' }),
   BI_FRAME_ANCESTORS: setting(z.string().optional(), 'Space-separated origins allowed to show the served UI in a frame (Content-Security-Policy frame-ancestors). Default: \'self\'.', { group: 'Service', example: "'self' https://<gc-ui-host>" }),
 
+  BI_BUILD_SHA: setting(z.string().trim().min(1).max(64).default('local'), 'The commit the image was built from; set by the image build (Dockerfile) and shown by GET <prefix>/version.', { group: 'Service' }),
+
   // ---------------------------------------------------------------- Logging
   BI_LOG_FORMAT: setting(z.enum(['pretty', 'json']).optional(), 'pretty: one readable line per event (default locally). json: one JSON object per line, for Datadog (default in gc mode).', { group: 'Logging' }),
   BI_LOG_LEVEL: setting(z.enum(['debug', 'info', 'warn', 'error']).default('info'), 'The lowest level written.', { group: 'Logging' }),

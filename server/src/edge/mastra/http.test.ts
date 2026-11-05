@@ -3,7 +3,8 @@ import type { ChatEvent } from '../../contracts';
 import { z } from 'zod';
 import { UpstreamError } from '../../core/errors';
 import { silentLogger } from '../../core/log';
-import { errorResponse, readBody, type RouteContext, sseResponse, traceIdOf } from './http';
+import { traceIdOf } from '../traceId';
+import { errorResponse, readBody, type RouteContext, sseResponse } from './http';
 
 describe('sseResponse', () => {
   it('writes one `data:` line per event, byte for byte', async () => {

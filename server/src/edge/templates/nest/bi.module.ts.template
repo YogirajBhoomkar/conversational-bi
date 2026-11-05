@@ -1,24 +1,58 @@
-// Template, not compiled in this repository. Copy to <GC_ROOT>/apps/api/src/conversational-bi/bi.module.ts and add
-// BiModule to the imports of GC's AppModule (the one manual edit in GC's own files).
-import { Module } from '@nestjs/common';
-// TODO(GC:nest-paths) point these at where the lifted code lives.
-import { loadConfig } from '../../../conversational-bi/server/src/config/load';
-import { createBiService } from '../../../conversational-bi/server/src/core/service';
-import { createModelProvider } from '../../../conversational-bi/server/src/adapters/model';
-// TODO(GC:token-exchange) the Okta -> Databricks token-exchange provider (adapters/gc), added in the next phase.
-import { OktaToDatabricksTokenProvider } from '../../../conversational-bi/server/src/adapters/gc/tokenExchange';
-import { BI_SERVICE, BiController } from './bi.controller';
+// Template, not compiled in this repository. Copy to <GC_ROOT>/apps/<app>/src/conversational-bi/bi.module.ts and add
+// BiModule to the imports of the app's AppModule (the one manual edit in GC's own files).
+// Authentication and the Okta -> Databricks token are GC's own code, reused as is: GC's guard validates the user, and
+// GC's existing token service gives the user's Databricks token. This module only wires them to the core.
+import { Inject, Injectable, Module, type OnApplicationShutdown } from '@nestjs/common';
+// TODO(GC:nest-paths) point these at where the lifted code lives (lift.mjs copies it to apps/conversational-bi).
+import { loadConfig } from '../../../conversational-bi/src/config/load';
+import { createAdmission, type Admission } from '../../../conversational-bi/src/core/admission';
+import { AuthError } from '../../../conversational-bi/src/core/errors';
+import { createBiService } from '../../../conversational-bi/src/core/service';
+import { createLogger } from '../../../conversational-bi/src/adapters/logging/logger';
+import { createModelProvider } from '../../../conversational-bi/src/adapters/model';
+import type { TokenProvider } from '../../../conversational-bi/src/ports/auth';
+// TODO(GC:token-exchange) GC's existing service that turns the user's Okta token into a Databricks token.
+import { DatabricksTokenService } from '../databricks/databricks-token.service';
+import { BI_ADMISSION, BI_CONFIG, BI_LOGGER, BI_SERVICE, BiController } from './bi.controller';
+
+// The core asks for a Databricks token per user; GC's service provides it. The Okta token is passed in, never logged.
+@Injectable()
+class GcTokenProvider implements TokenProvider {
+  constructor(@Inject(DatabricksTokenService) private readonly gc: DatabricksTokenService) {}
+  async getToken(ctx: { userId: string; userToken?: string }): Promise<string> {
+    if (!ctx.userToken) throw new AuthError('Please sign in again.');
+    return this.gc.getTokenForUser(ctx.userToken); // TODO(GC:token-exchange) the method name in GC's service
+  }
+}
+
+// On shutdown, refuse new questions so running ones can finish within the pod's grace period.
+@Injectable()
+class BiShutdown implements OnApplicationShutdown {
+  constructor(@Inject(BI_ADMISSION) private readonly admission: Admission) {}
+  onApplicationShutdown() {
+    this.admission.drain();
+  }
+}
+
+// TODO(GC:vault) settings arrive as environment variables (Helm values and Vault); see docs/lift/GC-CONFIG.md.
+const { config } = loadConfig({ ...process.env, BI_MODE: 'gc' });
+const logger = createLogger(config.logging);
 
 @Module({
   controllers: [BiController],
   providers: [
+    GcTokenProvider,
+    BiShutdown,
+    { provide: BI_CONFIG, useValue: config },
+    { provide: BI_LOGGER, useValue: logger },
+    {
+      provide: BI_ADMISSION,
+      useValue: createAdmission({ enabled: config.service.enabled, maxPerUser: config.service.maxConcurrentPerUser, maxTotal: config.service.maxConcurrentTotal }),
+    },
     {
       provide: BI_SERVICE,
-      useFactory: () => {
-        // TODO(GC:vault) GC's settings arrive as environment variables from Vault/Helm; see docs/lift/GC-CONFIG.md.
-        const { config } = loadConfig({ ...process.env, BI_MODE: 'gc' });
-        return createBiService(config, { tokens: new OktaToDatabricksTokenProvider(config), model: createModelProvider(config.model) });
-      },
+      inject: [GcTokenProvider],
+      useFactory: (tokens: GcTokenProvider) => createBiService(config, { tokens, model: createModelProvider(config.model), logger }),
     },
   ],
 })

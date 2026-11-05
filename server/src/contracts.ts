@@ -47,32 +47,38 @@ export type FinalAnswer = z.infer<typeof FinalAnswerSchema>;
 
 // One entry of the scratchpad the UI shows while the agents work (the same id updates the entry).
 // note: the assistant's plan. tool: one data source being asked (label: its name, text: the question).
-// progress: what that source is doing, under its tool entry: a short thought, a status, or a query (with a status).
-export type TraceItem = {
-  id: string;
-  kind: 'meta' | 'note' | 'tool' | 'progress';
-  text?: string;   // meta/note/progress: the line itself. tool: a short detail, for example the question that was sent
-  label?: string;  // meta: what the value is. tool: what is being done
-  by?: string;     // who is acting, when it is not the supervisor (a data agent's name)
-  parent?: string; // progress: id of the tool entry it belongs to
-  step?: 'thought' | 'status' | 'query'; // progress only: what kind of line it is
-  status?: 'running' | 'done' | 'error'; // tool, and progress lines that run (queries, loading rows)
-};
+// progress: what that source is doing, under its tool entry: a thought, a status, or a query (with a status).
+export const TraceItemSchema = z.object({
+  id: z.string().describe('Sending the same id again updates the entry'),
+  kind: z.enum(['meta', 'note', 'tool', 'progress']),
+  text: z.string().optional().describe('meta/note/progress: the line itself. tool: the question sent to the data source. An empty note has become the answer'),
+  label: z.string().optional().describe('meta: what the value is. tool: the data source name'),
+  by: z.string().optional().describe('Who is acting, when it is not the assistant'),
+  parent: z.string().optional().describe('progress: id of the tool entry it belongs to'),
+  step: z.enum(['thought', 'status', 'query']).optional().describe('progress only: what kind of line it is'),
+  status: z.enum(['running', 'done', 'error']).optional().describe('tool entries, and progress lines that run (queries, loading rows)'),
+});
+export type TraceItem = z.infer<typeof TraceItemSchema>;
 
-// What a Genie call reports while it runs. A query is reported again with the same id when it finishes.
+// What a Genie call reports while it runs. A query is reported again with the same id when it finishes. Internal.
 export type GenieProgress =
   | { kind: 'status'; text: string }
   | { kind: 'thought'; text: string }
   | { kind: 'query'; id: string; title?: string; status: 'running' | 'done' }; // title: sent when it starts
 
 // SSE events streamed by POST /bi/chat. One JSON object per `data:` line.
-export type ChatEvent =
-  | { type: 'trace'; item: TraceItem }  // one entry of the agents' working notes; sending the same id again updates that entry
-  | { type: 'text'; delta: string }      // the answer, streamed as it is written
-  | { type: 'text-reset' }                 // the answer text streamed so far was a working note after all: clear it
-  | { type: 'final'; result: FinalAnswer }
-  | { type: 'suggestions'; questions: string[] }  // follow-ups, sent after `final` once the supervisor model has written them
-  | { type: 'error'; message: string };
+export const ChatEventSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('trace'), item: TraceItemSchema }).describe('One scratchpad entry; the same id again updates it'),
+  z.object({ type: z.literal('text'), delta: z.string() }).describe('The answer, streamed as it is written (Markdown)'),
+  z.object({ type: z.literal('text-reset') }).describe('The answer text streamed so far was a working note after all: clear it'),
+  z.object({ type: z.literal('final'), result: FinalAnswerSchema }).describe('The complete answer with table, charts and sources. Ends the answer'),
+  z.object({ type: z.literal('suggestions'), questions: z.array(z.string()) }).describe('Follow-up questions; may arrive before or after final'),
+  z.object({ type: z.literal('error'), message: z.string() }).describe('The turn failed; the message is for the user and holds a reference'),
+]);
+export type ChatEvent = z.infer<typeof ChatEventSchema>;
+
+// The version of this contract (requests, events, answer). Changes that remove or rename a field raise the major version.
+export const CONTRACT_VERSION = '1.0.0';
 
 // Request bodies for POST /bi/chat and POST /bi/feedback. The routes reject anything that does not match (400).
 export const ChatRequestSchema = z.object({

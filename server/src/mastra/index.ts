@@ -66,7 +66,7 @@ export const mastra = new Mastra({
       { path: '/*', handler: serveUi(config) },
     ],
     apiRoutes: [
-      ...createBiRoutes(service, authenticator, admission, logger, { prefix: config.routePrefix, maxBodyBytes: limits.maxBodyBytes, heartbeatMs: limits.sseHeartbeatMs }),
+      ...createBiRoutes(service, authenticator, admission, logger, { prefix: config.routePrefix, maxBodyBytes: limits.maxBodyBytes, heartbeatMs: limits.sseHeartbeatMs, build: limits.build }),
       ...localAuthRoutes(config),
     ],
   },
