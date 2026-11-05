@@ -116,7 +116,7 @@ flowchart TD
     C --> D["response.created<br/>save conversation id + message id"]
     D --> E["reasoning item<br/>→ thinking line to browser"]
     E --> F["function_call: execute_sql<br/>→ 'Running query: title'"]
-    F --> G["function_call_output<br/>→ 'Query finished' + save statement id"]
+    F --> G["function_call_output<br/>→ query marked done + save statement id"]
     G --> H["message item"]
     H --> I["Part with SQL:<br/>sql, columns, preview rows, total count<br/>(absent for chart answers, see section 4)"]
     H --> J["Text parts:<br/>summary (citations removed)"]

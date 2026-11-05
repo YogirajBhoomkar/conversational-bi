@@ -27,6 +27,7 @@ export type TraceItem = {
   label?: string;
   by?: string;
   parent?: string;
+  step?: 'thought' | 'status' | 'query';
   status?: 'running' | 'done' | 'error';
 };
 export type ChatEvent =

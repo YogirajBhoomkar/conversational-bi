@@ -1,4 +1,4 @@
-import type { GenieClient, GenieResult } from '../../contracts';
+import type { GenieClient, GenieProgress, GenieResult } from '../../contracts';
 import type { TokenProvider } from '../../ports/auth';
 import { type AskArgs, DatabricksGenieClient, failedResult, type FeedbackArgs, type GenieClientOptions, isRetryableRun, RETRY_NOTE, type Run, scopeOf } from './client';
 import { fetchWithRetry, GenieRunFailed, type RetryPolicy, withRetry } from './retry';
@@ -43,7 +43,7 @@ type StreamEvent = {
 };
 // What one streamed answer accumulates besides the result: prose parts, queries still waiting for their output, and
 // each chart query's JSON (or its statement, when the JSON arrived cut off and has to be loaded).
-type TurnState = { texts: string[]; calls: Array<{ callId?: string; isChart: boolean }>; charts: Array<{ json: string } | { statementId: string }> };
+type TurnState = { texts: string[]; calls: Array<{ callId?: string; id: string; isChart: boolean }>; charts: Array<{ json: string } | { statementId: string }>; queries: number };
 type StatementChunk ={ data_array?: unknown[][]; external_links?: unknown[]; next_chunk_internal_link?: string };
 type StatementPage = StatementChunk & { manifest?: { schema?: { columns?: Array<{ name: string }> }; total_row_count?: number }; result?: StatementChunk };
 
@@ -65,7 +65,7 @@ export class DatabricksGenieAgentClient implements GenieClient {
   async ask(args: AskArgs): Promise<GenieResult> {
     const run: Run = { conversationId: args.conversationId ?? '', messageId: '' };
     try {
-      return await withRetry(`Genie agent ${args.spaceId}`, () => this.askOnce(args, run), isRetryableRun, this.retry, () => args.onProgress?.(RETRY_NOTE));
+      return await withRetry(`Genie agent ${args.spaceId}`, () => this.askOnce(args, run), isRetryableRun, this.retry, () => args.onProgress?.({ kind: 'status', text: RETRY_NOTE }));
     } catch (error) {
       return failedResult(args, run, error);
     }
@@ -97,7 +97,7 @@ export class DatabricksGenieAgentClient implements GenieClient {
       );
       if (!res.ok || !res.body) throw new Error(`Genie agent responses failed: ${res.status} ${(await res.text()).slice(0, 300)}`);
 
-      const turn: TurnState = { texts: [], calls: [], charts: [] };
+      const turn: TurnState = { texts: [], calls: [], charts: [], queries: 0 };
       for await (const data of sseData(res.body)) {
         switch (data.type) {
           case 'response.created':
@@ -139,12 +139,12 @@ export class DatabricksGenieAgentClient implements GenieClient {
     }
   }
 
-  private onItem(item: Item, result: GenieResult, turn: TurnState, onProgress?: (line: string) => void) {
+  private onItem(item: Item, result: GenieResult, turn: TurnState, onProgress?: (event: GenieProgress) => void) {
     if (item.type === 'reasoning') {
       const text = (item.content ?? []).map((c) => c.text ?? '').join('').trim();
       if (text) {
         result.thinking.push(text);
-        onProgress?.(text);
+        onProgress?.({ kind: 'thought', text });
       }
     } else if (item.type === 'function_call') {
       let title = '';
@@ -155,8 +155,10 @@ export class DatabricksGenieAgentClient implements GenieClient {
         sql = call.sql ?? '';
         result.sql ??= sql || null; // the message's result section may be missing (chart answers); keep the SQL anyway
       } catch { /* arguments not JSON; fall back to a generic line */ }
-      turn.calls.push({ callId: item.call_id, isChart: /chart_json/i.test(sql) });
-      onProgress?.(title ? `Running query: ${title}` : 'Running a query…');
+      // A query id unique across answers, so the UI can mark this query done when its output arrives.
+      const id = `${result.messageId}:${item.call_id ?? ++turn.queries}`;
+      turn.calls.push({ callId: item.call_id, id, isChart: /chart_json/i.test(sql) });
+      onProgress?.({ kind: 'query', id, title: title || 'Running a query', status: 'running' });
     } else if (item.type === 'function_call_output') {
       // Pair the output with its call: by call id when Genie sends one, otherwise in the order the calls were made.
       const i = item.call_id ? turn.calls.findIndex((c) => c.callId === item.call_id) : 0;
@@ -166,7 +168,7 @@ export class DatabricksGenieAgentClient implements GenieClient {
       if (chartJson) turn.charts.push({ json: chartJson });
       else if (call?.isChart && statementId) turn.charts.push({ statementId });
       if (!call?.isChart) result.statementId = statementId ?? result.statementId; // "show all rows" reloads the table, not the chart
-      onProgress?.('Query finished, reading the results…');
+      if (call) onProgress?.({ kind: 'query', id: call.id, status: 'done' });
     } else if (item.type === 'message') {
       for (const part of item.content ?? []) {
         const meta = part.metadata;

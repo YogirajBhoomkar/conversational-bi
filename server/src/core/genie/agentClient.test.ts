@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { GenieProgress } from '../../contracts';
 import { DatabricksGenieAgentClient } from './agentClient';
 import { RETRY_NOTE } from './client';
 
@@ -38,9 +39,13 @@ const client = (res: Response | (() => Response)) =>
 
 describe('DatabricksGenieAgentClient', () => {
   it('streams reasoning and maps the final message to a GenieResult', async () => {
-    const lines: string[] = [];
-    const r = await client(new Response(streamOf(STREAM), { status: 200 })).ask({ spaceId: 's', question: 'q', onProgress: (l) => lines.push(l) });
-    expect(lines).toEqual(["I'll get the FOT premium by region.", 'Running query: FOT by region', 'Query finished, reading the results…']);
+    const events: GenieProgress[] = [];
+    const r = await client(new Response(streamOf(STREAM), { status: 200 })).ask({ spaceId: 's', question: 'q', onProgress: (e) => events.push(e) });
+    expect(events).toEqual([
+      { kind: 'thought', text: "I'll get the FOT premium by region." },
+      { kind: 'query', id: 'msg1:1', title: 'FOT by region', status: 'running' },
+      { kind: 'query', id: 'msg1:1', status: 'done' }, // the same query, finished
+    ]);
     expect(r).toMatchObject({
       error: null, conversationId: 'conv1', messageId: 'msg1', sql: 'SELECT 1', statementId: 'stmt-1',
       columns: ['Region', 'Premium'], rows: [['APAC', '1'], ['EMEA', '2']], totalRows: 2,
@@ -138,15 +143,15 @@ describe('DatabricksGenieAgentClient', () => {
     const failed = [ev('response.created', { response: { id: 'm1', conversation_id: 'conv1' } }), ev('response.failed', { response: { error: { message: 'query failed' } } })].join('');
     const bodies: any[] = [];
     let call = 0;
-    const lines: string[] = [];
+    const events: GenieProgress[] = [];
     const c = new DatabricksGenieAgentClient({ getToken: async () => 't' }, options((async (_u: string, init: RequestInit) => {
       bodies.push(JSON.parse(String(init.body)));
       return new Response(streamOf(++call === 1 ? failed : STREAM), { status: 200 });
     }) as unknown as typeof fetch));
-    const r = await c.ask({ spaceId: 's', question: 'q', onProgress: (l) => lines.push(l) });
+    const r = await c.ask({ spaceId: 's', question: 'q', onProgress: (e) => events.push(e) });
     expect(r).toMatchObject({ error: null, conversationId: 'conv1', rows: [['APAC', '1'], ['EMEA', '2']] });
     expect(bodies.map((b) => b.conversation_id)).toEqual([undefined, 'conv1']);
-    expect(lines[0]).toBe(RETRY_NOTE);
+    expect(events[0]).toEqual({ kind: 'status', text: RETRY_NOTE });
   });
 
   it('retries a request the server did not take (503), then answers', async () => {

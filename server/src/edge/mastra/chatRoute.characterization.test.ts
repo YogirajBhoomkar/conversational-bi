@@ -97,7 +97,7 @@ function turn(record: Partial<GenieResult> = {}) {
     yield { type: 'text-delta', payload: { text: 'I will ask the first data agent.' } };
     yield { type: 'tool-call', payload: { toolCallId: 'call-1', toolName: 'agent-genie_placement', args: { prompt: 'How many placements?' } } };
     const collector = opts.requestContext.get('collector') as Collector;
-    collector.emit?.('Running the query…');
+    collector.emit?.({ kind: 'status', text: 'Running the query…' }, 'placement');
     collector.results.push(result(record));
     yield { type: 'tool-result', payload: { toolCallId: 'call-1', toolName: 'agent-genie_placement', result: {} } };
     yield { type: 'step-finish', payload: { stepResult: { reason: 'tool-calls' } } };
@@ -132,9 +132,9 @@ describe('POST /bi/chat (characterization)', () => {
     expect(await events(res)).toEqual([
       { type: 'trace', item: { id: 'model', kind: 'meta', label: 'Using model', text: 'test-model' } },
       { type: 'trace', item: { id: 'note1', kind: 'note', text: 'I will ask the first data agent.' } },
-      { type: 'trace', item: { id: 'call-1', kind: 'tool', label: 'Hand over to Lab – Placement Core', status: 'running', text: 'How many placements?' } },
-      { type: 'trace', item: { id: 'progress2', kind: 'progress', text: 'Running the query…' } },
-      { type: 'trace', item: { id: 'call-1', kind: 'tool', label: 'Hand over to Lab – Placement Core', status: 'done' } },
+      { type: 'trace', item: { id: 'call-1', kind: 'tool', label: 'Lab – Placement Core', status: 'running', text: 'How many placements?' } },
+      { type: 'trace', item: { id: 'progress2', kind: 'progress', step: 'status', parent: 'call-1', text: 'Running the query…' } },
+      { type: 'trace', item: { id: 'call-1', kind: 'tool', label: 'Lab – Placement Core', status: 'done' } },
       { type: 'text', delta: 'There are 42 placements.' },
       {
         type: 'final',

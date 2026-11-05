@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import CircularProgress from '@mui/material/CircularProgress';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
@@ -6,86 +6,130 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import type { TraceItem } from '../../types';
 import './TraceView.css';
 
-function TraceList({ trace, limit }: { trace: TraceItem[]; limit?: number }) {
-  // Progress lines hang under the tool entry they belong to; a progress line without a known parent is shown on its own.
-  const top = trace.filter((t) => t.kind !== 'progress' || !t.parent || !trace.some((p) => p.id === t.parent));
-  const shown = limit ? top.slice(-limit) : top;
+// The scratchpad: what the assistant is doing while it works, then a collapsed record of it.
+// One loader for the whole turn. The plan, then one block per data source with Genie's thoughts and queries under it;
+// running steps pulse, finished ones get a tick. Long text wraps to two lines (the full text is in the tooltip).
+const LIVE_STEPS_PER_SOURCE = 4;
+
+const elapsed = (ms: number) => {
+  const s = Math.max(0, Math.round(ms / 1000));
+  return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, '0')}s`;
+};
+
+// Finished: a tick. Failed: a mark. Running: a still ring for a source, a softly pulsing dot for a query.
+function Status({ status, pulse = false }: { status?: TraceItem['status']; pulse?: boolean }) {
+  if (status === 'done') return <CheckCircleIcon className="trace__icon trace__icon--done" />;
+  if (status === 'error') return <ErrorIcon className="trace__icon trace__icon--error" />;
+  return <span className={pulse ? 'trace__pulse' : 'trace__ring'} aria-label="running" />;
+}
+
+function Step({ item }: { item: TraceItem }) {
+  const text = item.text ?? '';
+  if (item.step === 'query') {
+    return (
+      <li className={`trace__step trace__step--query is-${item.status ?? 'running'}`}>
+        <Status status={item.status} pulse />
+        <span className="trace__clamp" title={text}>{text}</span>
+      </li>
+    );
+  }
   return (
-    <div className="trace__steps">
-      {shown.map((t) => {
-        if (t.kind === 'meta') {
-          return (
-            <span key={t.id} className="trace__line trace__line--meta">
-              {t.label ? `${t.label}: ` : ''}
-              {t.text}
-            </span>
-          );
-        }
-        if (t.kind === 'tool') {
-          const subs = trace.filter((p) => p.kind === 'progress' && p.parent === t.id);
-          return (
-            <span key={t.id} className={`trace__line trace__line--tool is-${t.status ?? 'running'}`}>
-              <span className="trace__tool">
-                {t.status === 'done' ? (
-                  <CheckCircleIcon className="trace__icon trace__icon--done" />
-                ) : t.status === 'error' ? (
-                  <ErrorIcon className="trace__icon trace__icon--error" />
-                ) : (
-                  <CircularProgress size={11} thickness={6} className="trace__icon trace__icon--run" />
-                )}
-                <span className="trace__text">
-                  <b>{t.label}</b>
-                  {t.by ? ` · ${t.by}` : ''}
-                  {t.text ? ` — ${t.text}` : ''}
-                </span>
-              </span>
-              {subs.map((s) => (
-                <span key={s.id} className="trace__sub">
-                  {s.text}
-                </span>
-              ))}
-            </span>
-          );
-        }
-        return (
-          <span key={t.id} className={`trace__line${t.kind === 'progress' ? ' trace__sub' : ''}`}>
-            {t.text}
-          </span>
-        );
-      })}
-    </div>
+    <li className={`trace__step trace__step--${item.step ?? 'thought'}${item.status === 'error' ? ' is-error' : ''}`}>
+      <span className="trace__clamp" title={text}>{text}</span>
+    </li>
   );
+}
+
+function Source({ item, steps, live }: { item: TraceItem; steps: TraceItem[]; live: boolean }) {
+  const shown = live ? steps.slice(-LIVE_STEPS_PER_SOURCE) : steps;
+  const hidden = steps.length - shown.length;
+  return (
+    <li className={`trace__source is-${item.status ?? 'running'}`}>
+      <div className="trace__source-head">
+        <Status status={item.status} />
+        <span className="trace__source-name">{item.label}</span>
+      </div>
+      {item.text && <p className="trace__question trace__clamp" title={item.text}>{item.text}</p>}
+      {shown.length > 0 && (
+        <ul className="trace__steps">
+          {hidden > 0 && <li className="trace__step trace__step--more">{hidden} earlier {hidden === 1 ? 'step' : 'steps'}</li>}
+          {shown.map((s) => <Step key={s.id} item={s} />)}
+        </ul>
+      )}
+    </li>
+  );
+}
+
+function Timeline({ trace, live }: { trace: TraceItem[]; live: boolean }) {
+  const sources = new Set(trace.filter((t) => t.kind === 'tool').map((t) => t.id));
+  const stepsOf = (id: string) => trace.filter((t) => t.kind === 'progress' && t.parent === id && (t.text || t.step !== 'query'));
+  return (
+    <ul className="trace__timeline">
+      {trace.map((t) => {
+        if (t.kind === 'note') return <li key={t.id} className="trace__plan">{t.text}</li>;
+        if (t.kind === 'tool') return <Source key={t.id} item={t} steps={stepsOf(t.id)} live={live} />;
+        // A progress line whose source is unknown stands on its own.
+        if (t.kind === 'progress' && !(t.parent && sources.has(t.parent)) && t.text) return <ul key={t.id} className="trace__steps"><Step item={t} /></ul>;
+        return null;
+      })}
+    </ul>
+  );
+}
+
+// The one line under the loader: what is happening right now.
+function headline(trace: TraceItem[]) {
+  const running = trace.filter((t) => t.kind === 'tool' && t.status !== 'done' && t.status !== 'error');
+  if (running.length) return `Querying ${running.map((t) => t.label).join(' and ')}`;
+  if (trace.some((t) => t.kind === 'tool')) return 'Writing the answer';
+  if (trace.some((t) => t.kind === 'note')) return 'Planning';
+  return 'Understanding your question';
 }
 
 export default function TraceView({ trace, pending, startedAt, endedAt }: { trace: TraceItem[]; pending: boolean; startedAt: number; endedAt?: number }) {
   const [open, setOpen] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
 
-  // While the agents work: spinner plus the latest steps, the way the mock-up's loader shows them.
+  useEffect(() => {
+    if (!pending) return;
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [pending]);
+
   if (pending) {
     return (
       <div className="trace trace--live">
-        <CircularProgress size={22} thickness={5} className="trace__spin" />
-        {trace.length ? (
-          <TraceList trace={trace} limit={6} />
-        ) : (
-          <div className="trace__steps">
-            <span className="trace__line">Understanding your question…</span>
-          </div>
-        )}
+        <div className="trace__head" aria-live="polite">
+          <CircularProgress size={14} thickness={6} className="trace__spin" />
+          <span className="trace__headline">{headline(trace)}…</span>
+          <span className="trace__time">{elapsed(now - startedAt)}</span>
+        </div>
+        <Timeline trace={trace} live />
       </div>
     );
   }
 
-  if (!trace.length) return null;
-  const seconds = endedAt ? Math.max(1, Math.round((endedAt - startedAt) / 1000)) : null;
+  if (!trace.some((t) => t.kind !== 'meta')) return null;
+  const sources = trace.filter((t) => t.kind === 'tool').length;
+  const queries = trace.filter((t) => t.step === 'query').length;
+  const model = trace.find((t) => t.kind === 'meta');
+  const summary = [
+    sources ? `${sources} data ${sources === 1 ? 'source' : 'sources'}` : '',
+    queries ? `${queries} ${queries === 1 ? 'query' : 'queries'}` : '',
+    endedAt ? elapsed(endedAt - startedAt) : '',
+  ].filter(Boolean).join(' · ');
   return (
     <div className="trace trace--done">
       <button type="button" className="trace__toggle" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
         <ExpandMoreIcon className={`trace__chevron${open ? ' is-open' : ''}`} />
         {open ? 'Hide steps' : 'Show steps'}
-        {seconds ? ` · ${seconds}s` : ''}
+        {summary && <span className="trace__summary"> · {summary}</span>}
       </button>
-      {open && <TraceList trace={trace} />}
+      {open && (
+        <div className="trace__record">
+          <Timeline trace={trace} live={false} />
+          {model && <p className="trace__model">{model.label}: {model.text}</p>}
+        </div>
+      )}
     </div>
   );
 }

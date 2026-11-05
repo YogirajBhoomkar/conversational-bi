@@ -145,7 +145,7 @@ flowchart TD
 |-----------|---------------|--------------------|
 | `reasoning` | The agent's thinking, in a sentence | Send to the browser's live "thinking" log; also store it |
 | `function_call` (`execute_sql`) | The agent decided to run a query | Send "Running query: *title*" |
-| `function_call_output` | The query finished | Send "Query finished…" and remember the **statement id** |
+| `function_call_output` | The query finished | Mark that query done (same id) and remember the **statement id** |
 | `message` | The final answer, plus a part with SQL, columns and preview rows | Build the `GenieResult` |
 | `response.completed` / `failed` | The end | Finish, or record the error |
 

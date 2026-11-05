@@ -38,7 +38,7 @@ export const createAskGenieTool =(space: GenieSpace, client: GenieClient) =>
         conversationId: getConversationId(threadId, space.spaceId),
         caller: getCaller(requestContext),
         signal: getSignal(requestContext),
-        onProgress: (text) => collector.emit?.(text, space.key),
+        onProgress: (event) => collector.emit?.(event, space.key),
       });
       if (result.conversationId) setConversationId(threadId, space.spaceId, result.conversationId);
       // Charts are built in code from Genie's chart JSON. It comes as the result itself (a one-cell table) and, in

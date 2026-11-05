@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { TraceItem } from '../../contracts';
 import { createSpaceRegistry } from '../genie/registry';
-import { createTracer } from './trace';
+import { createTracer, crisp } from './trace';
 
 const registry = createSpaceRegistry([
   { key: 'placement', name: 'Lab – Placement Core', description: 'Placement counts and premium.', spaceId: 's1' },
@@ -13,30 +13,33 @@ const top = (type: string, payload: object) => ({ type, payload });
 const nested = (outerTool: string, type: string, payload: object, outer = 'outer') => ({ type: 'tool-output', payload: { toolName: outerTool, toolCallId: outer, output: { type, payload } } });
 const finish = (reason: string) => ({ stepResult: { reason } });
 
-const run = (chunks: any[], progress: string[] = []) => {
+const tracer = () => {
   const trace: TraceItem[] = [];
   let answer = '';
   const t = createTracer({ trace: (i) => trace.push(i), answer: (d) => (answer += d) }, registry);
+  return { t, trace, answer: () => answer };
+};
+const run = (chunks: any[]) => {
+  const { t, trace, answer } = tracer();
   chunks.forEach((c) => t.handle(c));
-  progress.forEach((p) => t.progress(p));
   t.end();
-  return { trace, answer };
+  return { trace, answer: answer() };
 };
 
 describe('createTracer', () => {
-  it('shows the text written before a handover as a working note, not as the answer', () => {
+  it('shows the plan as a note and one entry per data source, named after the source, with its question', () => {
     const { trace, answer } = run([
-      top('text-delta', { text: "I'll ask the placement agent " }),
-      top('text-delta', { text: 'for the counts.' }),
+      top('text-delta', { text: 'Comparing placed limit ' }),
+      top('text-delta', { text: 'with signed capacity.' }),
       top('tool-call-input-streaming-start', { toolCallId: 'c1', toolName: 'agent-genie_placement' }),
-      top('tool-call', { toolCallId: 'c1', toolName: 'agent-genie_placement', args: { prompt: 'Count placements by status', maxSteps: 10 } }),
+      top('tool-call', { toolCallId: 'c1', toolName: 'agent-genie_placement', args: { prompt: 'Placed limit by region', maxSteps: 10 } }),
       top('tool-result', { toolCallId: 'c1', toolName: 'agent-genie_placement', result: { text: 'done' } }),
       top('step-finish', finish('tool-calls')),
     ]);
     expect(answer).toBe('');
-    expect(trace[0]).toMatchObject({ kind: 'note', text: "I'll ask the placement agent for the counts." });
-    expect(trace[1]).toMatchObject({ id: 'c1', kind: 'tool', label: 'Hand over to Lab – Placement Core', status: 'running' });
-    expect(trace[2]).toMatchObject({ id: 'c1', text: 'Count placements by status' });
+    expect(trace[0]).toMatchObject({ kind: 'note', text: 'Comparing placed limit with signed capacity.' });
+    expect(trace[1]).toMatchObject({ id: 'c1', kind: 'tool', label: 'Lab – Placement Core', status: 'running' });
+    expect(trace[2]).toMatchObject({ id: 'c1', text: 'Placed limit by region' });
     expect(trace[3]).toMatchObject({ id: 'c1', status: 'done' });
   });
 
@@ -46,57 +49,47 @@ describe('createTracer', () => {
     expect(trace).toEqual([]);
   });
 
-  it("shows the data agent's note and its question to Genie, and drops its closing report", () => {
+  it("leaves out what repeats the source entry: the data agent's notes, its Ask Genie call and its closing report", () => {
     const { trace, answer } = run([
       nested('agent-genie_placement', 'text-delta', { text: 'I will count placements by status.' }),
-      nested('agent-genie_placement', 'tool-call-input-streaming-start', { toolCallId: 'a1', toolName: 'ask-placement' }),
-      nested('agent-genie_placement', 'tool-call', { toolCallId: 'a1', toolName: 'ask-placement', args: { question: 'Count placements by status for 2026.' } }),
+      nested('agent-genie_placement', 'tool-call', { toolCallId: 'a1', toolName: 'ask-placement', args: { question: 'Count placements.' } }),
       nested('agent-genie_placement', 'tool-result', { toolCallId: 'a1', toolName: 'ask-placement', result: { summary: 's', error: null } }),
       nested('agent-genie_placement', 'step-finish', finish('tool-calls')),
       nested('agent-genie_placement', 'text-delta', { text: 'Internal report for the supervisor.' }),
       nested('agent-genie_placement', 'step-finish', finish('stop')),
     ]);
     expect(answer).toBe('');
-    expect(trace[0]).toMatchObject({ kind: 'note', by: 'Lab – Placement Core', text: 'I will count placements by status.' });
-    expect(trace[1]).toMatchObject({ id: 'a1', label: 'Ask Genie', by: 'Lab – Placement Core', status: 'running' });
-    expect(trace[2]).toMatchObject({ id: 'a1', text: 'Count placements by status for 2026.' });
-    expect(trace[3]).toMatchObject({ id: 'a1', status: 'done' });
-    expect(trace.some((i) => i.text?.includes('Internal report'))).toBe(false);
+    expect(trace).toEqual([]);
   });
 
-  it("puts Genie's progress under the Ask Genie entry that is running", () => {
-    const { trace } = run(
-      [nested('agent-genie_capacity', 'tool-call-input-streaming-start', { toolCallId: 'a9', toolName: 'ask-capacity' })],
-      ['Running query: unused capacity', 'Query finished, reading the results…'],
-    );
+  it("shows a Genie error under the source it belongs to", () => {
+    const { trace } = run([nested('agent-genie_placement', 'tool-result', { toolCallId: 'a2', toolName: 'ask-placement', result: { error: 'Genie timed out' } }, 'h1')]);
+    expect(trace[0]).toMatchObject({ kind: 'progress', parent: 'h1', status: 'error', text: 'Genie timed out' });
+  });
+
+  it('shows loading all rows as one line that turns done', () => {
+    const { trace } = run([
+      nested('agent-genie_placement', 'tool-call', { toolCallId: 'f1', toolName: 'fetch-full-placement' }, 'h1'),
+      nested('agent-genie_placement', 'tool-result', { toolCallId: 'f1', toolName: 'fetch-full-placement', result: { ok: true } }, 'h1'),
+    ]);
+    expect(trace.map((i) => [i.id, i.text, i.status])).toEqual([['h1:f1', 'Loading all rows', 'running'], ['h1:f1', 'Loading all rows', 'done']]);
+  });
+
+  it("puts each source's thoughts and queries under that source, even when sources run at the same time", () => {
+    const { t, trace } = tracer();
+    t.handle(top('tool-call', { toolCallId: 'h1', toolName: 'agent-genie_placement', args: { prompt: 'q1' } }));
+    t.handle(top('tool-call', { toolCallId: 'h2', toolName: 'agent-genie_capacity', args: { prompt: 'q2' } }));
+    t.progress({ kind: 'thought', text: 'I will check which years exist. Then I will chart it.' }, 'placement');
+    t.progress({ kind: 'query', id: 'm:1', title: 'Signed limit by region', status: 'running' }, 'capacity');
+    t.progress({ kind: 'thought', text: 'I will check which years exist.' }, 'placement'); // the same thought again
+    t.progress({ kind: 'query', id: 'm:1', status: 'done' }, 'capacity');
     const progress = trace.filter((i) => i.kind === 'progress');
-    expect(progress.map((i) => i.text)).toEqual(['Running query: unused capacity', 'Query finished, reading the results…']);
-    expect(progress.every((i) => i.parent === 'a9')).toBe(true);
-  });
-
-  it('keeps the notes and progress of data agents that run at the same time apart', () => {
-    const p = (type: string, payload: object) => nested('agent-genie_placement', type, payload, 'h1');
-    const c = (type: string, payload: object) => nested('agent-genie_capacity', type, payload, 'h2');
-    const trace: TraceItem[] = [];
-    const t = createTracer({ trace: (i) => trace.push(i), answer: () => {} }, registry);
-    [
-      p('text-delta', { text: 'I will ask for placed limit ' }),
-      c('text-delta', { text: 'I will ask for signed limit ' }),
-      p('text-delta', { text: 'by region.' }),
-      c('text-delta', { text: 'by line.' }),
-      p('tool-call', { toolCallId: 'a1', toolName: 'ask-placement', args: { question: 'q1' } }),
-      c('tool-call', { toolCallId: 'a2', toolName: 'ask-capacity', args: { question: 'q2' } }),
-    ].forEach((chunk) => t.handle(chunk));
-    t.progress('Running query: placed limit', 'placement');
-    t.progress('Running query: signed limit', 'capacity');
-    const notes = trace.filter((i) => i.kind === 'note').map((i) => [i.by, i.text]);
-    expect(notes).toEqual([['Lab – Placement Core', 'I will ask for placed limit by region.'], ['Lab – Capacity & Reinsurer', 'I will ask for signed limit by line.']]);
-    expect(trace.filter((i) => i.kind === 'progress').map((i) => [i.text, i.parent])).toEqual([['Running query: placed limit', 'a1'], ['Running query: signed limit', 'a2']]);
-  });
-
-  it('marks an Ask Genie entry as failed when Genie reports an error', () => {
-    const { trace } = run([nested('agent-genie_placement', 'tool-result', { toolCallId: 'a2', toolName: 'ask-placement', result: { error: 'Genie timed out' } })]);
-    expect(trace[0]).toMatchObject({ id: 'a2', status: 'error', text: 'Genie timed out' });
+    expect(progress.map((i) => [i.parent, i.step, i.text, i.status])).toEqual([
+      ['h1', 'thought', 'I will check which years exist.', undefined],
+      ['h2', 'query', 'Signed limit by region', 'running'],
+      ['h2', 'query', undefined, 'done'],
+    ]);
+    expect(progress[1].id).toBe(progress[2].id); // the UI updates the query line in place
   });
 
   it('names unknown tools without any special wording', () => {
@@ -106,5 +99,18 @@ describe('createTracer', () => {
 
   it('keeps leftover text as the answer when the stream ends without a closing step', () => {
     expect(run([top('text-delta', { text: 'Done.' })]).answer).toBe('Done.');
+  });
+});
+
+describe('crisp', () => {
+  it('keeps the first sentence of a thought', () => {
+    expect(crisp('I notice the data only has 2023 and 2024.  Let me check   2022.')).toBe('I notice the data only has 2023 and 2024.');
+  });
+
+  it('cuts a long sentence at a word', () => {
+    const long = `I'll query ${'the capacity metrics '.repeat(12)}now`;
+    const out = crisp(long);
+    expect(out.length).toBeLessThanOrEqual(140);
+    expect(out).toMatch(/metrics…$/);
   });
 });

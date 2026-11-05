@@ -45,6 +45,8 @@ export const FinalAnswerSchema = z.object({
 export type FinalAnswer = z.infer<typeof FinalAnswerSchema>;
 
 // One entry of the scratchpad the UI shows while the agents work (the same id updates the entry).
+// note: the assistant's plan. tool: one data source being asked (label: its name, text: the question).
+// progress: what that source is doing, under its tool entry: a short thought, a status, or a query (with a status).
 export type TraceItem = {
   id: string;
   kind: 'meta' | 'note' | 'tool' | 'progress';
@@ -52,8 +54,15 @@ export type TraceItem = {
   label?: string;  // meta: what the value is. tool: what is being done
   by?: string;     // who is acting, when it is not the supervisor (a data agent's name)
   parent?: string; // progress: id of the tool entry it belongs to
-  status?: 'running' | 'done' | 'error'; // tool only
+  step?: 'thought' | 'status' | 'query'; // progress only: what kind of line it is
+  status?: 'running' | 'done' | 'error'; // tool, and progress lines that run (queries, loading rows)
 };
+
+// What a Genie call reports while it runs. A query is reported again with the same id when it finishes.
+export type GenieProgress =
+  | { kind: 'status'; text: string }
+  | { kind: 'thought'; text: string }
+  | { kind: 'query'; id: string; title?: string; status: 'running' | 'done' }; // title: sent when it starts
 
 // SSE events streamed by POST /bi/chat. One JSON object per `data:` line.
 export type ChatEvent =
@@ -85,7 +94,7 @@ type CallOptions = { caller?: GenieCaller; /** @deprecated use caller */ session
 
 // Genie client public API (server/src/core/genie/client.ts)
 export interface GenieClient {
-  ask(args: { spaceId: string; question: string; conversationId?: string; onProgress?: (line: string) => void } & CallOptions): Promise<GenieResult>;
+  ask(args: { spaceId: string; question: string; conversationId?: string; onProgress?: (event: GenieProgress) => void } & CallOptions): Promise<GenieResult>;
   feedback(args: FeedbackRequest & CallOptions): Promise<void>;
   // Loads the complete result of an earlier query (the ask() result only carries a capped preview). Agent mode only.
   fetchFullResult?(args: { statementId: string; cap: number } & CallOptions): Promise<{ columns: string[]; rows: unknown[][]; totalRows: number }>;

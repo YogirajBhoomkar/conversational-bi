@@ -57,7 +57,7 @@ describe('DatabricksGenieClient', () => {
       [/GET .*messages\/m1$/, () => json({ status: 'FAILED', error: { error: '[PARSE_SYNTAX_ERROR] Syntax error' } })],
       [/GET .*messages\/m2$/, () => json({ status: 'COMPLETED', attachments: [{ text: { content: 'answer' } }] })],
     ]);
-    const r = await client(fn).ask({ spaceId: 's', question: 'q', onProgress: (l) => lines.push(l) });
+    const r = await client(fn).ask({ spaceId: 's', question: 'q', onProgress: (e) => lines.push('text' in e ? e.text : '') });
     expect(r).toMatchObject({ error: null, summary: 'answer', conversationId: 'c1', messageId: 'm2' });
     expect(calls.filter((c) => c.startsWith('POST'))).toEqual(['POST https://host/api/2.0/genie/spaces/s/start-conversation', 'POST https://host/api/2.0/genie/spaces/s/conversations/c1/messages']);
     expect(lines).toContain(RETRY_NOTE);

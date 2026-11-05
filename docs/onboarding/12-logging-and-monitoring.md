@@ -30,7 +30,7 @@ Not logged: each request, each user, each Genie call, timings, token use. Errors
 | Tool | How | Shows |
 |---|---|---|
 | Mastra Studio | Run `npm run dev` in `server/`, open http://localhost:4111 (`README.md`) | Agents and their runs |
-| The scratchpad | In the chat UI while a question runs, and after (click to open) | The agents' working notes, each handover and tool call, and Genie's progress (`ui/src/components.tsx`, `Scratchpad`) |
+| The scratchpad | In the chat UI while a question runs, and after (click to open) | The plan, one block per data source with its question, Genie's short thoughts and each query (running, then done) (`ui/src/components/TraceView/TraceView.tsx`) |
 | The SQL block | Under every answer | The SQL Genie ran |
 | `smoke-genie.ts` | `npx tsx scripts/smoke-genie.ts "question"` in `server/` | The raw Genie result, without the AI agents |
 | Browser dev tools, Network tab | Open the `/bi/chat` request, look at the response | The raw stream of events |

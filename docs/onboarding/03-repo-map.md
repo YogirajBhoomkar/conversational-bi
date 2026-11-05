@@ -36,7 +36,7 @@ The repo is small: about 2,100 lines of TypeScript and CSS in total, including a
 | `src/mastra/chartSpec.ts` | Chart JSON from Genie to a chart spec |
 | `src/mastra/collector.ts` | Per-request side channel |
 | `src/mastra/history.ts` | Earlier questions and suggestions per chat (in memory, last 6 turns), used so new follow-ups never repeat |
-| `src/mastra/trace.ts` | Turns the agents' stream into the scratchpad: their working notes, handover and tool-call entries, and Genie's progress |
+| `src/mastra/trace.ts` | Turns the agents' stream into the scratchpad: the plan, one entry per data source, and under it Genie's short thoughts and queries |
 | `src/mastra/suggest.ts` | Writes follow-up questions |
 | `src/genie/registry.ts` | The list of Genie spaces |
 | `src/genie/client.ts` | Genie Conversation API client |

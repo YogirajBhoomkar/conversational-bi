@@ -110,7 +110,7 @@ export class DatabricksGenieClient implements GenieClient {
   async ask(args: AskArgs): Promise<GenieResult> {
     const run: Run = { conversationId: args.conversationId ?? '', messageId: '' };
     try {
-      return await withRetry(`Genie ${args.spaceId}`, () => this.askOnce(args, run), isRetryableRun, this.retry, () => args.onProgress?.(RETRY_NOTE));
+      return await withRetry(`Genie ${args.spaceId}`, () => this.askOnce(args, run), isRetryableRun, this.retry, () => args.onProgress?.({ kind: 'status', text: RETRY_NOTE }));
     } catch (error) {
       return failedResult(args, run, error);
     }
@@ -136,10 +136,10 @@ export class DatabricksGenieClient implements GenieClient {
       // Stream progress: status changes, then any reasoning steps that appeared since the last poll.
       if (msg.status !== lastStatus && msg.status !== 'COMPLETED') {
         lastStatus = msg.status;
-        onProgress?.(STATUS_LABELS[msg.status] ?? msg.status);
+        onProgress?.({ kind: 'status', text: STATUS_LABELS[msg.status] ?? msg.status });
       }
       const thoughts = thoughtsOf((msg.attachments ?? []).find((a) => a.query));
-      thoughts.slice(seenThoughts).forEach((t) => onProgress?.(t));
+      thoughts.slice(seenThoughts).forEach((text) => onProgress?.({ kind: 'thought', text }));
       seenThoughts = thoughts.length;
       if (msg.status === 'COMPLETED') break;
       if (msg.status === 'FAILED') throw new GenieRunFailed(msg.error?.error ?? 'Genie message FAILED');

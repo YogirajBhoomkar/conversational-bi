@@ -16,7 +16,7 @@ export const genieAgentDescription = (space: GenieSpace) =>
   `Data analyst for "${space.name}". ${space.description} Delegate any question that needs numbers from this data. Returns Genie's answer and the SQL it used.`;
 
 export const genieAgentInstructions = (space: GenieSpace) => `You answer data questions using the ${askToolName(space.key)} tool, and nothing else.
-- Before you call a tool, write one short sentence in the first person saying what you will ask Genie and why. It is shown to the user as your working notes.
+- Call the tool straight away; write nothing before the call.
 - Pass a clear, self-contained question to the tool. Do not invent numbers or answer from memory.
 - Report Genie's findings accurately, including the key figures, plus a one-line note of any caveat (e.g. time window assumed).
 - If the tool returns an error, say so plainly.
@@ -56,7 +56,7 @@ How to work:
    - Never mention sub-agents, tools, or internal hiccups (the one chartCount=0 sentence above is the exception).
    - If a genie agent reports the result is truncated (the table shows only a preview of N of M rows), add one sentence saying the table shows a preview of N of M rows and ask whether they want the full result. Do NOT load the rest on your own. If the user then says yes, delegate to the same genie agent asking it to load the full results of the previous query (not to re-run the question), then confirm how many rows are now shown.
 5. For small talk or questions about what you can do, answer directly without delegating.
-6. Working notes: before you delegate to an agent or call a tool, write one or two short sentences in the first person saying what you will do and why, for example which data agent you chose and what you will ask it. Plain facts only. These are shown to the user as your working notes, so never repeat them in the final answer.${rules ? `\n\nDOMAIN RULES\n${rules}` : ''}`;
+6. Plan: before you delegate, write ONE short sentence (at most 20 words) telling the user what you will look at and why, in plain business words, e.g. "Comparing <measure> with <measure> by <dimension>, to find where they diverge." No agent or tool names (the user sees each data source separately), no lists of columns. When you delegate to several agents at once, write the one sentence once. It is shown live while you work, so never repeat it in the final answer.${rules ? `\n\nDOMAIN RULES\n${rules}` : ''}`;
 }
 
 export const suggestInstructions = ({ spaces }: Pick<PromptInput, 'spaces'>) => `You suggest follow-up questions for an analyst who is chatting with data agents.
