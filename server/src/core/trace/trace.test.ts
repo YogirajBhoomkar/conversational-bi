@@ -10,7 +10,7 @@ const registry = createSpaceRegistry([
 
 // Chunk shapes captured from a real supervisor stream.
 const top = (type: string, payload: object) => ({ type, payload });
-const nested = (outerTool: string, type: string, payload: object) => ({ type: 'tool-output', payload: { toolName: outerTool, toolCallId: 'outer', output: { type, payload } } });
+const nested = (outerTool: string, type: string, payload: object, outer = 'outer') => ({ type: 'tool-output', payload: { toolName: outerTool, toolCallId: outer, output: { type, payload } } });
 const finish = (reason: string) => ({ stepResult: { reason } });
 
 const run = (chunks: any[], progress: string[] = []) => {
@@ -72,6 +72,26 @@ describe('createTracer', () => {
     const progress = trace.filter((i) => i.kind === 'progress');
     expect(progress.map((i) => i.text)).toEqual(['Running query: unused capacity', 'Query finished, reading the results…']);
     expect(progress.every((i) => i.parent === 'a9')).toBe(true);
+  });
+
+  it('keeps the notes and progress of data agents that run at the same time apart', () => {
+    const p = (type: string, payload: object) => nested('agent-genie_placement', type, payload, 'h1');
+    const c = (type: string, payload: object) => nested('agent-genie_capacity', type, payload, 'h2');
+    const trace: TraceItem[] = [];
+    const t = createTracer({ trace: (i) => trace.push(i), answer: () => {} }, registry);
+    [
+      p('text-delta', { text: 'I will ask for placed limit ' }),
+      c('text-delta', { text: 'I will ask for signed limit ' }),
+      p('text-delta', { text: 'by region.' }),
+      c('text-delta', { text: 'by line.' }),
+      p('tool-call', { toolCallId: 'a1', toolName: 'ask-placement', args: { question: 'q1' } }),
+      c('tool-call', { toolCallId: 'a2', toolName: 'ask-capacity', args: { question: 'q2' } }),
+    ].forEach((chunk) => t.handle(chunk));
+    t.progress('Running query: placed limit', 'placement');
+    t.progress('Running query: signed limit', 'capacity');
+    const notes = trace.filter((i) => i.kind === 'note').map((i) => [i.by, i.text]);
+    expect(notes).toEqual([['Lab – Placement Core', 'I will ask for placed limit by region.'], ['Lab – Capacity & Reinsurer', 'I will ask for signed limit by line.']]);
+    expect(trace.filter((i) => i.kind === 'progress').map((i) => [i.text, i.parent])).toEqual([['Running query: placed limit', 'a1'], ['Running query: signed limit', 'a2']]);
   });
 
   it('marks an Ask Genie entry as failed when Genie reports an error', () => {

@@ -45,28 +45,35 @@ export function createTracer(sink: Sink, registry: SpaceRegistry) {
   const spaceName = (key: string) => registry.byKey(key)?.name ?? key;
   let n = 0;
   const nextId = (prefix: string) => `${prefix}${++n}`;
-  let currentAsk: string | undefined; // the Ask Genie entry that Genie's progress lines belong to
+  // The Ask Genie entry each space's progress lines belong to (data agents can run at the same time), and the latest one.
+  const askOf = new Map<string, string>();
+  let currentAsk: string | undefined;
 
-  // Each level (the supervisor, and the data agent running inside a handover) buffers the text of its current step.
-  const levels = { supervisor: { text: '' }, specialist: { text: '' } };
-  type Level = keyof typeof levels;
+  // The supervisor and each running handover buffer the text of their current step separately, so notes of agents
+  // that run at the same time are not mixed.
+  const SUPERVISOR = 'supervisor';
+  const texts = new Map<string, string>();
 
-  const flushNote = (level: Level, by?: string) => {
-    const text = clip(levels[level].text, 600);
-    levels[level].text = '';
+  const flushNote = (level: string, by?: string) => {
+    const text = clip(texts.get(level), 600);
+    texts.delete(level);
     if (text) sink.trace({ id: nextId('note'), kind: 'note', text, by });
   };
 
-  const onChunk = (level: Level, type: string, p: Payload | undefined, by?: string) => {
+  const onChunk = (level: string, type: string, p: Payload | undefined, by?: string) => {
     switch (type) {
       case 'text-delta':
-        levels[level].text += p?.text ?? p?.textDelta ?? '';
+        texts.set(level, (texts.get(level) ?? '') + (p?.text ?? p?.textDelta ?? ''));
         break;
       case 'tool-call-input-streaming-start':
       case 'tool-call': {
         flushNote(level, by); // text written before a tool call is the agent's working note, not the answer
         const toolName = String(p?.toolName ?? '');
-        if (level === 'specialist' && toolName.startsWith('ask-')) currentAsk = p?.toolCallId;
+        const ask = /^ask-(.+)$/.exec(toolName);
+        if (level !== SUPERVISOR && ask && p?.toolCallId) {
+          askOf.set(ask[1], p.toolCallId);
+          currentAsk = p.toolCallId;
+        }
         const detail = type === 'tool-call' ? detailOf(p?.args) : '';
         sink.trace({ id: String(p?.toolCallId), kind: 'tool', ...describeTool(toolName, spaceName), status: 'running', ...(detail ? { text: detail } : {}) });
         break;
@@ -79,8 +86,9 @@ export function createTracer(sink: Sink, registry: SpaceRegistry) {
       case 'step-finish': {
         const calledTools = p?.stepResult?.reason === 'tool-calls';
         // A supervisor step that called no tool is the final answer. A data agent's closing report is internal, so it is dropped.
-        if (level === 'supervisor' && !calledTools && levels.supervisor.text) sink.answer(levels.supervisor.text);
-        levels[level].text = '';
+        const answer = texts.get(SUPERVISOR);
+        if (level === SUPERVISOR && !calledTools && answer) sink.answer(answer);
+        texts.delete(level);
         break;
       }
     }
@@ -92,21 +100,24 @@ export function createTracer(sink: Sink, registry: SpaceRegistry) {
       if (chunk?.type === 'tool-output') {
         // The data agent's own stream arrives nested inside the supervisor's handover call.
         const inner = p?.output;
-        const key = String(p?.toolName ?? '').startsWith(HANDOVER) ? spaceName(String(p?.toolName).slice(HANDOVER.length)) : undefined;
-        if (inner?.type) onChunk('specialist', inner.type, inner.payload, key);
+        const toolName = String(p?.toolName ?? '');
+        const key = toolName.startsWith(HANDOVER) ? spaceName(toolName.slice(HANDOVER.length)) : undefined;
+        if (inner?.type) onChunk(`handover:${p?.toolCallId ?? toolName}`, inner.type, inner.payload, key);
         return;
       }
-      onChunk('supervisor', String(chunk?.type), p);
+      onChunk(SUPERVISOR, String(chunk?.type), p);
     },
-    // One line of Genie's own progress, shown under the Ask Genie entry that is running.
-    progress(text: string) {
+    // One line of Genie's own progress, shown under the Ask Genie entry of its space (or the latest one).
+    progress(text: string, spaceKey?: string) {
       const line = clip(text, 400);
-      if (line) sink.trace({ id: nextId('progress'), kind: 'progress', text: line, parent: currentAsk });
+      const parent = (spaceKey && askOf.get(spaceKey)) || currentAsk;
+      if (line) sink.trace({ id: nextId('progress'), kind: 'progress', text: line, parent });
     },
     // Safety net: if the stream ended without a closing step, whatever text is left is the answer.
     end() {
-      if (levels.supervisor.text) sink.answer(levels.supervisor.text);
-      levels.supervisor.text = '';
+      const answer = texts.get(SUPERVISOR);
+      if (answer) sink.answer(answer);
+      texts.delete(SUPERVISOR);
     },
   };
 }
