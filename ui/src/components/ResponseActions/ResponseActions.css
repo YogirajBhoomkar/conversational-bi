@@ -19,7 +19,7 @@
 }
 
 .actions__btn:hover {
-  background: var(--bg-soft);
+  background: #f4f6fa;
 }
 
 .actions__rate {
@@ -30,16 +30,16 @@
 }
 
 .actions__icon {
-  color: var(--muted);
+  color: #6b7280;
   font-size: 17px;
 }
 
 .actions__icon:hover {
-  color: var(--accent);
+  color: #0b2a8a;
 }
 
 .actions__icon:disabled {
-  color: var(--accent);
+  color: #0b2a8a;
 }
 
 .actions__error {

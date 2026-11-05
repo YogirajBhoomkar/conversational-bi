@@ -9,7 +9,7 @@
 }
 
 .msg__bubble {
-  background: #044688;
+  background: #0b2a8a;
   color: #fff;
   padding: 10px 15px;
   border-radius: 14px 14px 3px 14px;
@@ -37,7 +37,7 @@
 .msg__who {
   font-size: 12px;
   font-weight: 700;
-  color: var(--genie);
+  color: #7b3fe4;
   margin-bottom: 6px;
 }
 

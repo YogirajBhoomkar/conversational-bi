@@ -5,7 +5,6 @@
 .res-table {
   font-size: 12.5px;
   border-collapse: collapse;
-  border: 1px solid gray;
 }
 
 .res-table .res-table__th {
@@ -24,8 +23,8 @@
   font-size: 12.5px;
   padding: 8px 12px;
   line-height: 1.4;
-  border-bottom: 1px solid var(--line);
-  color: var(--text);
+  border-bottom: 1px solid #e1e5ec;
+  color: #1f2937;
 }
 
 .res-table .res-table__th.n,

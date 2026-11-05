@@ -26,12 +26,12 @@
 }
 
 .chart-seg__btn:hover {
-  background: var(--bg-soft);
+  background: #f4f6fa;
 }
 
 .chart-seg__btn.is-on,
 .chart-seg__btn.is-on:hover {
-  background: var(--accent);
+  background: #0b2a8a;
   color: #fff;
 }
 

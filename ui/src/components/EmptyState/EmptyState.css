@@ -15,11 +15,11 @@
 
 .empty__title {
   font-size: 20px;
-  color: var(--accent);
+  color: #0b2a8a;
   margin-bottom: 6px;
 }
 
 .empty__text {
-  color: var(--muted);
+  color: #6b7280;
   margin-bottom: 22px;
 }

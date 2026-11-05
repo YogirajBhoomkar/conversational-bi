@@ -7,7 +7,7 @@
 
 .follow__label {
   font-size: 12px;
-  color: var(--muted);
+  color: #6b7280;
   width: 100%;
 }
 
@@ -24,7 +24,7 @@
 }
 
 .chip:hover {
-  border-color: var(--accent);
-  color: var(--accent);
+  border-color: #0b2a8a;
+  color: #0b2a8a;
   background: #f3f6ff;
 }
