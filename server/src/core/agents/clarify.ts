@@ -8,7 +8,7 @@ import { clarifyToolName } from './prompts';
 export const createClarifyTool = () =>
   createTool({
     id: clarifyToolName,
-    description: 'Ask the user to choose between a few readings of an ambiguous question. Shows the question and the options as choices; the user can also type their own answer.',
+    description: 'Only for an ambiguous data question whose answer would differ by reading: ask the user to choose between a few readings. Never for a greeting, small talk, thanks or a clear question. Shows the question and the options as choices; the user can also type their own answer.',
     inputSchema: ClarificationSchema,
     execute: async (clarification, { requestContext }) => {
       getCollector(requestContext).clarification = clarification;

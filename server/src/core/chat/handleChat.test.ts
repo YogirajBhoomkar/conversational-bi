@@ -72,6 +72,16 @@ describe('handleChat', () => {
     expect(events.find((e) => e.type === 'final')).toMatchObject({ result: { answer: '', clarification: { question: 'Which year do you mean?', options: ['Underwriting year', 'Calendar year'] } } });
   });
 
+  it('leaves a reply to a greeting as text, even when it lists topics', async () => {
+    const events = await collect(handleChat(deps([
+      { type: 'text-delta', payload: { text: 'Tell me what you would like to look at:\n- Placements\n- Capacity' } },
+      { type: 'step-finish', payload: { stepResult: { reason: 'stop' } } },
+    ]), ctx(), { threadId: 'a', message: 'hii' }));
+    const final = events.find((e) => e.type === 'final');
+    expect(final).toMatchObject({ result: { answer: expect.stringContaining('Placements') } });
+    expect(final).not.toMatchObject({ result: { clarification: expect.anything() } });
+  });
+
   it('stops a turn that runs past the timeout and tells the user in plain words', async () => {
     const hang = deps([]);
     hang.turnTimeoutMs = 30;

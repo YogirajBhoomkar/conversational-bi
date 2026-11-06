@@ -99,8 +99,9 @@ async function runTurn(deps: ChatDeps, requestCtx: BiRequestContext, { threadId:
     }
     tracer.end();
     // The model sometimes writes its question back as text instead of using the tool; when no data was fetched and the
-    // text is just a question with a few choices, it is shown as choices anyway.
-    if (!collector.clarification && !collector.results.length) {
+    // text is just a question with a few choices, it is shown as choices anyway. Not for a message of one or two words
+    // ("hi", "thanks"): a reply to that offering topics is a greeting, not a question about the user's question.
+    if (!collector.clarification && !collector.results.length && message.trim().split(/\s+/).length >= 3) {
       const fromText = clarificationFromText(answer);
       if (fromText) {
         collector.clarification = fromText;
