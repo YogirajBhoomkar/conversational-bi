@@ -45,6 +45,13 @@ export default function ChatPage() {
     void send(text);
   };
 
+  // A reply to the assistant's question (a choice, or the person's own words) is sent straight away.
+  const answer = (text: string) => {
+    if (busy) return;
+    stickToEnd.current = true;
+    void send(text);
+  };
+
   // A suggested follow-up fills the input, as in the mock-up; the person sends it.
   const pick = (q: string) => {
     setDraft(q);
@@ -64,17 +71,20 @@ export default function ChatPage() {
           <div className="chat-page__thread">
             <div className="chat-page__inner">
               {messages.length === 0 && <EmptyState />}
-              {messages.map((m) =>
-                m.role === "user" ? (
-                  <UserMessage key={m.id} text={m.text} />
-                ) : (
+              {messages.map((m, i) => {
+                if (m.role === "user") return <UserMessage key={m.id} text={m.text} />;
+                const next = messages[i + 1];
+                return (
                   <AssistantMessage
                     key={m.id}
                     message={m}
                     onPickSuggestion={pick}
+                    onAnswer={answer}
+                    answerable={!busy && i === messages.length - 1}
+                    answered={next?.role === "user" ? next.text : undefined}
                   />
-                ),
-              )}
+                );
+              })}
             </div>
           </div>
           <Composer

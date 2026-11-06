@@ -19,6 +19,8 @@ export type FinalAnswer = {
   chartSpec: ChartSpec | null; // deprecated: the first of `charts`
   sources: Source[];
   suggestedQuestions: string[];
+  clarification?: { question: string; options: string[] }; // the assistant asks the user to choose before it answers
+  traceId?: string;
 };
 export type TraceItem = {
   id: string;

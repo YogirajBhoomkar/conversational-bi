@@ -132,6 +132,14 @@ describe('createTracer', () => {
     expect(trace[0].text).toBe('For 2020-2024:\n1. Limit by year\n\n2. Limit by region');
   });
 
+  it('does not show the question to the user as a step', () => {
+    const { trace } = run([
+      top('tool-call', { toolCallId: 'q1', toolName: 'ask_user_to_choose', args: { question: 'Which year?', options: ['2023', '2024'] } }),
+      top('tool-result', { toolCallId: 'q1', toolName: 'ask_user_to_choose', result: { shown: true } }),
+    ]);
+    expect(trace).toEqual([]);
+  });
+
   it('names unknown tools without any special wording', () => {
     const { trace } = run([top('tool-call-input-streaming-start', { toolCallId: 'x', toolName: 'web_search-tool' })]);
     expect(trace[0]).toMatchObject({ label: 'web search tool', status: 'running' });

@@ -4,6 +4,7 @@ import type { BiRequestContext } from '../../ports/context';
 import { UpstreamError, ValidationError } from '../errors';
 import { createSpaceRegistry } from '../genie/registry';
 import { silentLogger } from '../log';
+import type { Collector } from './collector';
 import { type ChatDeps, handleChat, handleFeedback } from './handleChat';
 
 const registry = createSpaceRegistry([{ key: 'one', name: 'One', description: 'The first fake space.', spaceId: 'id-1' }]);
@@ -49,6 +50,17 @@ describe('handleChat', () => {
     abort.abort();
     expect(signal.aborted).toBe(true);
     expect(seen[0].memory).toEqual({ thread: 'u1::a', resource: 'u1' });
+  });
+
+  it('puts a question back to the user, with its options, in the final answer', async () => {
+    const asking = deps([]);
+    asking.supervisor = { stream: (async (_m: string, opts: Seen) => {
+      (opts.requestContext.get('collector') as Collector).clarification = { question: 'Which year?', options: ['Underwriting year', 'Calendar year'] };
+      return { fullStream: (async function* () {})() };
+    }) as unknown as ChatDeps['supervisor']['stream'] };
+    const events = await collect(handleChat(asking, ctx(), { threadId: 'a', message: 'Limit by year?' }));
+    const final = events.find((e) => e.type === 'final');
+    expect(final).toMatchObject({ result: { clarification: { question: 'Which year?', options: ['Underwriting year', 'Calendar year'] } } });
   });
 
   it('stops a turn that runs past the timeout and tells the user in plain words', async () => {

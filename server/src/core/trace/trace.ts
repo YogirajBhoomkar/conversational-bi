@@ -1,5 +1,5 @@
 import type { GenieProgress, TraceItem } from '../../contracts';
-import { agentName, fetchFullToolName } from '../agents/prompts';
+import { agentName, clarifyToolName, fetchFullToolName } from '../agents/prompts';
 import type { SpaceRegistry } from '../genie/registry';
 
 // Turns the supervisor's stream into the scratchpad the UI shows, keeping only what tells the user something:
@@ -94,6 +94,7 @@ export function createTracer(sink: Sink, registry: SpaceRegistry) {
         noteId = undefined;
         asAnswer = false;
         const toolName = String(p?.toolName ?? '');
+        if (toolName === clarifyToolName) break; // the question to the user is shown with the answer, not as a step
         const detail = type === 'tool-call' ? detailOf(p?.args) : '';
         if (toolName.startsWith(HANDOVER) && p?.toolCallId) {
           sourceOf.set(toolName.slice(HANDOVER.length), p.toolCallId);
@@ -103,6 +104,7 @@ export function createTracer(sink: Sink, registry: SpaceRegistry) {
         break;
       }
       case 'tool-result': {
+        if (p?.toolName === clarifyToolName) break;
         const error = typeof p?.result?.error === 'string' ? p.result.error : '';
         sink.trace({ id: String(p?.toolCallId), kind: 'tool', label: describeTool(String(p?.toolName ?? ''), spaceName), status: error ? 'error' : 'done', ...(error ? { text: clip(error) } : {}) });
         dataBack = true;

@@ -1,4 +1,4 @@
-# Conversational BI API contract (1.0.0)
+# Conversational BI API contract (1.1.0)
 
 For the engineers who embed the chat page in GC's UI or host the service. The machine-readable versions are generated from the code and cannot drift from it: `server/contracts/*.schema.json` (one JSON Schema per message) and `server/contracts/bi.openapi.yaml`. Regenerate with `npm run contracts`; a test fails when they are out of date.
 
@@ -52,6 +52,7 @@ The final answer (`final-answer.schema.json`):
 | `chartSpec` | Deprecated: the first of `charts`, for UIs that draw one chart |
 | `sources` | Which data source answered and with which SQL |
 | `suggestedQuestions` | Genie's own follow-ups (when it gives any) |
+| `clarification` | Present when the question was ambiguous: `question` and 2 to 4 `options`. Show the options as choices plus a last "something else" choice with a text box; send the chosen or typed text as the next message in the same thread |
 | `traceId` | Reference for this request |
 
 ## POST {prefix}/feedback

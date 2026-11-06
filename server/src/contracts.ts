@@ -32,6 +32,14 @@ export const ChartSpecSchema = z.object({
 });
 export type ChartSpec = z.infer<typeof ChartSpecSchema>;
 
+// A question back to the user when theirs is ambiguous: the likely answers to pick from. The user may also type
+// their own answer instead (the UI offers that as the last option).
+export const ClarificationSchema = z.object({
+  question: z.string().min(1),
+  options: z.array(z.string().min(1)).min(2).max(4),
+});
+export type Clarification = z.infer<typeof ClarificationSchema>;
+
 export const FinalAnswerSchema = z.object({
   answer: z.string(),
   columns: z.array(z.string()),
@@ -41,6 +49,7 @@ export const FinalAnswerSchema = z.object({
   chartSpec: ChartSpecSchema.nullable(),  // @deprecated: the first of `charts` (null when none), for UIs that draw one chart
   sources: z.array(z.object({ spaceId: z.string(), spaceName: z.string(), question: z.string(), sql: z.string().nullable(), messageId: z.string(), conversationId: z.string() })),
   suggestedQuestions: z.array(z.string()),
+  clarification: ClarificationSchema.optional(), // set when the assistant needs the user to choose before it can answer
   traceId: z.string().optional(),          // the request's trace id: quote it when reporting a problem; it finds every log line of the turn
 });
 export type FinalAnswer = z.infer<typeof FinalAnswerSchema>;
@@ -78,7 +87,7 @@ export const ChatEventSchema = z.discriminatedUnion('type', [
 export type ChatEvent = z.infer<typeof ChatEventSchema>;
 
 // The version of this contract (requests, events, answer). Changes that remove or rename a field raise the major version.
-export const CONTRACT_VERSION = '1.0.0';
+export const CONTRACT_VERSION = '1.1.0';
 
 // Request bodies for POST /bi/chat and POST /bi/feedback. The routes reject anything that does not match (400).
 export const ChatRequestSchema = z.object({

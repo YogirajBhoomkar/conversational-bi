@@ -1,0 +1,126 @@
+.clarify {
+  margin: 6px 0 10px;
+  max-width: 560px;
+}
+
+.clarify__question {
+  margin: 0 0 8px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.clarify__options {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid #e1e5ec;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.clarify__options > li + li {
+  border-top: 1px solid #eef0f4;
+}
+
+.clarify__option.MuiButtonBase-root {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  justify-content: flex-start;
+  padding: 10px 12px;
+  font: inherit;
+  font-size: 14px;
+  color: #1f2937;
+  text-align: left;
+  transition: background 0.12s;
+}
+
+.clarify__option.MuiButtonBase-root:hover {
+  background: #f6f3fe;
+}
+
+.clarify__option.is-chosen {
+  background: #f1ecfd;
+  font-weight: 600;
+}
+
+.clarify__num {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  display: inline-grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: #5b3cc4;
+  background: #efeafd;
+}
+
+.clarify__num--icon.MuiSvgIcon-root {
+  padding: 3px;
+  font-size: 22px;
+}
+
+.clarify__label {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.clarify__option--own .clarify__label {
+  color: #6b7280;
+}
+
+.clarify__go.MuiSvgIcon-root {
+  flex: none;
+  font-size: 16px;
+  color: #9ca3af;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.clarify__option:hover .clarify__go {
+  opacity: 1;
+}
+
+.clarify__own {
+  display: flex;
+  gap: 8px;
+  padding: 8px 10px;
+}
+
+.clarify__own input {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  font-size: 14px;
+  padding: 7px 10px;
+  border: 1.5px solid #b7c0d3;
+  border-radius: 8px;
+  outline: none;
+}
+
+.clarify__own input:focus {
+  border-color: #7b3fe4;
+}
+
+.clarify__send.MuiButtonBase-root {
+  padding: 0 14px;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  background: #0b2a8a;
+}
+
+.clarify__send.Mui-disabled {
+  opacity: 0.4;
+}
+
+.clarify.is-closed .clarify__option.MuiButtonBase-root:not(.is-chosen) {
+  color: #9ca3af;
+}

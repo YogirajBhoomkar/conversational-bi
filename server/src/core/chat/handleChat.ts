@@ -116,6 +116,7 @@ async function runTurn(deps: ChatDeps, requestCtx: BiRequestContext, { threadId:
         conversationId: r.conversationId,
       })),
       suggestedQuestions: [...collector.results].reverse().find((r) => r.suggestedQuestions.length)?.suggestedQuestions ?? [],
+      ...(collector.clarification ? { clarification: collector.clarification } : {}),
       traceId: ctx.traceId,
     };
     send({ type: 'final', result: final });

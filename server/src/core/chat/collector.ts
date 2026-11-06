@@ -1,11 +1,12 @@
 import type { RequestContext } from '@mastra/core/request-context';
-import type { ChartSpec, GenieCaller, GenieProgress, GenieResult } from '../../contracts';
+import type { ChartSpec, Clarification, GenieCaller, GenieProgress, GenieResult } from '../../contracts';
 
 // Per-request side channel: tools running inside sub-agents record structured data here so the chat turn
 // can return rows/SQL/chart to the UI (the LLM only sees text). Stored by reference in Mastra's RequestContext.
 // `charts` holds every chart of the turn: one question can need several, from one space or from several.
+// `clarification` is set when the supervisor asks the user to choose instead of answering.
 // `emit` sends one line of Genie's progress for a space to the client while the tool is still running.
-export type Collector = { results: GenieResult[]; charts: ChartSpec[]; emit?: (progress: GenieProgress, spaceKey: string) => void };
+export type Collector = { results: GenieResult[]; charts: ChartSpec[]; clarification?: Clarification; emit?: (progress: GenieProgress, spaceKey: string) => void };
 
 export const newCollector = (): Collector => ({ results: [], charts: [] });
 

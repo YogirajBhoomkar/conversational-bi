@@ -1,9 +1,11 @@
 // The main chat page with fewer features: the question, the answer, the data table and the chart data as JSON.
-// No scratchpad, no drawn charts, no follow-up suggestions. Everything visible comes from the main UI's components.
+// No scratchpad, no drawn charts, no follow-up suggestions; a question back to the user is shown with its choices.
+// Everything visible comes from the main UI's components.
 import { useEffect, useRef, useState } from 'react';
 import CircularProgress from '@mui/material/CircularProgress';
 import AnswerText from '../src/components/AnswerText/AnswerText';
 import Card from '../src/components/Card/Card';
+import Clarification from '../src/components/Clarification/Clarification';
 import ChatHeader from '../src/components/ChatHeader/ChatHeader';
 import Composer from '../src/components/Composer/Composer';
 import DataTableCard from '../src/components/DataTableCard/DataTableCard';
@@ -19,7 +21,7 @@ import './demo.css';
 
 type Assistant = Extract<Message, { role: 'assistant' }>;
 
-function DemoAnswer({ message: m }: { message: Assistant }) {
+function DemoAnswer({ message: m, onAnswer, answerable, answered }: { message: Assistant; onAnswer: (text: string) => void; answerable: boolean; answered?: string }) {
   const r = m.result;
   const charts = r?.charts ?? [];
   return (
@@ -38,6 +40,9 @@ function DemoAnswer({ message: m }: { message: Assistant }) {
         {m.text && <AnswerText>{m.text}</AnswerText>}
         {m.error && <div className="msg__error">{m.error}</div>}
         {r && r.columns.length > 0 && <DataTableCard columns={r.columns} rows={r.rows} totalRows={r.totalRows} />}
+        {r?.clarification && (
+          <Clarification question={r.clarification.question} options={r.clarification.options} active={answerable} chosen={answered} onAnswer={onAnswer} />
+        )}
         {r && charts.length > 0 && (
           <Card title="Chart data (JSON)">
             <pre className="demo__json">{JSON.stringify(charts.length === 1 ? charts[0] : charts, null, 2)}</pre>
@@ -83,7 +88,21 @@ export default function DemoPage() {
           <div className="chat-page__thread">
             <div className="chat-page__inner">
               {messages.length === 0 && <EmptyState />}
-              {messages.map((m) => (m.role === 'user' ? <UserMessage key={m.id} text={m.text} /> : <DemoAnswer key={m.id} message={m} />))}
+              {messages.map((m, i) => {
+                if (m.role === 'user') return <UserMessage key={m.id} text={m.text} />;
+                const next = messages[i + 1];
+                return (
+                  <DemoAnswer
+                    key={m.id}
+                    message={m}
+                    onAnswer={(text) => {
+                      if (!busy) void send(text);
+                    }}
+                    answerable={!busy && i === messages.length - 1}
+                    answered={next?.role === 'user' ? next.text : undefined}
+                  />
+                );
+              })}
             </div>
           </div>
           <Composer value={draft} onChange={setDraft} onSend={submit} busy={busy} inputRef={inputRef} />

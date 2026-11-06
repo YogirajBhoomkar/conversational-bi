@@ -3,10 +3,11 @@ import { Memory } from '@mastra/memory';
 import { LibSQLStore } from '@mastra/libsql';
 import type { MastraModelConfig } from '@mastra/core/llm';
 import type { GenieClient } from '../../contracts';
-import { agentName, askToolName, fetchFullToolName, genieAgentDescription, genieAgentInstructions, suggestInstructions, supervisorInstructions } from './prompts';
+import { agentName, askToolName, clarifyToolName, fetchFullToolName, genieAgentDescription, genieAgentInstructions, suggestInstructions, supervisorInstructions } from './prompts';
 import type { SpaceRegistry } from '../genie/registry';
 import { SUPPORTED_CHART_TYPES } from '../chart/chartSpec';
 import { createAskGenieTool, createFetchFullResultsTool } from './askGenie';
+import { createClarifyTool } from './clarify';
 
 export type AgentSettings = { registry: SpaceRegistry; model: MastraModelConfig; domainRules: string; fullRowCap: number };
 
@@ -38,6 +39,7 @@ export function createAgents(client: GenieClient, { registry, model, domainRules
     instructions: supervisorInstructions({ spaces, domainRules, chartTypes: SUPPORTED_CHART_TYPES }),
     model,
     agents: { ...genieAgents },
+    tools: { [clarifyToolName]: createClarifyTool() },
     memory: new Memory({ storage: new LibSQLStore({ id: 'bi-memory', url: 'file:./bi-memory.db' }) }),
     defaultOptions: { maxSteps: 12 },
   });
