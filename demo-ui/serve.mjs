@@ -1,17 +1,15 @@
-// TEMPORARY demo page (interim client update). Delete the whole demo-ui folder and the lines marked DEMO-UI in
-// run.mjs when it is no longer needed; nothing else depends on it.
-// Serves the page on its own port and forwards /bi/* and /auth/* to the main server, so it uses the same API and
-// sign-in as the main UI without changing it.
+// TEMPORARY demo page (interim client update). Serves the demo build of the chat page (ui/dist-demo, built from
+// ui/demo by `npm run build`) on its own port, and forwards /bi/* and /auth/* to the main server, so it uses the same
+// API and sign-in as the main UI without changing it. Remove: see README.md in this folder.
 import { createServer, request } from 'node:http';
 import { readFile } from 'node:fs/promises';
-import { dirname, extname, join } from 'node:path';
+import { dirname, extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const here = dirname(fileURLToPath(import.meta.url));
+const dist = join(dirname(fileURLToPath(import.meta.url)), '..', 'ui', 'dist-demo');
 const port = Number(process.env.DEMO_PORT ?? 1977);
 const api = { host: 'localhost', port: Number(process.env.API_PORT ?? 1976) };
-const FILES = { '/': 'index.html', '/app.js': 'app.js', '/style.css': 'style.css' };
-const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8' };
+const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.woff2': 'font/woff2' };
 
 createServer(async (req, res) => {
   const path = (req.url ?? '/').split('?')[0];
@@ -29,11 +27,18 @@ createServer(async (req, res) => {
     res.on('close', () => upstream.destroy());
     return;
   }
-  const file = FILES[path];
-  if (!file || req.method !== 'GET') {
-    res.writeHead(404).end();
-    return;
+  if (req.method !== 'GET') return res.writeHead(405).end();
+  const rel = normalize(path === '/' ? 'index.html' : path).replace(/^([/\\])+/, '');
+  if (rel.startsWith('..')) return res.writeHead(404).end();
+  try {
+    const body = await readFile(join(dist, rel));
+    res.writeHead(200, { 'Content-Type': TYPES[extname(rel)] ?? 'application/octet-stream' });
+    res.end(body);
+  } catch {
+    try {
+      res.writeHead(200, { 'Content-Type': TYPES['.html'] }).end(await readFile(join(dist, 'index.html')));
+    } catch {
+      res.writeHead(503, { 'Content-Type': 'text/plain' }).end('The demo page is not built yet. Run: npm run build');
+    }
   }
-  res.writeHead(200, { 'Content-Type': TYPES[extname(file)], 'Cache-Control': 'no-store' });
-  res.end(await readFile(join(here, file)));
 }).listen(port, () => console.log(`Demo page on http://localhost:${port}`));

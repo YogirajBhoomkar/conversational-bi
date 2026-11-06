@@ -26,6 +26,7 @@ const setup = () => {
 
 const build = () => {
   run('npm run build', ui);
+  if (existsSync(join(ui, 'demo'))) run('npx tsc --noEmit -p demo && npx vite build --config vite.demo.config.ts', ui); // DEMO-UI (temporary)
   run('npx mastra build', server);
 };
 

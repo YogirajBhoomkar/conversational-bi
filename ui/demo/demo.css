@@ -1,0 +1,23 @@
+.demo__working {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #6b7280;
+  padding: 4px 0 8px;
+}
+
+.demo__working .MuiCircularProgress-root {
+  color: #7b3fe4;
+}
+
+.demo__json {
+  margin: 0;
+  padding: 12px 14px;
+  max-height: 360px;
+  overflow: auto;
+  font: 12px/1.5 Consolas, monospace;
+  background: #0f172a;
+  color: #e2e8f0;
+  border-radius: 0 0 8px 8px;
+}

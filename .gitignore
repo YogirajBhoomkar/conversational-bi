@@ -6,3 +6,4 @@ dist
 .mastra
 *.db
 *.db-*
+ui/dist-demo
