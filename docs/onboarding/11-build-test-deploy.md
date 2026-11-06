@@ -1,5 +1,7 @@
 # 11. Build, test, deploy
 
+> **Written before the November 2026 restructure.** File paths are updated, but some descriptions are out of date: routes, login and the chat turn are no longer in `server/src/mastra/index.ts` (now only the wiring), spaces and their ids are configuration, and settings are read once in `server/src/config`. Current layout: [03-repo-map.md](03-repo-map.md). Settings: `server/.env.example`.
+
 ## What you will learn
 - How the app is built.
 - What tests exist and how to run them.
@@ -47,11 +49,11 @@ A change to server code only takes effect after `npm run build`, because the ser
 | `ui/` | `npm test` (`vitest run`) | How each chart type is turned into Plotly data (`ui/src/charts/plotlyFigures.test.ts`) |
 | `ui/` | `npm run typecheck` | Types |
 
-Test files: `server/src/auth/auth.test.ts`, `server/src/genie/client.test.ts`, `server/src/genie/agentClient.test.ts`, `server/src/mastra/chartSpec.test.ts`.
+Test files: `server/src/adapters/local/auth/auth.test.ts`, `server/src/core/genie/client.test.ts`, `server/src/core/genie/agentClient.test.ts`, `server/src/core/chart/chartSpec.test.ts`.
 
-The tests pass fake `fetch` functions into the clients, so they do not call Databricks. That is why the clients take a `fetchFn` argument (`server/src/genie/client.ts`, constructor).
+The tests pass fake `fetch` functions into the clients, so they do not call Databricks. That is why the clients take a `fetchFn` argument (`server/src/core/genie/client.ts`, constructor).
 
-**Not covered by tests:** the routes in `server/src/mastra/index.ts`, the tools in `server/src/mastra/tools/askGenie.ts`, the agents and their instructions, and the UI apart from the Plotly figure logic.
+**Not covered by tests:** the routes in `server/src/mastra/index.ts`, the tools in `server/src/core/agents/askGenie.ts`, the agents and their instructions, and the UI apart from the Plotly figure logic.
 
 ## CI/CD, scans, environments, release
 
@@ -73,7 +75,7 @@ These come from reading the code (not from a deploy file):
 
 - The server needs write access to its working folder for the SQLite files `mastra.db` and `bi-memory.db`.
 - Browsers load fonts from Google Fonts (`ui/index.html`). A locked-down network may block that.
-- The OAuth redirect address must match what is registered in Databricks (`server/src/auth/oauth.ts`).
+- The OAuth redirect address must match what is registered in Databricks (`server/src/adapters/local/auth/oauth.ts`).
 - The cookie gets the `Secure` flag only when the request URL is `https` (`server/src/mastra/index.ts`). Check how a proxy in front forwards the protocol.
 
 ## Key takeaways

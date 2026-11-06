@@ -1,5 +1,7 @@
 # 12. Logging and monitoring
 
+> **Written before the November 2026 restructure.** File paths are updated, but some descriptions are out of date: routes, login and the chat turn are no longer in `server/src/mastra/index.ts` (now only the wiring), spaces and their ids are configuration, and settings are read once in `server/src/config`. Current layout: [03-repo-map.md](03-repo-map.md). Settings: `server/.env.example`.
+
 ## What you will learn
 - What the app logs today.
 - What it does not do (tracing, metrics, dashboards).
@@ -15,10 +17,10 @@ Every log call in the app code. (`server/scripts/smoke-genie.ts` and `run.mjs` a
 | Message starts with | Level | When | Code |
 |---|---|---|---|
 | `DATABRICKS_CLIENT_ID not set: using the shared DATABRICKS_TOKEN...` | warn | At start, in dev mode | `server/src/mastra/index.ts` |
-| `[chart] not drawing: type=... numericY=...` | warn | Genie sent a chart type the app cannot draw, or non-numeric y values | `server/src/mastra/chartSpec.ts` |
-| `[genie] unparsed single-cell result, column=...` | warn | A one-cell result that is not recognised chart JSON. Shows up to 300 characters | `server/src/mastra/tools/askGenie.ts` |
-| `[genie] could not load chart JSON:` | warn | The follow-up load of chart JSON by statement id failed | `server/src/genie/agentClient.ts` |
-| `[suggest] failed:` | warn | The follow-up writer failed. The answer still goes out | `server/src/mastra/suggest.ts` |
+| `[chart] not drawing: type=... numericY=...` | warn | Genie sent a chart type the app cannot draw, or non-numeric y values | `server/src/core/chart/chartSpec.ts` |
+| `[genie] unparsed single-cell result, column=...` | warn | A one-cell result that is not recognised chart JSON. Shows up to 300 characters | `server/src/core/agents/askGenie.ts` |
+| `[genie] could not load chart JSON:` | warn | The follow-up load of chart JSON by statement id failed | `server/src/core/genie/agentClient.ts` |
+| `[suggest] failed:` | warn | The follow-up writer failed. The answer still goes out | `server/src/core/suggest/suggest.ts` |
 | `[chart] could not draw:` | error, in the **browser** console | A chart threw while drawing | `ui/src/components.tsx`, `ChartBoundary` |
 
 Notice the `[genie] unparsed single-cell result` warning can include a slice of real data. Keep that in mind when you decide where logs go.
@@ -73,6 +75,6 @@ See [99-open-questions.md](99-open-questions.md).
 
 ## Where to look in the code
 - `server/src/mastra/index.ts`: the stream `catch`.
-- `server/src/mastra/chartSpec.ts`, `tools/askGenie.ts`, `genie/agentClient.ts`, `suggest.ts`: the warnings.
+- `server/src/core/chart/chartSpec.ts`, `tools/askGenie.ts`, `genie/agentClient.ts`, `suggest.ts`: the warnings.
 - `ui/src/components.tsx`: `ChartBoundary`, `Scratchpad`.
 - `server/scripts/smoke-genie.ts`: the direct test.

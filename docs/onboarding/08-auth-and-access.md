@@ -1,5 +1,7 @@
 # 08. Auth and access
 
+> **Written before the November 2026 restructure.** File paths are updated, but some descriptions are out of date: routes, login and the chat turn are no longer in `server/src/mastra/index.ts` (now only the wiring), spaces and their ids are configuration, and settings are read once in `server/src/config`. Current layout: [03-repo-map.md](03-repo-map.md). Settings: `server/.env.example`.
+
 ## What you will learn
 - The two sign-in modes.
 - How the OAuth sign-in works, step by step.
@@ -43,7 +45,7 @@ sequenceDiagram
   S-->>B: Set-Cookie bi_sid, redirect to /
 ```
 
-Sources: `server/src/mastra/index.ts` (`authRoutes`), `server/src/auth/oauth.ts` (`buildLoginUrl`, `exchangeCode`, `fetchUserName`).
+Sources: `server/src/mastra/index.ts` (`authRoutes`), `server/src/adapters/local/auth/oauth.ts` (`buildLoginUrl`, `exchangeCode`, `fetchUserName`).
 
 Details worth knowing:
 
@@ -60,13 +62,13 @@ After sign-in the server creates a session and sends a cookie.
 `${COOKIE}=${value}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${maxAgeSec}${secure ? '; Secure' : ''}`
 ```
 
-Notice `HttpOnly`: browser scripts cannot read the cookie. The cookie name is `bi_sid`. Its life is 8 hours (`/auth/callback` passes `8 * 3600`). `Secure` is added only when the request URL is `https`. All from `server/src/auth/sessions.ts` and `server/src/mastra/index.ts`.
+Notice `HttpOnly`: browser scripts cannot read the cookie. The cookie name is `bi_sid`. Its life is 8 hours (`/auth/callback` passes `8 * 3600`). `Secure` is added only when the request URL is `https`. All from `server/src/adapters/local/auth/sessions.ts` and `server/src/mastra/index.ts`.
 
 A session holds the access token, the refresh token, the expiry time and the user name. It lives in a `Map` in server memory. A restart signs everyone out.
 
 ## Token refresh
 
-`SessionTokenProvider.getToken` (`server/src/auth/sessions.ts`):
+`SessionTokenProvider.getToken` (`server/src/adapters/local/auth/sessions.ts`):
 
 - Returns the access token if it is valid for more than 60 seconds.
 - Otherwise refreshes it using the refresh token.
@@ -77,7 +79,7 @@ A session holds the access token, the refresh token, the expiry time and the use
 
 ## Which token each call uses
 
-`FallbackTokenProvider` picks the provider. In OAuth mode it uses the session's token. In dev it uses the shared token (`server/src/auth/sessions.ts`, `server/src/auth/tokenProvider.ts`). Genie clients call `tokens.getToken({ sessionId })` before every request.
+`FallbackTokenProvider` picks the provider. In OAuth mode it uses the session's token. In dev it uses the shared token (`server/src/adapters/local/auth/sessions.ts`, `server/src/adapters/local/auth/tokenProvider.ts`). Genie clients call `tokens.getToken({ sessionId })` before every request.
 
 ## Access control
 
@@ -87,11 +89,11 @@ The only separation the app adds is per-user chat threads: the server prefixes e
 
 ## Service-to-service auth
 
-There is one outbound service: Databricks. Calls carry `Authorization: Bearer <token>` (`server/src/genie/client.ts`, `call`). The AI provider key (`ANTHROPIC_API_KEY`) or `LLM_API_KEY` is read from the environment by the model library. There are no inbound service callers in the repo.
+There is one outbound service: Databricks. Calls carry `Authorization: Bearer <token>` (`server/src/core/genie/client.ts`, `call`). The AI provider key (`ANTHROPIC_API_KEY`) or `LLM_API_KEY` is read from the environment by the model library. There are no inbound service callers in the repo.
 
 ## Tests
 
-`server/src/auth/auth.test.ts` covers: the PKCE challenge, the authorize URL, code exchange with single-use state, errors, cookie parsing, refresh, shared refresh for concurrent calls, and ending a session when refresh fails. The real Databricks login "has only been tested with a placeholder" (`README.md`, Known limits).
+`server/src/adapters/local/auth/auth.test.ts` covers: the PKCE challenge, the authorize URL, code exchange with single-use state, errors, cookie parsing, refresh, shared refresh for concurrent calls, and ending a session when refresh fails. The real Databricks login "has only been tested with a placeholder" (`README.md`, Known limits).
 
 ## Key takeaways
 - No client id means shared-token dev mode. A client id means per-user OAuth with PKCE.
@@ -100,8 +102,8 @@ There is one outbound service: Databricks. Calls carry `Authorization: Bearer <t
 - The app has no roles. Databricks decides who sees what.
 
 ## Where to look in the code
-- `server/src/auth/oauth.ts`: login URL, code exchange, refresh.
-- `server/src/auth/sessions.ts`: sessions, cookie, providers.
+- `server/src/adapters/local/auth/oauth.ts`: login URL, code exchange, refresh.
+- `server/src/adapters/local/auth/sessions.ts`: sessions, cookie, providers.
 - `server/src/mastra/index.ts`: `authenticate`, `authRoutes`.
 - `ui/src/App.tsx`: `LoginPage`, `getMe` flow.
-- `server/src/auth/auth.test.ts`: tests.
+- `server/src/adapters/local/auth/auth.test.ts`: tests.

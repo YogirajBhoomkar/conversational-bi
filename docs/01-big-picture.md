@@ -1,5 +1,7 @@
 # 1. The Big Picture
 
+> **Written before the November 2026 restructure.** File paths are updated, but some descriptions are out of date: routes, login and the chat turn are no longer in `server/src/mastra/index.ts` (now only the wiring), spaces and their ids are configuration, and settings are read once in `server/src/config`. Current layout: [onboarding/03-repo-map.md](onboarding/03-repo-map.md). Settings: `server/.env.example`.
+
 ## What the app does
 
 A person asks a data question in normal English. The app answers with:
@@ -139,7 +141,7 @@ The server can talk to Genie in two ways. The setting `GENIE_MODE` chooses.
 | Row data | Full result (up to 200 rows kept) | A preview, plus a way to load all rows later |
 | Suggested questions | Genie can send some | Genie sends none, so our own suggestion agent writes them |
 | Status at Databricks | No separate GA entry found in the release notes we read | **GA**: the Agent mode APIs have been generally available since 27 Aug 2026. Confirm it is enabled in your workspace. Only the Flash option is Beta |
-| Code file | `server/src/genie/client.ts` | `server/src/genie/agentClient.ts` |
+| Code file | `server/src/core/genie/client.ts` | `server/src/core/genie/agentClient.ts` |
 
 Both give the rest of the app exactly the same kind of result, so nothing else cares which one is used.
 

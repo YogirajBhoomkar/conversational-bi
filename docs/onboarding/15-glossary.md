@@ -1,5 +1,7 @@
 # 15. Glossary
 
+> **Written before the November 2026 restructure.** File paths are updated, but some descriptions are out of date: routes, login and the chat turn are no longer in `server/src/mastra/index.ts` (now only the wiring), spaces and their ids are configuration, and settings are read once in `server/src/config`. Current layout: [03-repo-map.md](03-repo-map.md). Settings: `server/.env.example`.
+
 ## What you will learn
 - Plain-English meanings of every term and acronym used in these docs.
 
@@ -7,15 +9,15 @@ Terms are in alphabetical order.
 
 | Term | Meaning |
 |---|---|
-| **Access token** | A short-lived pass that proves who you are to Databricks. Held in server memory (`server/src/auth/sessions.ts`) |
-| **Agent** | An AI model plus instructions plus tools. Defined with `new Agent({...})` (`server/src/mastra/agents/index.ts`) |
+| **Access token** | A short-lived pass that proves who you are to Databricks. Held in server memory (`server/src/adapters/local/auth/sessions.ts`) |
+| **Agent** | An AI model plus instructions plus tools. Defined with `new Agent({...})` (`server/src/core/agents/prompts.ts`) |
 | **API** | A way for programs to talk to each other over HTTP |
 | **Authorization code** | A one-time code Databricks gives the browser after sign-in. The server swaps it for tokens |
 | **Bundle** | The single packed file a build tool makes from many source files |
 | **Chart spec** | The app's neutral description of a chart: type, axes, data. Drawn in the browser by one library (`server/src/contracts.ts`) |
-| **`chart_json`** | The name of the one-cell result Genie returns for a chart request. It holds JSON (`server/src/mastra/chartSpec.ts`) |
-| **Collector** | A per-request object that tools fill with rows, SQL and chart so the route can send them to the browser (`server/src/mastra/collector.ts`) |
-| **Conversation API** | The default Genie API: start a conversation, then poll until done (`server/src/genie/client.ts`) |
+| **`chart_json`** | The name of the one-cell result Genie returns for a chart request. It holds JSON (`server/src/core/chart/chartSpec.ts`) |
+| **Collector** | A per-request object that tools fill with rows, SQL and chart so the route can send them to the browser (`server/src/core/chat/collector.ts`) |
+| **Conversation API** | The default Genie API: start a conversation, then poll until done (`server/src/core/genie/client.ts`) |
 | **Cookie, `HttpOnly`** | A small value the browser stores and sends back. `HttpOnly` means page scripts cannot read it. Here: `bi_sid` |
 | **CORS** | A browser rule about which web addresses may call a server. Fixed to the dev UI address here |
 | **D3** | A chart-drawing library. One of three options (`ui/src/charts/D3Chart.tsx`) |
@@ -25,7 +27,7 @@ Terms are in alphabetical order.
 | **FOT** | A term from the business domain. In the code it is both a placement status (between "Provide Quote" and "Authorization") and the name of a premium measure, "FOT premium". The repo does not spell the acronym out. Ask a domain expert |
 | **Genie** | A Databricks feature that turns English questions into SQL and returns rows |
 | **Genie Agent mode** | A newer Genie API (GA since Aug 2026) that streams its reasoning (`GENIE_MODE=agent`) |
-| **Genie space** | One Genie set up for one group of tables. The app lists its spaces in `server/src/genie/registry.ts` |
+| **Genie space** | One Genie set up for one group of tables. The app lists its spaces in `server/src/core/genie/registry.ts` |
 | **Layer** | A slice of a reinsurance placement. A data term used in agent text ("layer count") |
 | **LibSQL** | A SQLite-based database engine. Mastra uses it for storage files |
 | **LLM** | Large language model: the AI behind the agents. Claude by default |
@@ -70,5 +72,5 @@ Terms are in alphabetical order.
 
 ## Where to look in the code
 - `server/src/contracts.ts`: shape names.
-- `server/src/mastra/agents/index.ts`: domain wording in the agent text.
-- `server/src/genie/registry.ts`: space descriptions.
+- `server/src/core/agents/prompts.ts`: domain wording in the agent text.
+- `server/src/core/genie/registry.ts`: space descriptions.

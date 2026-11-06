@@ -1,5 +1,7 @@
 # 14. Gotchas
 
+> **Written before the November 2026 restructure.** File paths are updated, but some descriptions are out of date: routes, login and the chat turn are no longer in `server/src/mastra/index.ts` (now only the wiring), spaces and their ids are configuration, and settings are read once in `server/src/config`. Current layout: [03-repo-map.md](03-repo-map.md). Settings: `server/.env.example`.
+
 ## What you will learn
 - The surprises that are most likely to cost you time.
 - Which areas are fragile.
@@ -28,13 +30,13 @@ The error says a folder in `server/.mastra/output` is "resource busy or locked".
 `server/src/contracts.ts` and `ui/src/types.ts` are kept in sync by hand. Nothing checks them against each other. `ChartSpec` is also copied. A mismatch shows up at run time, not at build time.
 
 **6. The table shows only a preview.**
-Rows are cut to 200 by default (`GENIE_ROW_CAP`). `totalRows` tells the truth. Loading the full set (up to 5000) works only in Agent mode (`server/src/mastra/tools/askGenie.ts`, `server/src/genie/agentClient.ts`). In the default mode the tool answers "The full result is not available for the previous query."
+Rows are cut to 200 by default (`GENIE_ROW_CAP`). `totalRows` tells the truth. Loading the full set (up to 5000) works only in Agent mode (`server/src/core/agents/askGenie.ts`, `server/src/core/genie/agentClient.ts`). In the default mode the tool answers "The full result is not available for the previous query."
 
 **7. Only the latest result is shown.**
-`chatRoute` picks the last result that has columns (`withData` in `server/src/mastra/index.ts`). If a question used both Genie spaces, the table shows only one of them. The chart likewise belongs to the latest result, and a later non-chart answer clears an earlier chart (`server/src/mastra/tools/askGenie.ts`).
+`chatRoute` picks the last result that has columns (`withData` in `server/src/mastra/index.ts`). If a question used both Genie spaces, the table shows only one of them. The chart likewise belongs to the latest result, and a later non-chart answer clears an earlier chart (`server/src/core/agents/askGenie.ts`).
 
 **8. Bar charts with dates are not on a time axis.**
-Only line charts get `xType: 'time'` (`server/src/mastra/chartSpec.ts`). Dates on a bar chart become text categories in data order.
+Only line charts get `xType: 'time'` (`server/src/core/chart/chartSpec.ts`). Dates on a bar chart become text categories in data order.
 
 **9. A bad chart no longer blanks the page, but it is silent.**
 `ChartBoundary` hides a failing chart and logs to the browser console (`ui/src/components.tsx`). The user sees no chart and no message. Check the console.
@@ -42,7 +44,7 @@ Only line charts get `xType: 'time'` (`server/src/mastra/chartSpec.ts`). Dates o
 ## State
 
 **10. Everything important is in memory.**
-Sessions, PKCE state, conversation ids and last results are lost on restart (`server/src/auth/sessions.ts`, `server/src/auth/oauth.ts`, `server/src/genie/conversations.ts`). They also cannot be shared between two server copies. After a restart the supervisor's memory (on disk) and Genie's conversation (in memory) no longer match.
+Sessions, PKCE state, conversation ids and last results are lost on restart (`server/src/adapters/local/auth/sessions.ts`, `server/src/adapters/local/auth/oauth.ts`, `server/src/core/genie/conversations.ts`). They also cannot be shared between two server copies. After a restart the supervisor's memory (on disk) and Genie's conversation (in memory) no longer match.
 
 **11. A page reload shows an empty chat but keeps the thread.**
 The thread id is saved in `localStorage` (`bi-thread`), but the messages are only in React state (`ui/src/App.tsx`). After a reload you see an empty screen, yet follow-up questions continue the old thread on the server.
@@ -50,30 +52,30 @@ The thread id is saved in `localStorage` (`bi-thread`), but the messages are onl
 ## Agents
 
 **12. Routing rules live in two places.**
-The Genie space `description` in `server/src/genie/registry.ts` feeds the supervisor prompt automatically. But the `ROUTING` block in `server/src/mastra/agents/index.ts` also names `genie_placement` and `genie_capacity` by hand. A new space needs both. The README mentions only the first.
+The Genie space `description` in `server/src/core/genie/registry.ts` feeds the supervisor prompt automatically. But the `ROUTING` block in `server/src/core/agents/prompts.ts` also names `genie_placement` and `genie_capacity` by hand. A new space needs both. The README mentions only the first.
 
 **13. Agent behaviour is plain text and untested.**
-Instructions in `server/src/mastra/agents/index.ts` control routing, chart requests and answer style. No test covers them. Small wording changes can change behaviour. Try real questions after any edit.
+Instructions in `server/src/core/agents/prompts.ts` control routing, chart requests and answer style. No test covers them. Small wording changes can change behaviour. Try real questions after any edit.
 
 **14. Charts rely on Genie's wording.**
-The supervisor must use the word "chart" so Genie returns chart JSON. If Genie sends an unknown shape, the app logs `[genie] unparsed single-cell result` and shows only a table (`server/src/mastra/tools/askGenie.ts`).
+The supervisor must use the word "chart" so Genie returns chart JSON. If Genie sends an unknown shape, the app logs `[genie] unparsed single-cell result` and shows only a table (`server/src/core/agents/askGenie.ts`).
 
 **15. Agent mode is GA, but re-check its output format.**
-Databricks' release notes say Agent mode went GA on 2 Jul 2026 and its APIs on 27 Aug 2026. Only Flash is Beta, so do not enable Flash. On 6 Aug 2026 the APIs changed to return tables as markdown (labelled Beta); the notes do not say whether that changed at GA. Our code reads query output text (`chartJsonOf` in `server/src/genie/agentClient.ts`), so test a chart question after any Databricks change. The stream also cuts long query output at about 600 characters, so chart JSON is re-loaded by statement id (same file). Confirm the feature is enabled in each workspace, because admins can switch some Genie features off.
+Databricks' release notes say Agent mode went GA on 2 Jul 2026 and its APIs on 27 Aug 2026. Only Flash is Beta, so do not enable Flash. On 6 Aug 2026 the APIs changed to return tables as markdown (labelled Beta); the notes do not say whether that changed at GA. Our code reads query output text (`chartJsonOf` in `server/src/core/genie/agentClient.ts`), so test a chart question after any Databricks change. The stream also cuts long query output at about 600 characters, so chart JSON is re-loaded by statement id (same file). Confirm the feature is enabled in each workspace, because admins can switch some Genie features off.
 
 ## Security and safety
 
 **16. A retried Genie question takes longer.**
-Genie calls are retried with exponential backoff and jitter (`server/src/genie/retry.ts`, up to `GENIE_RETRY_ATTEMPTS`, default 3): a GET on 408, 429, 5xx or a network failure; a POST only on 429 or 503, so a question is never sent twice; and a run Genie itself reports as failed (for example SQL it wrote that does not parse), asked again in the same conversation. Access errors and timeouts are not retried. Each retry repeats Genie's work, so a question that fails twice can take two to three times as long. The scratchpad says when Genie is trying again.
+Genie calls are retried with exponential backoff and jitter (`server/src/core/genie/retry.ts`, up to `GENIE_RETRY_ATTEMPTS`, default 3): a GET on 408, 429, 5xx or a network failure; a POST only on 429 or 503, so a question is never sent twice; and a run Genie itself reports as failed (for example SQL it wrote that does not parse), asked again in the same conversation. Access errors and timeouts are not retried. Each retry repeats Genie's work, so a question that fails twice can take two to three times as long. The scratchpad says when Genie is trying again.
 
 **17. Stream errors return HTTP 200 and are not logged on the server.**
 By the time something fails, the response has started. The error is sent as an `error` event (`chatRoute`), and not written to the server log.
 
 **18. The `[genie] unparsed single-cell result` warning may contain data.**
-It prints up to 300 characters of a result (`server/src/mastra/tools/askGenie.ts`).
+It prints up to 300 characters of a result (`server/src/core/agents/askGenie.ts`).
 
 **19. Fallback Genie space ids are hard-coded.**
-`server/src/genie/registry.ts` uses a fixed id when the env variable is not set. Decide whether that belongs in source.
+`server/src/core/genie/registry.ts` uses a fixed id when the env variable is not set. Decide whether that belongs in source.
 
 **20. The cookie `Secure` flag depends on the request URL.**
 It is added only for `https` requests (`server/src/mastra/index.ts`). Behind a proxy that ends TLS, check what protocol the server sees.
@@ -84,7 +86,7 @@ It is added only for `https` requests (`server/src/mastra/index.ts`). Behind a p
 ## Docs and setup
 
 **22. The README mentions a `chart_agent` that does not exist.**
-`README.md`, "How it fits together". The code builds charts in plain code (`server/src/mastra/chartSpec.ts`) and has no such agent. Trust the code.
+`README.md`, "How it fits together". The code builds charts in plain code (`server/src/core/chart/chartSpec.ts`) and has no such agent. Trust the code.
 
 **23. Older Markdown files in `docs/` may be out of date.**
 `docs/code-guide.html` was rewritten from the current code. The five older files (`docs/01-big-picture.md` to `docs/05-settings-limits-and-cookbook.md`) were only partly updated after the chart library change. Check them against the code before you rely on them.
@@ -110,7 +112,7 @@ It does nothing for this Node project.
 ## Where to look in the code
 - `run.mjs`, `.gitignore`: build behaviour.
 - `server/src/mastra/index.ts`: routes, `withData`, CORS, cookie.
-- `server/src/mastra/agents/index.ts`: routing and instructions.
-- `server/src/genie/registry.ts`: spaces and fallback ids.
-- `server/src/genie/conversations.ts`, `server/src/auth/sessions.ts`: memory state.
+- `server/src/core/agents/prompts.ts`: routing and instructions.
+- `server/src/core/genie/registry.ts`: spaces and fallback ids.
+- `server/src/core/genie/conversations.ts`, `server/src/adapters/local/auth/sessions.ts`: memory state.
 - `ui/src/App.tsx`, `ui/src/components.tsx`: thread id, chart guard.

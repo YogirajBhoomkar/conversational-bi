@@ -1,5 +1,7 @@
 # 05. Request journey
 
+> **Written before the November 2026 restructure.** File paths are updated, but some descriptions are out of date: routes, login and the chat turn are no longer in `server/src/mastra/index.ts` (now only the wiring), spaces and their ids are configuration, and settings are read once in `server/src/config`. Current layout: [03-repo-map.md](03-repo-map.md). Settings: `server/.env.example`.
+
 ## What you will learn
 - What happens, step by step, from a button click to a chart on screen.
 - Which file does each step.
@@ -59,13 +61,13 @@ requestContext.set('collector', collector);
 
 Notice that the collector travels inside the request context. That is how tools reach it later.
 
-**5. Supervisor.** The route calls `supervisor.stream(message, ...)` with memory scoped to the thread (`server/src/mastra/index.ts`). The supervisor's instructions send placement and FOT premium questions to `genie_placement`, and tell it to ask for the data "AS A CHART" when the user asks for a chart (`server/src/mastra/agents/index.ts`).
+**5. Supervisor.** The route calls `supervisor.stream(message, ...)` with memory scoped to the thread (`server/src/mastra/index.ts`). The supervisor's instructions send placement and FOT premium questions to `genie_placement`, and tell it to ask for the data "AS A CHART" when the user asks for a chart (`server/src/core/agents/prompts.ts`).
 
-**6. Specialist and tool.** The `genie_placement` agent calls the tool `ask-placement` (`server/src/mastra/tools/askGenie.ts`, `createAskGenieTool`). The tool looks up any earlier Genie conversation for this thread and space, so follow-up questions keep context (`server/src/genie/conversations.ts`).
+**6. Specialist and tool.** The `genie_placement` agent calls the tool `ask-placement` (`server/src/core/agents/askGenie.ts`, `createAskGenieTool`). The tool looks up any earlier Genie conversation for this thread and space, so follow-up questions keep context (`server/src/core/genie/conversations.ts`).
 
-**7. Genie.** The tool calls `client.ask`. In the default mode (`server/src/genie/client.ts`) the client starts a conversation, then polls the message every 1 to 5 seconds until it is `COMPLETED`, fails, or 180 seconds pass. Each status change and each reasoning step goes to `onProgress`. The tool sends each line to the scratchpad with `collector.emit`, under the Ask Genie entry that is running.
+**7. Genie.** The tool calls `client.ask`. In the default mode (`server/src/core/genie/client.ts`) the client starts a conversation, then polls the message every 1 to 5 seconds until it is `COMPLETED`, fails, or 180 seconds pass. Each status change and each reasoning step goes to `onProgress`. The tool sends each line to the scratchpad with `collector.emit`, under the Ask Genie entry that is running.
 
-**8. Chart JSON becomes a chart spec.** For a chart question, Genie returns one cell holding JSON. `parseGenieChartJson` (`server/src/mastra/chartSpec.ts`) reads it, builds the real table, and builds a `ChartSpec`. The tool stores both in the collector. It also adds the chart to `collector.charts`. Every chart of the turn is kept (once each), so one answer can show several.
+**8. Chart JSON becomes a chart spec.** For a chart question, Genie returns one cell holding JSON. `parseGenieChartJson` (`server/src/core/chart/chartSpec.ts`) reads it, builds the real table, and builds a `ChartSpec`. The tool stores both in the collector. It also adds the chart to `collector.charts`. Every chart of the turn is kept (once each), so one answer can show several.
 
 **9. The tool answers the AI.** The tool returns a short object to the agent: summary, SQL, columns, 20 sample rows, `chartReady` and so on. The AI model never sees the full table.
 
@@ -73,7 +75,7 @@ Notice that the collector travels inside the request context. That is how tools 
 
 **11. The final event.** When the stream ends, the route reads the collector. It builds one `FinalAnswer`: the answer, the latest table, the chart spec, one source per Genie message (SQL, question, ids), and any follow-up questions from Genie. It sends it as a `final` event.
 
-**12. Follow-ups.** They do not wait for the answer. When the request arrives (step 4), the route starts a small agent that sees only the Genie descriptions and the chat so far, and it runs in parallel with everything above (`server/src/mastra/suggest.ts`). It sends a `suggestions` event as soon as it is ready, which may be before or after `final`. If Genie sent its own follow-ups, those win. After `final`, the stream waits at most `SUGGEST_WAIT_MS` (default 8000) for ours. Any failure is ignored.
+**12. Follow-ups.** They do not wait for the answer. When the request arrives (step 4), the route starts a small agent that sees only the Genie descriptions and the chat so far, and it runs in parallel with everything above (`server/src/core/suggest/suggest.ts`). It sends a `suggestions` event as soon as it is ready, which may be before or after `final`. If Genie sent its own follow-ups, those win. After `final`, the stream waits at most `SUGGEST_WAIT_MS` (default 8000) for ours. Any failure is ignored.
 
 **13. Drawing.** `streamChat` parses each `data:` line and calls the handler in `Chat.send`. A `final` event stores the result on the message. Early `suggestions` are kept on the message until then. `Details` (`ui/src/components.tsx`) draws the chart through `ui/src/charts/index.ts`, a collapsed data table, collapsed SQL with Helpful and Not helpful buttons, and the follow-up buttons.
 
@@ -95,7 +97,7 @@ Sources: `ChatEvent` in `server/src/contracts.ts`; the handler in `ui/src/App.ts
 |---|---|
 | Login expired | 401 with `relogin`. The UI shows the login page again (`ui/src/api.ts`, `ReloginError`) |
 | Genie error or timeout | `GenieResult.error` is set. The tool returns it. The AI should say so plainly (agent instructions) |
-| Not a recognised chart | Table only. A `[chart] not drawing` warning is logged (`server/src/mastra/chartSpec.ts`) |
+| Not a recognised chart | Table only. A `[chart] not drawing` warning is logged (`server/src/core/chart/chartSpec.ts`) |
 | Unexpected exception in the stream | An `error` event is sent and the stream closes (`server/src/mastra/index.ts`, `catch`) |
 | A chart cannot be drawn in the browser | The chart is skipped, the rest of the answer stays (`ChartBoundary` in `ui/src/components.tsx`) |
 
@@ -109,6 +111,6 @@ Sources: `ChatEvent` in `server/src/contracts.ts`; the handler in `ui/src/App.ts
 - `ui/src/App.tsx`: `Chat.send`.
 - `ui/src/api.ts`: `streamChat`.
 - `server/src/mastra/index.ts`: `chatRoute`.
-- `server/src/mastra/tools/askGenie.ts`: `createAskGenieTool`.
-- `server/src/mastra/chartSpec.ts`: `parseGenieChartJson`.
+- `server/src/core/agents/askGenie.ts`: `createAskGenieTool`.
+- `server/src/core/chart/chartSpec.ts`: `parseGenieChartJson`.
 - `ui/src/components.tsx`: `Details`.

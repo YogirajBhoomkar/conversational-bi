@@ -1,5 +1,7 @@
 # 13. How to contribute
 
+> **Written before the November 2026 restructure.** File paths are updated, but some descriptions are out of date: routes, login and the chat turn are no longer in `server/src/mastra/index.ts` (now only the wiring), spaces and their ids are configuration, and settings are read once in `server/src/config`. Current layout: [03-repo-map.md](03-repo-map.md). Settings: `server/.env.example`.
+
 ## What you will learn
 - What the repo says about branches and pull requests (very little).
 - The coding habits to follow.
@@ -18,14 +20,14 @@ I cannot tell you. The repo has no `.git` folder, no pull request template, no `
 - Import types with `import type`.
 - Comments explain why, and sit above the code they explain.
 - Small functions, few files, no classes unless needed (the clients and token providers are classes).
-- Messages shown to users are plain and short. Example: "Your session has expired. Please log in again." (`server/src/auth/sessions.ts`).
+- Messages shown to users are plain and short. Example: "Your session has expired. Please log in again." (`server/src/adapters/local/auth/sessions.ts`).
 - No secrets in the browser code (`README.md`).
 - No lint or format tool is configured. Match the file you are editing: single quotes, semicolons, two spaces.
 
 ## Tests you should expect to add
 
 - Pure logic (chart building, parsing, token handling): add a test beside the file, named `*.test.ts`, using `vitest` (`server/package.json`).
-- Code that calls Databricks: pass a fake `fetch` into the client, like `server/src/genie/client.test.ts` does.
+- Code that calls Databricks: pass a fake `fetch` into the client, like `server/src/core/genie/client.test.ts` does.
 - Routes, tools, agents and UI: there are no test examples. If you add the first one, say so in your pull request.
 
 ## Pull request checklist
@@ -105,4 +107,4 @@ The `q` class is real (used in `Details`). The component is an example, not code
 - `server/src/mastra/index.ts`: `feedbackRoute` as the route pattern.
 - `ui/src/api.ts`: `sendFeedback` as the browser call pattern.
 - `ui/src/components.tsx`: `Details`.
-- `server/src/genie/client.test.ts`: the test pattern with a fake `fetch`.
+- `server/src/core/genie/client.test.ts`: the test pattern with a fake `fetch`.

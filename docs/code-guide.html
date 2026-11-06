@@ -397,7 +397,7 @@ export type GenieSpace = { key: string; name: string; description: string; space
 
 <!-- ======================================================= -->
 <h2 class="sec" id="registry">7. registry.ts: the list of Genie spaces</h2>
-<span class="file">server/src/genie/registry.ts</span>
+<span class="file">server/src/core/genie/registry.ts</span>
 <pre><code>export const genieSpaces: GenieSpace[] = [
   {
     key: 'placement',
@@ -420,7 +420,7 @@ export const getSpaceById = (id: string) =&gt; genieSpaces.find((s) =&gt; s.spac
 
 <!-- ======================================================= -->
 <h2 class="sec" id="conversations">8. conversations.ts: remembering Genie's thread</h2>
-<span class="file">server/src/genie/conversations.ts</span>
+<span class="file">server/src/core/genie/conversations.ts</span>
 <pre><code>const store = new Map&lt;string, string&gt;();
 const k = (threadId: string, spaceId: string) =&gt; `${threadId}::${spaceId}`;
 export const getConversationId = (threadId, spaceId) =&gt; store.get(k(threadId, spaceId));
@@ -436,7 +436,7 @@ const lastResults = new Map&lt;string, GenieResult&gt;();</code></pre>
 
 <!-- ======================================================= -->
 <h2 class="sec" id="genie-client">9. genie/client.ts: talking to Genie (default mode)</h2>
-<span class="file">server/src/genie/client.ts</span>
+<span class="file">server/src/core/genie/client.ts</span>
 <p>This file talks to the Genie <strong>Conversation API</strong>. It is a normal class with no AI in it. It is used unless <code>GENIE_MODE=agent</code>.</p>
 
 <h3>Settings at the top</h3>
@@ -484,7 +484,7 @@ if (!res.ok) throw new Error(`Genie ${method} ${path} failed: ${res.status} ...`
 
 <!-- ======================================================= -->
 <h2 class="sec" id="agent-client">10. genie/agentClient.ts: Genie Agent mode (GA)</h2>
-<span class="file">server/src/genie/agentClient.ts</span>
+<span class="file">server/src/core/genie/agentClient.ts</span>
 <p>Used when <code>GENIE_MODE=agent</code>. It calls <code>POST /api/2.0/genie/agents/{space}/responses</code> and reads a stream of events. Unlike polling, it shows Genie's <em>actual</em> reasoning, each SQL call and the final text. Databricks' release notes say the Agent mode APIs have been <strong>generally available since 27 August 2026</strong>. Only the Flash option is Beta, so do not enable Flash. One thing to re-check: on 6 August Databricks changed these APIs to return tables as markdown (labelled Beta), and the notes do not say whether that changed at GA. Test a chart question after any Databricks change.</p>
 
 <h3>How it reads the stream</h3>
@@ -512,7 +512,7 @@ if (!res.ok) throw new Error(`Genie ${method} ${path} failed: ${res.status} ...`
 
 <!-- ======================================================= -->
 <h2 class="sec" id="collector">11. collector.ts: a side channel for data</h2>
-<span class="file">server/src/mastra/collector.ts</span>
+<span class="file">server/src/core/chat/collector.ts</span>
 <pre><code>export type Collector = { results: GenieResult[]; chart: ChartSpec | null; emit?: (e: ChatEvent) =&gt; void };
 export const newCollector = (): Collector =&gt; ({ results: [], chart: null });
 
@@ -539,7 +539,7 @@ export const getThreadId = (rc) =&gt; (rc?.get('threadId') as string) ?? 'defaul
 
 <!-- ======================================================= -->
 <h2 class="sec" id="tool-ask">12. askGenie.ts: the two Genie tools</h2>
-<span class="file">server/src/mastra/tools/askGenie.ts</span>
+<span class="file">server/src/core/agents/askGenie.ts</span>
 <p>Both are <strong>factories</strong>: functions that build a tool. Calling each once per space gives each Genie agent its own pair.</p>
 
 <h3>ask-&lt;key&gt;: ask a data question</h3>
@@ -568,7 +568,7 @@ collector.chart = fromJson?.chart ?? null;</code></pre>
 
 <!-- ======================================================= -->
 <h2 class="sec" id="chartspec">13. chartSpec.ts: Genie's chart JSON to a chart</h2>
-<span class="file">server/src/mastra/chartSpec.ts</span>
+<span class="file">server/src/core/chart/chartSpec.ts</span>
 <p>Charts are built in code, never by an AI. When a user asks for a chart, the supervisor passes the word "chart" to Genie. Genie then returns a single <code>chart_json</code> cell: <code>{type, title, x, y, series, data:[{...}]}</code>.</p>
 
 <h3>parseGenieChartJson(columns, rows)</h3>
@@ -591,7 +591,7 @@ collector.chart = fromJson?.chart ?? null;</code></pre>
 
 <!-- ======================================================= -->
 <h2 class="sec" id="agents">14. agents/index.ts: the agents</h2>
-<span class="file">server/src/mastra/agents/index.ts</span>
+<span class="file">server/src/core/agents/prompts.ts</span>
 <p>The heart of the Mastra part. One function, <code>createAgents(client)</code>, builds all the agents. There is <strong>no chart agent</strong>: charts are plain code (section 13).</p>
 
 <h3>Which AI model</h3>
@@ -639,7 +639,7 @@ collector.chart = fromJson?.chart ?? null;</code></pre>
 
 <!-- ======================================================= -->
 <h2 class="sec" id="suggest">15. suggest.ts: follow-up questions</h2>
-<span class="file">server/src/mastra/suggest.ts</span>
+<span class="file">server/src/core/suggest/suggest.ts</span>
 <pre><code>// the model sees only: the chat so far + the question just asked (the data agents' descriptions are in its instructions)
 const out = await agent.generate(promptOf(input), { structuredOutput: { schema: Suggestions } });
 // then we keep only questions that name a real data agent and are not repeats</code></pre>
@@ -745,7 +745,7 @@ const { supervisor, genieAgents, suggestAgent } = createAgents(genie);</code></p
 
 <!-- ======================================================= -->
 <h2 class="sec" id="auth-token">18. tokenProvider.ts: the shared token (dev mode)</h2>
-<span class="file">server/src/auth/tokenProvider.ts</span>
+<span class="file">server/src/adapters/local/auth/tokenProvider.ts</span>
 <pre><code>export class PatTokenProvider implements TokenProvider {
   constructor(private readonly token = process.env.DATABRICKS_TOKEN) {}
   async getToken(): Promise&lt;string&gt; {
@@ -757,7 +757,7 @@ const { supervisor, genieAgents, suggestAgent } = createAgents(genie);</code></p
 
 <!-- ======================================================= -->
 <h2 class="sec" id="auth-oauth">19. oauth.ts: the login steps</h2>
-<span class="file">server/src/auth/oauth.ts</span>
+<span class="file">server/src/adapters/local/auth/oauth.ts</span>
 
 <h3>Configuration</h3>
 <pre><code>export const oauthConfig = () =&gt; ({
@@ -787,7 +787,7 @@ export const oauthEnabled = () =&gt; Boolean(process.env.DATABRICKS_CLIENT_ID);<
 
 <!-- ======================================================= -->
 <h2 class="sec" id="auth-sessions">20. sessions.ts: logged-in users</h2>
-<span class="file">server/src/auth/sessions.ts</span>
+<span class="file">server/src/adapters/local/auth/sessions.ts</span>
 
 <h3>Storing sessions</h3>
 <pre><code>const sessions = new Map&lt;string, Session&gt;();     // in server memory
@@ -1032,7 +1032,7 @@ export { Chart } from './RechartsChart';
 
 <h3>Add a Genie space</h3>
 <ol>
-  <li>Add an entry to <code>genieSpaces</code> in <code>server/src/genie/registry.ts</code> (<code>key</code>, <code>name</code>, <code>description</code>, <code>spaceId</code>). Use a setting for the id, following the existing pattern, and add it to <code>server/.env.example</code>.</li>
+  <li>Add an entry to <code>genieSpaces</code> in <code>server/src/core/genie/registry.ts</code> (<code>key</code>, <code>name</code>, <code>description</code>, <code>spaceId</code>). Use a setting for the id, following the existing pattern, and add it to <code>server/.env.example</code>.</li>
   <li>Write the <code>description</code> carefully; the supervisor routes by it.</li>
   <li><strong>Also</strong> add routing words for it in the <code>ROUTING</code> block of the supervisor instructions in <code>agents/index.ts</code>, which names <code>genie_placement</code> and <code>genie_capacity</code> by hand. The README mentions only the first step.</li>
   <li>The agent, its two tools and its registration are created automatically. Rebuild.</li>

@@ -1,5 +1,7 @@
 # 01. Start here
 
+> **Written before the November 2026 restructure.** File paths are updated, but some descriptions are out of date: routes, login and the chat turn are no longer in `server/src/mastra/index.ts` (now only the wiring), spaces and their ids are configuration, and settings are read once in `server/src/config`. Current layout: [03-repo-map.md](03-repo-map.md). Settings: `server/.env.example`.
+
 ## What you will learn
 - What Conversational BI does and who uses it.
 - How these docs are organised.
@@ -12,7 +14,7 @@ Last verified against: no git repository was present, so there is no commit id. 
 
 Conversational BI is a chat app. A person types a business question in plain English. The app answers with a short text answer, a chart, a table of numbers, and the SQL that produced them.
 
-The topics are reinsurance placements and reinsurer capacity (`server/src/mastra/agents/index.ts`, supervisor `instructions`).
+The topics are reinsurance placements and reinsurer capacity (`server/src/core/agents/prompts.ts`, supervisor `instructions`).
 
 Here is the idea in one line. The AI never makes up numbers. A Databricks tool called **Genie** finds the numbers. The AI only chooses which Genie to ask and writes the short answer.
 
@@ -20,7 +22,7 @@ Here is the idea in one line. The AI never makes up numbers. A Databricks tool c
 
 ## Who uses it
 
-Business users who want numbers without writing SQL. They sign in with their Databricks account (`server/src/auth/oauth.ts`). In local development they can skip sign-in and use one shared token instead (`server/src/mastra/index.ts`, `oauth` flag).
+Business users who want numbers without writing SQL. They sign in with their Databricks account (`server/src/adapters/local/auth/oauth.ts`). In local development they can skip sign-in and use one shared token instead (`server/src/mastra/index.ts`, `oauth` flag).
 
 The repo does not say which team owns the app or who to ask. See [99-open-questions.md](99-open-questions.md).
 

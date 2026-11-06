@@ -1,5 +1,7 @@
 # 2. Server Files, One by One
 
+> **Written before the November 2026 restructure.** File paths are updated, but some descriptions are out of date: routes, login and the chat turn are no longer in `server/src/mastra/index.ts` (now only the wiring), spaces and their ids are configuration, and settings are read once in `server/src/config`. Current layout: [onboarding/03-repo-map.md](onboarding/03-repo-map.md). Settings: `server/.env.example`.
+
 All server code is in `server/src/`. Each file below has the same layout:
 
 * **What it is**: one line.

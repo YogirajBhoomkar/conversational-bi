@@ -1,5 +1,7 @@
 # 06. Backend (HTTP side)
 
+> **Written before the November 2026 restructure.** File paths are updated, but some descriptions are out of date: routes, login and the chat turn are no longer in `server/src/mastra/index.ts` (now only the wiring), spaces and their ids are configuration, and settings are read once in `server/src/config`. Current layout: [03-repo-map.md](03-repo-map.md). Settings: `server/.env.example`.
+
 ## What you will learn
 - Which routes the server offers.
 - How the live stream is built.
@@ -59,7 +61,7 @@ The response headers are `Content-Type: text/event-stream` and `Cache-Control: n
 | Nested chunks from the data agent (inside `tool-output`) | its own notes and its Ask Genie entry |
 | `error` | throws, which becomes an `error` event |
 
-`server/src/mastra/trace.ts` does this translation. The text of a step that calls a tool is a working note; the text of a step that calls none is the final answer and becomes `text` events. Genie's own progress comes from the tool through `collector.emit` and is shown under the Ask Genie entry that is running.
+`server/src/core/trace/trace.ts` does this translation. The text of a step that calls a tool is a working note; the text of a step that calls none is the final answer and becomes `text` events. Genie's own progress comes from the tool through `collector.emit` and is shown under the Ask Genie entry that is running.
 
 The route sends `final` as soon as the answer is ready. Follow-ups are started when the request arrives and run in parallel, so the route never waits for them before `final`. It sends `suggestions` whenever they are ready, then waits at most `SUGGEST_WAIT_MS` (default 8000) after `final` before closing the stream in `finally`.
 
@@ -69,7 +71,7 @@ The route sends `final` as soon as the answer is ready. Follow-ups are started w
 - **Not signed in:** 401 with `relogin: true`.
 - **Feedback with an unknown space:** 400 `unknown space`. If Genie fails: 502 with the message (`feedbackRoute`).
 - **Anything thrown inside the stream:** caught, sent as an `error` event, then the stream closes. The HTTP status is already 200 by then.
-- **Genie failures:** Genie calls are retried with exponential backoff and jitter (`server/src/genie/retry.ts`, up to `GENIE_RETRY_ATTEMPTS`, default 3): a GET on 408, 429, 5xx or a network failure; a POST only on 429 or 503, so a question is never sent twice; and a run Genie itself reports as failed (for example SQL it wrote that does not parse), asked again in the same conversation. Access errors and timeouts are not retried.
+- **Genie failures:** Genie calls are retried with exponential backoff and jitter (`server/src/core/genie/retry.ts`, up to `GENIE_RETRY_ATTEMPTS`, default 3): a GET on 408, 429, 5xx or a network failure; a POST only on 429 or 503, so a question is never sent twice; and a run Genie itself reports as failed (for example SQL it wrote that does not parse), asked again in the same conversation. Access errors and timeouts are not retried.
 
 The data shapes have zod schemas in `server/src/contracts.ts`, but the routes do not call `.parse` on the request. They only use TypeScript types.
 

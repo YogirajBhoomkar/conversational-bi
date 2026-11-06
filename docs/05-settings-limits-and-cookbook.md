@@ -1,5 +1,7 @@
 # 5. Settings, Running It, Changing It, and Known Problems
 
+> **Written before the November 2026 restructure.** File paths are updated, but some descriptions are out of date: routes, login and the chat turn are no longer in `server/src/mastra/index.ts` (now only the wiring), spaces and their ids are configuration, and settings are read once in `server/src/config`. Current layout: [onboarding/03-repo-map.md](onboarding/03-repo-map.md). Settings: `server/.env.example`.
+
 Contents:
 1. Settings (the `.env` file)
 2. Running the app (and the rebuild trap)
@@ -98,8 +100,8 @@ To pick up code changes:
 
 | I want to... | Do this |
 |--------------|---------|
-| **Add a new Genie space** | Add an entry to `genieSpaces` in `server/src/genie/registry.ts` (key, name, description, space id). Its agent and tools are created automatically. Write a specific description, because the supervisor routes by it. Mention it in the supervisor's ROUTING lines in `agents/index.ts` if it needs special rules |
-| **Change how answers sound** | Edit the supervisor's `instructions` text in `server/src/mastra/agents/index.ts` |
+| **Add a new Genie space** | Add an entry to `genieSpaces` in `server/src/core/genie/registry.ts` (key, name, description, space id). Its agent and tools are created automatically. Write a specific description, because the supervisor routes by it. Mention it in the supervisor's ROUTING lines in `agents/index.ts` if it needs special rules |
+| **Change how answers sound** | Edit the supervisor's `instructions` text in `server/src/core/agents/prompts.ts` |
 | **Change which questions go where** | Same file: the ROUTING section of the supervisor instructions, plus each space's `description` in `registry.ts` |
 | **Change the follow-up suggestions** | Edit the `suggest_agent` instructions in `agents/index.ts` |
 | **Switch Genie mode** | Set `GENIE_MODE=agent` (streaming) or empty (older), then rebuild and restart |

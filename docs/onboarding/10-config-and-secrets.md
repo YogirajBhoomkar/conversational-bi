@@ -1,5 +1,7 @@
 # 10. Config and secrets
 
+> **Written before the November 2026 restructure.** File paths are updated, but some descriptions are out of date: routes, login and the chat turn are no longer in `server/src/mastra/index.ts` (now only the wiring), spaces and their ids are configuration, and settings are read once in `server/src/config`. Current layout: [03-repo-map.md](03-repo-map.md). Settings: `server/.env.example`.
+
 ## What you will learn
 - Every setting the code reads (names only).
 - Which ones are secrets.
@@ -55,7 +57,7 @@ Notice `ANTHROPIC_API_KEY` is not read anywhere in the repo's own code. The Mast
 
 `server/.env.example` lists every setting above, except `UI_DIST` and `API_URL`, which `npm start` and the UI dev server set. Required settings are blank. Optional settings are commented out with `#`.
 
-**Do not leave an optional setting blank.** `NAME=` with nothing after it counts as set, and it replaces the default, because the code uses `process.env.NAME ?? default` (`server/src/genie/registry.ts`, `server/src/mastra/agents/index.ts`, `server/src/genie/client.ts`). For example `GENIE_ROW_CAP=` becomes `Number('')`, which is 0 rows, and `ANTHROPIC_MODEL=` gives a broken model name.
+**Do not leave an optional setting blank.** `NAME=` with nothing after it counts as set, and it replaces the default, because the code uses `process.env.NAME ?? default` (`server/src/core/genie/registry.ts`, `server/src/core/agents/prompts.ts`, `server/src/core/genie/client.ts`). For example `GENIE_ROW_CAP=` becomes `Number('')`, which is 0 rows, and `ANTHROPIC_MODEL=` gives a broken model name.
 
 ## Secrets
 
@@ -64,7 +66,7 @@ Notice `ANTHROPIC_API_KEY` is not read anywhere in the repo's own code. The Mast
 - Secrets live only on the server. The browser code never gets them (`README.md`, Settings).
 - Where production secrets come from (a vault, pipeline variables, or something else) is not in the repo.
 
-One thing to know: `server/src/genie/registry.ts` has hard-coded fallback Genie space ids. A space id is not a password, but it is an internal identifier. Ask whether it should stay in source. See [14-gotchas.md](14-gotchas.md).
+One thing to know: `server/src/core/genie/registry.ts` has hard-coded fallback Genie space ids. A space id is not a password, but it is an internal identifier. Ask whether it should stay in source. See [14-gotchas.md](14-gotchas.md).
 
 ## Feature flags
 
@@ -84,6 +86,6 @@ The chart library is a build-time choice, not a setting. See [07a-charts.md](07a
 ## Where to look in the code
 - `server/.env.example`: the example file.
 - `server/src/mastra/index.ts`: `GENIE_MODE`, `PORT`, `UI_DIST`.
-- `server/src/auth/oauth.ts`: OAuth settings.
-- `server/src/genie/registry.ts`: Genie space settings.
+- `server/src/adapters/local/auth/oauth.ts`: OAuth settings.
+- `server/src/core/genie/registry.ts`: Genie space settings.
 - `run.mjs`: how `.env` is created and used.

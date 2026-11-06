@@ -1,5 +1,7 @@
 # 04. Run it locally
 
+> **Written before the November 2026 restructure.** File paths are updated, but some descriptions are out of date: routes, login and the chat turn are no longer in `server/src/mastra/index.ts` (now only the wiring), spaces and their ids are configuration, and settings are read once in `server/src/config`. Current layout: [03-repo-map.md](03-repo-map.md). Settings: `server/.env.example`.
+
 ## What you will learn
 - What you need before you start.
 - Which settings to fill in (names only).
@@ -11,7 +13,7 @@
 
 You need:
 - **Node.js.** The README says 20 or newer (`README.md`). No version file exists. The docs were checked with a newer Node, but the target version is unknown.
-- **An Anthropic API key**, or an OpenAI-compatible endpoint (`server/src/mastra/agents/index.ts`, `model()`).
+- **An Anthropic API key**, or an OpenAI-compatible endpoint (`server/src/core/agents/prompts.ts`, `model()`).
 - **A Databricks workspace** with a Genie space, and either a personal access token (PAT) or an OAuth app connection (`README.md`).
 
 A **personal access token (PAT)** is a password-like string from Databricks. It acts as you. Use it for local work only.
@@ -93,11 +95,11 @@ npx tsx scripts/smoke-genie.ts "your question"
 |---|---|---|
 | `server/.env is missing. Run: node run.mjs setup` | No `.env` file | Run `npm run setup` (`run.mjs`) |
 | `Not built yet. Run: node run.mjs build` | UI or server not built | Run `npm run build` (`run.mjs`) |
-| `DATABRICKS_SERVER_HOSTNAME is not set` | Missing setting | Set it in `server/.env` (`server/src/genie/client.ts`) |
-| `DATABRICKS_TOKEN is not set` | No token in shared-token mode | Set it, or set `DATABRICKS_CLIENT_ID` for login (`server/src/auth/tokenProvider.ts`) |
+| `DATABRICKS_SERVER_HOSTNAME is not set` | Missing setting | Set it in `server/.env` (`server/src/core/genie/client.ts`) |
+| `DATABRICKS_TOKEN is not set` | No token in shared-token mode | Set it, or set `DATABRICKS_CLIENT_ID` for login (`server/src/adapters/local/auth/tokenProvider.ts`) |
 | Charts do not show after a code change | Server still runs an old build | Stop it, run `npm run build`, start again |
 | `EBUSY: resource busy or locked` during the server build (seen on Windows) | A running server, or a file watcher or sync tool, holds `server/.mastra/output` | Stop the running server. Delete `server/.mastra/output`. Build again |
-| Everyone is logged out after a restart | Sessions are in memory | Expected (`server/src/auth/sessions.ts`) |
+| Everyone is logged out after a restart | Sessions are in memory | Expected (`server/src/adapters/local/auth/sessions.ts`) |
 
 ## Key takeaways
 - `npm run setup`, `npm run build`, `npm start` is the shortest path. Open port 1976.

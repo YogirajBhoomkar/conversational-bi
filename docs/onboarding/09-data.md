@@ -1,5 +1,7 @@
 # 09. Data
 
+> **Written before the November 2026 restructure.** File paths are updated, but some descriptions are out of date: routes, login and the chat turn are no longer in `server/src/mastra/index.ts` (now only the wiring), spaces and their ids are configuration, and settings are read once in `server/src/config`. Current layout: [03-repo-map.md](03-repo-map.md). Settings: `server/.env.example`.
+
 ## What you will learn
 - Where data lives: Databricks, SQLite files, and memory.
 - The main data shapes passed around.
@@ -14,8 +16,8 @@ The app does not own business tables. The business data lives in Databricks and 
 |---|---|---|
 | Databricks (via Genie) | All business data | Outside this repo |
 | SQLite file `mastra.db` | Mastra's own storage | `server/src/mastra/index.ts`, `LibSQLStore` at `file:./mastra.db` |
-| SQLite file `bi-memory.db` | The supervisor's chat memory | `server/src/mastra/agents/index.ts`, `Memory` |
-| Server memory | Sessions, PKCE state, Genie conversation ids, last results | `server/src/auth/*.ts`, `server/src/genie/conversations.ts` |
+| SQLite file `bi-memory.db` | The supervisor's chat memory | `server/src/core/agents/prompts.ts`, `Memory` |
+| Server memory | Sessions, PKCE state, Genie conversation ids, last results | `server/src/adapters/local/auth/*.ts`, `server/src/core/genie/conversations.ts` |
 | Browser `localStorage` | The current thread id, key `bi-thread` | `ui/src/App.tsx` |
 
 **SQLite** is a database kept in a single file. **LibSQL** is a fork of it that Mastra uses.
@@ -57,7 +59,7 @@ The choice is made once, at start, from `GENIE_MODE` (`server/src/mastra/index.t
 
 | | Conversation API (default) | Agent mode (`GENIE_MODE=agent`) |
 |---|---|---|
-| File | `server/src/genie/client.ts` | `server/src/genie/agentClient.ts` |
+| File | `server/src/core/genie/client.ts` | `server/src/core/genie/agentClient.ts` |
 | How | Start a conversation, then **poll** the message until it completes | One request, answers **streamed** as events |
 | Progress shown | Status names and Genie's "thoughts" | Real reasoning, each query, the final text |
 | Full results | Not available (`statementId` is null) | `fetchFullResult` pages through the SQL Statement API |
@@ -90,10 +92,10 @@ If a result is larger than the cap, `totalRows` is higher than `rows.length`. Th
 
 | Service | Used for | Code |
 |---|---|---|
-| Databricks Genie | Answers and SQL | `server/src/genie/` |
+| Databricks Genie | Answers and SQL | `server/src/core/genie/` |
 | Databricks SQL Statement API | Loading more rows (Agent mode) | `agentClient.ts`, `fetchFullResult` |
-| Databricks OAuth and SCIM | Sign-in and user name | `server/src/auth/oauth.ts` |
-| AI model provider | The agents' language model | `server/src/mastra/agents/index.ts` |
+| Databricks OAuth and SCIM | Sign-in and user name | `server/src/adapters/local/auth/oauth.ts` |
+| AI model provider | The agents' language model | `server/src/core/agents/prompts.ts` |
 | Google Fonts | Fonts, loaded by the browser | `ui/index.html` |
 
 ## Key takeaways
@@ -105,6 +107,6 @@ If a result is larger than the cap, `totalRows` is higher than `rows.length`. Th
 
 ## Where to look in the code
 - `server/src/contracts.ts`: all shapes.
-- `server/src/genie/client.ts` and `agentClient.ts`: the clients.
-- `server/src/genie/conversations.ts`: in-memory maps.
-- `server/src/mastra/tools/askGenie.ts`: row limits and the full-result tool.
+- `server/src/core/genie/client.ts` and `agentClient.ts`: the clients.
+- `server/src/core/genie/conversations.ts`: in-memory maps.
+- `server/src/core/agents/askGenie.ts`: row limits and the full-result tool.

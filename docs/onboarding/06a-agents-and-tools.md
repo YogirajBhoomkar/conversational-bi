@@ -1,5 +1,7 @@
 # 06a. Agents and tools
 
+> **Written before the November 2026 restructure.** File paths are updated, but some descriptions are out of date: routes, login and the chat turn are no longer in `server/src/mastra/index.ts` (now only the wiring), spaces and their ids are configuration, and settings are read once in `server/src/config`. Current layout: [03-repo-map.md](03-repo-map.md). Settings: `server/.env.example`.
+
 ## What you will learn
 - The three kinds of agent in the server and what each one does.
 - What a tool is, and what the two tools do.
@@ -13,7 +15,7 @@ An **agent** here is an AI model plus a set of written instructions plus a list 
 
 ## The three agents
 
-All are built in `createAgents` in `server/src/mastra/agents/index.ts`.
+All are built in `createAgents` in `server/src/core/agents/prompts.ts`.
 
 | Agent id | Count | Job |
 |---|---|---|
@@ -35,11 +37,11 @@ if (baseUrl) {
 return `anthropic/${process.env.ANTHROPIC_MODEL ?? 'claude-sonnet-5-5'}` as const;
 ```
 
-Notice there are two modes: a custom OpenAI-compatible endpoint (for example a proxy), or Anthropic by default. The snippet is shortened from `server/src/mastra/agents/index.ts`.
+Notice there are two modes: a custom OpenAI-compatible endpoint (for example a proxy), or Anthropic by default. The snippet is shortened from `server/src/core/agents/prompts.ts`.
 
 ## The tools
 
-Both are in `server/src/mastra/tools/askGenie.ts`. Each Genie agent gets its own pair, named with the space key.
+Both are in `server/src/core/agents/askGenie.ts`. Each Genie agent gets its own pair, named with the space key.
 
 **`ask-<key>`** (`createAskGenieTool`):
 1. Calls the Genie client with the question, the stored conversation id, and the user's session id.
@@ -49,11 +51,11 @@ Both are in `server/src/mastra/tools/askGenie.ts`. Each Genie agent gets its own
 5. Saves the result in the collector and as the "last result".
 6. Returns a **small** object to the AI: summary, SQL, columns, 20 sample rows, row counts, `truncated`, `chartReady`, `error`.
 
-**`fetch-full-<key>`** (`createFetchFullResultsTool`): loads more rows of the previous query. It exists because the table normally shows only a preview (200 rows by default). It is meant for when the user asks for "all the data". The cap is `GENIE_FULL_ROW_CAP`, default 5000. It works only in Agent mode, because it needs a statement id and `fetchFullResult` (`server/src/genie/agentClient.ts`).
+**`fetch-full-<key>`** (`createFetchFullResultsTool`): loads more rows of the previous query. It exists because the table normally shows only a preview (200 rows by default). It is meant for when the user asks for "all the data". The cap is `GENIE_FULL_ROW_CAP`, default 5000. It works only in Agent mode, because it needs a statement id and `fetchFullResult` (`server/src/core/genie/agentClient.ts`).
 
 ## The collector
 
-See [02-big-picture.md](02-big-picture.md). In short: a per-request object, created in the chat route and passed through `RequestContext`. Tools use `getCollector(requestContext)` to reach it (`server/src/mastra/collector.ts`). If it is missing, `getCollector` throws `collector missing from request context`.
+See [02-big-picture.md](02-big-picture.md). In short: a per-request object, created in the chat route and passed through `RequestContext`. Tools use `getCollector(requestContext)` to reach it (`server/src/core/chat/collector.ts`). If it is missing, `getCollector` throws `collector missing from request context`.
 
 ## Memory and conversations
 
@@ -61,8 +63,8 @@ Two different things keep context:
 
 | What | Where | Lifetime |
 |---|---|---|
-| The supervisor's chat memory | `Memory` with a `LibSQLStore` file `bi-memory.db` (`server/src/mastra/agents/index.ts`) | On disk |
-| Genie's own conversation id per thread and space | A `Map` in `server/src/genie/conversations.ts` | In memory, lost on restart |
+| The supervisor's chat memory | `Memory` with a `LibSQLStore` file `bi-memory.db` (`server/src/core/agents/prompts.ts`) | On disk |
+| Genie's own conversation id per thread and space | A `Map` in `server/src/core/genie/conversations.ts` | In memory, lost on restart |
 
 After a restart the supervisor still remembers the chat, but Genie starts a new conversation. This is noted in the README ("Known limits").
 
@@ -73,7 +75,7 @@ All the rules are plain text inside the supervisor's `instructions`:
 - Routing by topic: placement, status, layer, total limit and FOT premium go to `genie_placement`. Reinsurer, capacity, authorized or signed, declines and quoted premium go to `genie_capacity`.
 - Never invent numbers.
 - Ask one short question if unclear.
-- Chart requests: pass the word "chart" in the question to Genie, in one call. The list of drawable chart types comes from `SUPPORTED_CHART_TYPES` in `server/src/mastra/chartSpec.ts`.
+- Chart requests: pass the word "chart" in the question to Genie, in one call. The list of drawable chart types comes from `SUPPORTED_CHART_TYPES` in `server/src/core/chart/chartSpec.ts`.
 - If the result is truncated, say so and ask before loading the rest.
 - Final answer is Markdown: a bold headline, 3 to 5 key findings with their figures, what it means, and a one-line data note. Simple answers are one or two sentences.
 
@@ -106,9 +108,9 @@ Business rules that apply to every space (what "Year" means, units, status order
 - Adding a space is a configuration change: one entry in the spaces file and its id.
 
 ## Where to look in the code
-- `server/src/mastra/agents/index.ts`: `createAgents`, `model`.
-- `server/src/mastra/tools/askGenie.ts`: both tools.
-- `server/src/mastra/collector.ts`: `getCollector`, `getThreadId`.
-- `server/src/genie/registry.ts`: `genieSpaces`.
-- `server/src/genie/conversations.ts`: conversation maps.
-- `server/src/mastra/suggest.ts`: `suggestFollowUps`.
+- `server/src/core/agents/prompts.ts`: `createAgents`, `model`.
+- `server/src/core/agents/askGenie.ts`: both tools.
+- `server/src/core/chat/collector.ts`: `getCollector`, `getThreadId`.
+- `server/src/core/genie/registry.ts`: `genieSpaces`.
+- `server/src/core/genie/conversations.ts`: conversation maps.
+- `server/src/core/suggest/suggest.ts`: `suggestFollowUps`.

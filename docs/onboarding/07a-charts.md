@@ -1,5 +1,7 @@
 # 07a. Charts
 
+> **Written before the November 2026 restructure.** File paths are updated, but some descriptions are out of date: routes, login and the chat turn are no longer in `server/src/mastra/index.ts` (now only the wiring), spaces and their ids are configuration, and settings are read once in `server/src/config`. Current layout: [03-repo-map.md](03-repo-map.md). Settings: `server/.env.example`.
+
 ## What you will learn
 - How a chart gets from Genie to the screen.
 - What the neutral chart spec looks like.
@@ -27,7 +29,7 @@ Defined in `server/src/contracts.ts` (`ChartSpecSchema`) and copied by hand to `
 
 ## How the server builds it
 
-`parseGenieChartJson` and `buildChartSpec` in `server/src/mastra/chartSpec.ts`:
+`parseGenieChartJson` and `buildChartSpec` in `server/src/core/chart/chartSpec.ts`:
 
 - Genie sends one cell of JSON: `{type, title, x, y, series, data}`.
 - Type names are mapped by `TYPE_OF` in `chartSpec.ts` (12 chart types). Anything else gives **no chart**. The table is still shown, and a warning is logged.
@@ -81,7 +83,7 @@ The server accepts every chart type Genie can send and turns each into the same 
 | `treemap`, `sunburst` | treemap, sunburst | `path` (the dimensions, outermost first), `y` |
 | `sankey` | sankey | `path` (at least two dimensions), `y` |
 
-`path` is a list of column names. It is how Genie describes a hierarchy, a share or a flow. The first one is also copied into `x`. Anything else, an incomplete chart, or a non-numeric `y` gives no chart: the table is still shown and a warning is logged (`server/src/mastra/chartSpec.ts`). The supervisor is told this list from `SUPPORTED_CHART_TYPES` in the same file, so it never drifts.
+`path` is a list of column names. It is how Genie describes a hierarchy, a share or a flow. The first one is also copied into `x`. Anything else, an incomplete chart, or a non-numeric `y` gives no chart: the table is still shown and a warning is logged (`server/src/core/chart/chartSpec.ts`). The supervisor is told this list from `SUPPORTED_CHART_TYPES` in the same file, so it never drifts.
 
 **Which library draws what.** Each renderer exports `supports(spec)`:
 - **Plotly** (the full `plotly.js-dist-min` bundle, about 4.6 MB) draws every type. It is loaded the first time a chart is drawn, so the main bundle stays about 230 kB. A heatmap without a series, or a sankey with fewer than two dimensions, is not drawn and the table is shown. For bar, line, scatter and area it also shows Plotly's own buttons to change the form. They are configuration only: there is no code of ours behind them.
@@ -100,10 +102,10 @@ Do not delete files before step 1. TypeScript checks every file in `ui/src` even
 
 ## How to add a chart type
 
-1. Server: in `server/src/mastra/chartSpec.ts`, map the new type name to a `type`, and extend `ChartSpecSchema` in `server/src/contracts.ts`.
+1. Server: in `server/src/core/chart/chartSpec.ts`, map the new type name to a `type`, and extend `ChartSpecSchema` in `server/src/contracts.ts`.
 2. Browser: extend `ChartSpec` in `ui/src/types.ts` and draw the new type in **all three** renderers (or only in the one you keep).
 3. Agent text: nothing to change. The supervisor's list comes from `SUPPORTED_CHART_TYPES` in `chartSpec.ts`.
-4. Add a test in `server/src/mastra/chartSpec.test.ts`.
+4. Add a test in `server/src/core/chart/chartSpec.test.ts`.
 
 ## Failure handling
 
@@ -116,7 +118,7 @@ If a chart throws while drawing, `ChartBoundary` in `ui/src/components.tsx` hide
 - Unsupported chart types give a table and no chart.
 
 ## Where to look in the code
-- `server/src/mastra/chartSpec.ts`: `buildChartSpec`, `parseGenieChartJson`.
+- `server/src/core/chart/chartSpec.ts`: `buildChartSpec`, `parseGenieChartJson`.
 - `server/src/contracts.ts`: `ChartSpecSchema`.
 - `ui/src/charts/index.ts`: the switch.
 - `ui/src/charts/plotlyFigures.ts`, `plotlyFigures.test.ts`: the Plotly mapping and its tests (`npm test` in `ui/`).
