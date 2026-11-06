@@ -4,6 +4,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import type { TraceItem } from '../../types';
+import TraceText from './TraceText';
 import './TraceView.css';
 
 // The scratchpad: what the assistant is doing while it works, then a collapsed record of it.
@@ -34,7 +35,7 @@ function Step({ item }: { item: TraceItem }) {
   }
   return (
     <li className={`trace__step trace__step--${item.step ?? 'thought'}${item.status === 'error' ? ' is-error' : ''}`}>
-      {text}
+      <TraceText text={text} />
     </li>
   );
 }
@@ -46,7 +47,7 @@ function Source({ item, steps }: { item: TraceItem; steps: TraceItem[] }) {
         <Status status={item.status} />
         <span className="trace__source-name">{item.label}</span>
       </div>
-      {item.text && <p className="trace__question">{item.text}</p>}
+      {item.text && <TraceText text={item.text} className="trace__question" />}
       {steps.length > 0 && (
         <ul className="trace__steps">
           {steps.map((s) => <Step key={s.id} item={s} />)}
@@ -62,7 +63,7 @@ function Timeline({ trace }: { trace: TraceItem[] }) {
   return (
     <ul className="trace__timeline">
       {trace.map((t) => {
-        if (t.kind === 'note') return t.text ? <li key={t.id} className="trace__plan">{t.text}</li> : null; // an emptied note became the answer
+        if (t.kind === 'note') return t.text ? <li key={t.id} className="trace__plan"><TraceText text={t.text} /></li> : null; // an emptied note became the answer
         if (t.kind === 'tool') return <Source key={t.id} item={t} steps={stepsOf(t.id)} />;
         // A progress line whose source is unknown stands on its own.
         if (t.kind === 'progress' && !(t.parent && sources.has(t.parent)) && t.text) return <ul key={t.id} className="trace__steps"><Step item={t} /></ul>;

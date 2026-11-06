@@ -205,3 +205,17 @@
   font-size: 11.5px;
   color: #9ca3af;
 }
+
+/* Formatted scratchpad text: compact paragraphs and lists */
+.trace__md > :first-child { margin-top: 0; }
+.trace__md > :last-child { margin-bottom: 0; }
+.trace__md p { margin: 0 0 4px; }
+.trace__md ol,
+.trace__md ul { margin: 2px 0 4px; padding-left: 18px; }
+.trace__md li { margin: 1px 0; }
+.trace__md h1,
+.trace__md h2,
+.trace__md h3,
+.trace__md h4 { font-size: inherit; font-weight: 600; margin: 6px 0 2px; }
+.trace__md code { font-size: 11.5px; background: #f1f2f6; border-radius: 3px; padding: 0 3px; }
+.trace__md pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 11.5px; margin: 4px 0; }

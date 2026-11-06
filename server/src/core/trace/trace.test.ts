@@ -126,6 +126,12 @@ describe('createTracer', () => {
     expect(progress[1].id).toBe(progress[2].id); // the UI updates the query line in place
   });
 
+  it('keeps the line breaks of a question, so its parts stay readable', () => {
+    const prompt = 'For 2020-2024:\r\n1.  Limit by year\n\n\n\n2. Limit by region  ';
+    const { trace } = run([top('tool-call', { toolCallId: 'c1', toolName: 'agent-genie_placement', args: { prompt } })]);
+    expect(trace[0].text).toBe('For 2020-2024:\n1. Limit by year\n\n2. Limit by region');
+  });
+
   it('names unknown tools without any special wording', () => {
     const { trace } = run([top('tool-call-input-streaming-start', { toolCallId: 'x', toolName: 'web_search-tool' })]);
     expect(trace[0]).toMatchObject({ label: 'web search tool', status: 'running' });

@@ -33,9 +33,16 @@ type Payload = {
 export type TraceChunk = Payload & { type: string; payload?: Payload };
 
 // Everything the user reads is shown in full; only error texts (which can carry a whole HTTP body) are shortened.
-const tidy = (s: unknown) => String(s ?? '').replace(/\s+/g, ' ').trim();
+// Line breaks are kept (lists and paragraphs in a question or a thought); runs of spaces and blank lines are not.
+const tidy = (s: unknown) =>
+  String(s ?? '')
+    .replace(/\r\n?/g, '\n')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/ ?\n ?/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 const clip = (s: unknown, max = 300) => {
-  const text = tidy(s);
+  const text = tidy(s).replace(/\s+/g, ' ');
   return text.length > max ? `${text.slice(0, max - 1)}…` : text;
 };
 
