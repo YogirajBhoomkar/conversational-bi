@@ -63,6 +63,15 @@ describe('handleChat', () => {
     expect(final).toMatchObject({ result: { clarification: { question: 'Which year?', options: ['Underwriting year', 'Calendar year'] } } });
   });
 
+  it('shows a question the model wrote as text as choices, when no data was fetched', async () => {
+    const events = await collect(handleChat(deps([
+      { type: 'text-delta', payload: { text: 'Which year do you mean?\n- Underwriting year\n- Calendar year' } },
+      { type: 'step-finish', payload: { stepResult: { reason: 'stop' } } },
+    ]), ctx(), { threadId: 'a', message: 'Limit by year?' }));
+    expect(events.map((e) => e.type)).toContain('text-reset');
+    expect(events.find((e) => e.type === 'final')).toMatchObject({ result: { answer: '', clarification: { question: 'Which year do you mean?', options: ['Underwriting year', 'Calendar year'] } } });
+  });
+
   it('stops a turn that runs past the timeout and tells the user in plain words', async () => {
     const hang = deps([]);
     hang.turnTimeoutMs = 30;

@@ -11,6 +11,7 @@ import type { SpaceRegistry } from '../genie/registry';
 import { recentTurns, recordTurn } from '../suggest/history';
 import { suggestFollowUps } from '../suggest/suggest';
 import { createTracer, type TraceChunk } from '../trace/trace';
+import { clarificationFromText } from './clarifyFromText';
 import { newCollector, type TurnValues } from './collector';
 
 export type ChatDeps = {
@@ -97,6 +98,16 @@ async function runTurn(deps: ChatDeps, requestCtx: BiRequestContext, { threadId:
       tracer.handle(chunk);
     }
     tracer.end();
+    // The model sometimes writes its question back as text instead of using the tool; when no data was fetched and the
+    // text is just a question with a few choices, it is shown as choices anyway.
+    if (!collector.clarification && !collector.results.length) {
+      const fromText = clarificationFromText(answer);
+      if (fromText) {
+        collector.clarification = fromText;
+        answer = '';
+        send({ type: 'text-reset' });
+      }
+    }
     const withData = [...collector.results].reverse().find((r) => r.columns.length);
     // Loading the full result re-uses an earlier message, so keep one source per message (the latest).
     const sources = [...new Map(collector.results.map((r) => [r.messageId, r])).values()];
