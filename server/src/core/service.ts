@@ -44,6 +44,7 @@ export function createBiService(config: BiConfig, adapters: BiAdapters) {
     outputGuard: createOutputGuard(config.outputGuard, registry),
     turnTimeoutMs: config.service.turnTimeoutMs,
     history: config.history,
+    grounding: config.grounding,
   };
 
   return {

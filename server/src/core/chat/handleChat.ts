@@ -8,6 +8,7 @@ import type { BiLogger } from '../../ports/logger';
 import type { HistorySettings } from '../../config/load';
 import { log, requestLogger, withLogger } from '../log';
 import { ValidationError, UpstreamError } from '../errors';
+import { checkGrounding } from '../guards/grounding';
 import type { SpaceRegistry } from '../genie/registry';
 import { suggestFollowUps } from '../suggest/suggest';
 import { createTracer, type TraceChunk } from '../trace/trace';
@@ -25,6 +26,7 @@ export type ChatDeps = {
   suggestWaitMs: number; // after `final`, how long to wait for our own follow-ups
   genieMode: 'conversation' | 'agent'; // the Conversation API returns its own follow-ups; Agent mode returns none
   logger: BiLogger;      // the base logger; each turn logs through a child carrying its trace id
+  grounding?: boolean; // log how many figures of the answer match nothing the data returned (core/guards/grounding.ts)
   turnTimeoutMs: number; // a turn running longer is stopped
   history: HistorySettings; // how much of the chat history sent by the UI is used
   outputGuard?: OutputGuard; // cleans what the model writes (core/guards/output.ts); none when absent
@@ -182,6 +184,7 @@ async function runTurn(deps: ChatDeps, requestCtx: BiRequestContext, { threadId:
     log().info('chat.turn', {
       durationMs, firstAnswerMs, genieCalls: collector.results.length, failedCalls: collector.results.filter((r) => r.error).length,
       charts: collector.charts.length, rows: final.totalRows, inputTokens: own?.inputTokens, outputTokens: own?.outputTokens, ...usage.snapshot(),
+      ...(deps.grounding ? { grounding: groundingOf(answer, collector.results, message, earlier) } : {}),
     });
   } catch (err) {
     if (requestCtx.signal.aborted) return log().info('chat.cancelled', { durationMs: Date.now() - started, ...usage.snapshot() }); // nobody is listening
@@ -205,6 +208,18 @@ async function waitAtMost(work: Promise<unknown>, ms: number) {
   let timer: ReturnType<typeof setTimeout> | undefined;
   await Promise.race([work, new Promise((resolve) => (timer = setTimeout(resolve, ms)))]);
   clearTimeout(timer);
+}
+
+// Counts only. The ungrounded values go in `content`, which the logger drops unless BI_LOG_CONTENT is on.
+// A failing check is logged as such: it must never cost the user the answer.
+function groundingOf(...args: Parameters<typeof checkGrounding>) {
+  try {
+    const { checked, ungrounded, values } = checkGrounding(...args);
+    return { checked, ungrounded, content: values };
+  } catch (error) {
+    log().warn('grounding.failed', { error });
+    return { failed: true };
+  }
 }
 
 export type FeedbackDeps = { genie: GenieClient; registry: SpaceRegistry; logger: BiLogger };

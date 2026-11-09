@@ -47,6 +47,7 @@ export type BiConfig = {
   model: ModelSettings;
   guards: { injection: 'off' | 'log' | 'block'; model?: ModelSettings; failClosed: boolean }; // the guard model shares the main model's provider
   logging: LogSettings;
+  grounding: boolean; // log-only check that the answer's figures come from the data
   service: ServiceSettings;
   outputGuard: boolean; // clean what the model writes (core/guards/output.ts)
   spaces: GenieSpace[];
@@ -145,6 +146,7 @@ function toConfig(s: Settings, spaces: GenieSpace[], domainRules: string): BiCon
     },
     guards: { injection: s.BI_GUARD_INJECTION, model: s.BI_GUARD_MODEL ? withModel(mainModel(s), s.BI_GUARD_MODEL) : undefined, failClosed: s.BI_GUARD_FAIL_CLOSED },
     logging: { format: s.BI_LOG_FORMAT ?? (local ? 'pretty' : 'json'), level: s.BI_LOG_LEVEL, content: s.BI_LOG_CONTENT },
+    grounding: s.BI_GROUNDING === 'log',
     spaces,
     domainRules,
     uiDist: local ? s.UI_DIST : undefined,

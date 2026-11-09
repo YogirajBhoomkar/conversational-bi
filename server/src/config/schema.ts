@@ -76,6 +76,7 @@ export const SettingsSchema = z.object({
   // ---------------------------------------------------------------- Logging
   BI_LOG_FORMAT: setting(z.enum(['pretty', 'json']).optional(), 'pretty: one readable line per event (default locally). json: one JSON object per line, for Datadog (default in gc mode).', { group: 'Logging' }),
   BI_LOG_LEVEL: setting(z.enum(['debug', 'info', 'warn', 'error']).default('info'), 'The lowest level written.', { group: 'Logging' }),
+  BI_GROUNDING: setting(z.enum(['off', 'log']).default('log'), 'log: count the figures in each answer that match nothing the data returned (grounding in the chat.turn log; the values only with BI_LOG_CONTENT). Never changes the answer. off: no check.', { group: 'Logging' }),
   BI_LOG_CONTENT: setting(flag().default(false), 'true: also log question and answer text and SQL (for debugging only). Secrets are removed either way.', { group: 'Logging' }),
 
   // ---------------------------------------------------------------- Output guards
