@@ -15,6 +15,7 @@ import { createBiService } from '../core/service';
 import { localAuthRoutes, serveUi } from '../edge/mastra/local-dev';
 import { createBiRoutes } from '../edge/mastra/routes';
 import { securityHeaders } from '../edge/mastra/security';
+import { installShutdown, ownSignalHandling } from '../edge/mastra/shutdown';
 import type { TokenProvider } from '../ports/auth';
 
 const { config, warnings } = loadProcessConfig();
@@ -35,12 +36,9 @@ const authenticator = new LocalAuthenticator(Boolean(oauth), tokens);
 const { service: limits } = config;
 const admission = createAdmission({ enabled: limits.enabled, maxPerUser: limits.maxConcurrentPerUser, maxTotal: limits.maxConcurrentTotal });
 
-// Shutdown: Mastra stops taking connections on SIGTERM and lets open ones finish for drainTimeout. We also refuse new
-// questions at once (503) and report not ready, so traffic moves to other pods while running answers complete.
-process.once('SIGTERM', () => {
-  admission.drain();
-  logger.info('service.stopping', { running: admission.running(), graceMs: limits.shutdownGraceMs });
-});
+// Shutdown is ours on every Mastra version (edge/mastra/shutdown.ts): on SIGTERM new questions are refused (503) and
+// readiness fails, running answers get BI_SHUTDOWN_GRACE_MS to finish, then the process exits.
+installShutdown({ admission, logger, graceMs: limits.shutdownGraceMs });
 // A bug that escapes a request is logged, never silent; an uncaught exception leaves the process in an unknown state,
 // so it exits and the orchestrator starts a fresh one.
 process.on('unhandledRejection', (error) => logger.error('process.unhandled_rejection', { error }));
@@ -54,7 +52,7 @@ export const mastra = new Mastra({
   storage: new LibSQLStore({ id: 'mastra-storage', url: 'file:./mastra.db' }),
   server: {
     port: config.port,
-    drainTimeout: limits.shutdownGraceMs,
+    ...ownSignalHandling,
     cors: {
       origin: limits.corsOrigins,
       allowMethods: ['GET', 'POST', 'OPTIONS'],
