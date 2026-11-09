@@ -10,7 +10,7 @@ import "./ChatPage.css";
 
 export default function ChatPage() {
   useAuthGuard();
-  const { messages, busy, send, newChat } = useChat();
+  const { messages, busy, send, retry, newChat } = useChat();
   const [draft, setDraft] = useState("");
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const stickToEnd = useRef(true);
@@ -80,6 +80,10 @@ export default function ChatPage() {
                     message={m}
                     onPickSuggestion={pick}
                     onAnswer={answer}
+                    onRetry={() => {
+                      stickToEnd.current = true;
+                      retry(m.id);
+                    }}
                     answerable={!busy && i === messages.length - 1}
                     answered={next?.role === "user" ? next.text : undefined}
                   />

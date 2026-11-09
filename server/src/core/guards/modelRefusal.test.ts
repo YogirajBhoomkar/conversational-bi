@@ -95,7 +95,7 @@ describe('a turn the provider filter refused', () => {
 
   it('any other model error still fails the turn with the reference', async () => {
     const { events, lines } = await turn('other');
-    expect(events.at(-1)).toEqual({ type: 'error', message: expect.stringContaining('quote reference tr') });
+    expect(events.at(-1)).toMatchObject({ type: 'error', kind: 'failed', message: expect.stringContaining('quote reference tr') });
     expect(lines.some((l) => l.event === 'chat.failed')).toBe(true);
   });
 });

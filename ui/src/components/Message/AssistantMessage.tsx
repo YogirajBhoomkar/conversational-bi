@@ -3,6 +3,7 @@ import AnswerText from "../AnswerText/AnswerText";
 import ChartCard from "../ChartCard/ChartCard";
 import Clarification from "../Clarification/Clarification";
 import DataTableCard from "../DataTableCard/DataTableCard";
+import ErrorNotice from "../ErrorNotice/ErrorNotice";
 import GenieIcon from "../GenieIcon/GenieIcon";
 import ResponseActions from "../ResponseActions/ResponseActions";
 import SuggestionChips from "../SuggestionChips/SuggestionChips";
@@ -15,6 +16,7 @@ export default function AssistantMessage({
   message: m,
   onPickSuggestion,
   onAnswer,
+  onRetry,
   answerable,
   answered,
 }: {
@@ -23,6 +25,7 @@ export default function AssistantMessage({
   onAnswer: (text: string) => void; // sends the user's reply to a question back (a clarification)
   answerable: boolean;              // this is the latest answer and nothing is running
   answered?: string;                // what the user replied next, if they did
+  onRetry?: () => void;             // asks the same question again (offered on the latest turn only)
 }) {
   const r = m.result;
   // Genie's own follow-ups win; otherwise the ones the supervisor model wrote (they can arrive before or after `final`).
@@ -44,7 +47,7 @@ export default function AssistantMessage({
           endedAt={m.endedAt}
         />
         {m.text && <AnswerText>{m.text}</AnswerText>}
-        {m.error && <div className="msg__error">{m.error}</div>}
+        {m.error && <ErrorNotice failure={m.failure ?? { detail: m.error }} onRetry={answerable ? onRetry : undefined} />}
         {r && (
           <>
             {r.charts

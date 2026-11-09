@@ -89,7 +89,7 @@ describe('handleChat', () => {
     hang.turnTimeoutMs = 30;
     hang.supervisor = { stream: (async (_m: unknown, opts: Seen) => ({ fullStream: (async function* () { await new Promise((_, reject) => opts.abortSignal.addEventListener('abort', () => reject(new Error('aborted')))); })() })) as unknown as ChatDeps['supervisor']['stream'] };
     const events = await collect(handleChat(hang, ctx(), { threadId: 'a', message: 'q' }));
-    expect(events.at(-1)).toEqual({ type: 'error', message: expect.stringContaining('took longer than') });
+    expect(events.at(-1)).toMatchObject({ type: 'error', kind: 'timeout', message: expect.stringContaining('took longer than') });
   });
 
   it('ends with `final` for a turn that answers', async () => {

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AuthRequiredError, streamChat } from '../api/chatApi';
-import type { ChatEvent, Message, TraceItem } from '../types';
+import type { ChatEvent, Failure, Message, TraceItem } from '../types';
 import { buildHistory } from './history';
 
 type Assistant = Extract<Message, { role: 'assistant' }>;
@@ -13,6 +13,11 @@ const upsertTrace = (trace: TraceItem[], item: TraceItem): TraceItem[] => {
   next[i] = { ...trace[i], ...item };
   return next;
 };
+
+// The parts of a failure, from the server's error event, or for a failure on the way to the server.
+const failureOf = (e: Extract<ChatEvent, { type: 'error' }>): Failure => ({ kind: e.kind, title: e.title, detail: e.detail ?? e.message, retryable: e.retryable, reference: e.reference });
+const UNREACHABLE: Failure = { kind: 'unavailable', title: "Couldn't reach the assistant", detail: 'Check your connection, then try again.', retryable: true };
+const NO_ANSWER: Failure = { kind: 'failed', title: 'No answer came back', detail: 'The answer stopped before it was complete. Please try again.', retryable: true };
 
 let counter = 0;
 const uid = () => `${Date.now().toString(36)}-${(counter++).toString(36)}`;
@@ -69,7 +74,7 @@ export function useChat() {
             patch(aid, (m) => ({ ...m, suggestions: e.questions }));
             break;
           case 'error':
-            patch(aid, (m) => ({ ...m, error: e.message, pending: false, endedAt: m.endedAt ?? Date.now() }));
+            patch(aid, (m) => ({ ...m, error: e.message, failure: failureOf(e), pending: false, endedAt: m.endedAt ?? Date.now() }));
             break;
         }
       };
@@ -77,7 +82,7 @@ export function useChat() {
       try {
         await streamChat({ threadId, message: question, history, signal: ctrl.signal, onEvent: apply });
         // Stream closed without a `final` or `error` event.
-        patch(aid, (m) => (m.pending ? { ...m, pending: false, endedAt: Date.now(), error: m.result ? undefined : 'The response ended without an answer.' } : m));
+        patch(aid, (m) => (m.pending ? { ...m, pending: false, endedAt: Date.now(), ...(m.result ? {} : { error: NO_ANSWER.detail, failure: NO_ANSWER }) } : m));
       } catch (err) {
         if (ctrl.signal.aborted) return;
         if (err instanceof AuthRequiredError) {
@@ -85,7 +90,9 @@ export function useChat() {
           return;
         }
         const message = err instanceof Error ? err.message : String(err);
-        patch(aid, (m) => ({ ...m, error: message, pending: false, endedAt: Date.now() }));
+        // fetch rejects with a TypeError when the server cannot be reached at all; other errors carry the server's text.
+        const failure: Failure = err instanceof TypeError ? UNREACHABLE : { kind: 'failed', detail: message, retryable: true };
+        patch(aid, (m) => ({ ...m, error: message, failure, pending: false, endedAt: Date.now() }));
       } finally {
         controllers.current.delete(ctrl);
       }
@@ -100,5 +107,18 @@ export function useChat() {
     setThreadId(crypto.randomUUID());
   }, []);
 
-  return { messages, busy, send, newChat };
+  // Asks a failed question again: the failed turn is replaced by the new attempt.
+  const retry = useCallback(
+    (assistantId: string) => {
+      if (busy) return;
+      const i = messages.findIndex((m) => m.id === assistantId);
+      const asked = messages[i - 1];
+      if (i < 1 || asked.role !== 'user') return;
+      setMessages((ms) => ms.filter((m) => m.id !== assistantId && m.id !== asked.id));
+      void send(asked.text);
+    },
+    [busy, messages, send],
+  );
+
+  return { messages, busy, send, retry, newChat };
 }

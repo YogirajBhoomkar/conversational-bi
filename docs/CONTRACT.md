@@ -1,4 +1,4 @@
-# Conversational BI API contract (1.2.0)
+# Conversational BI API contract (1.3.0)
 
 For the engineers who embed the chat page in GC's UI or host the service. The machine-readable versions are generated from the code and cannot drift from it: `server/contracts/*.schema.json` (one JSON Schema per message) and `server/contracts/bi.openapi.yaml`. Regenerate with `npm run contracts`; a test fails when they are out of date.
 
@@ -37,7 +37,7 @@ Response: `200`, `Content-Type: text/event-stream`. Each `data:` line holds one 
 | `text-reset` | | The text streamed so far was a working step after all: clear the answer |
 | `final` | `result` | The complete answer (below). Sent once |
 | `suggestions` | `questions` | Up to 3 follow-up questions. Can come before or after `final` |
-| `error` | `message` | The turn failed. `message` can be shown as is; it includes a reference |
+| `error` | `message`, and since 1.3.0 `kind`, `title`, `detail`, `retryable`, `reference` | The turn failed. `message` can be shown as is; it includes a reference (except for a timeout or a refusal). For a friendlier notice show `title` and `detail`, offer to ask again when `retryable`, and show `reference` (the trace id) to quote. `kind` is `unavailable` (the AI service could not be reached), `busy` (rate limited), `timeout`, `failed` or `refused` |
 
 The stream ends after `final` (and `suggestions`, if any), or after `error`. Closing the connection stops the work on the server.
 
@@ -97,5 +97,6 @@ Every response carries `X-Trace-Id`. A caller may send a W3C `traceparent` (or `
 
 | Version | Change |
 |---|---|
+| 1.3.0 | `kind`, `title`, `detail`, `retryable` and `reference` on the `error` event |
 | 1.2.0 | `history` on the chat request; the service no longer remembers the chat itself |
 | 1.1.0 | `charts` and `clarification` on the final answer |

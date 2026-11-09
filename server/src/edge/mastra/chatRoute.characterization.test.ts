@@ -228,7 +228,11 @@ describe('POST /bi/chat (characterization)', () => {
     const evs = await events(await call(await loadRoutes(), '/bi/chat', { threadId: 't1', message: 'q' }));
     expect(evs[0]).toMatchObject({ type: 'trace', item: { id: 'model' } });
     // The user gets a plain message with a reference; the model's error text stays in the log.
-    expect(evs.at(-1)).toEqual({ type: 'error', message: expect.stringMatching(/^Something went wrong while answering\. If it happens again, quote reference \S+\.$/) });
+    // Changed in contract 1.3.0: the parts come separately too (kind, title, detail, retryable, reference); `message` is unchanged.
+    expect(evs.at(-1)).toEqual({
+      type: 'error', message: expect.stringMatching(/^Something went wrong while answering\. If it happens again, quote reference \S+\.$/),
+      kind: 'failed', title: 'Something went wrong', detail: 'Something went wrong while answering.', retryable: true, reference: expect.any(String),
+    });
     expect(JSON.stringify(evs)).not.toContain('model unavailable');
     expect(evs.some((e) => e.type === 'final')).toBe(false);
   });

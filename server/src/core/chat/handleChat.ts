@@ -17,6 +17,7 @@ import { createOutputGuard, type OutputGuard } from '../guards/output';
 import type { ScopeGuard } from '../guards/scope';
 import { isContentFilterError } from '../guards/modelRefusal';
 import { clarificationFromText } from './clarifyFromText';
+import { failureEvent, failureKind } from './failure';
 import { priorMessages, recentHistory } from './history';
 import { isDataResult, newCollector, type TurnValues } from './collector';
 
@@ -58,11 +59,6 @@ export async function* handleChat(deps: ChatDeps, ctx: BiRequestContext, request
   yield* queue.drain();
 }
 
-// What the user is told when a turn fails. The details are in the log, found by the trace id.
-const failureMessage = (timedOut: boolean, deps: ChatDeps, traceId: string) =>
-  timedOut
-    ? `This question took longer than ${Math.round(deps.turnTimeoutMs / 60_000)} minutes and was stopped. Try asking for less at once.`
-    : `Something went wrong while answering. If it happens again, quote reference ${traceId}.`;
 
 async function runTurn(deps: ChatDeps, requestCtx: BiRequestContext, { threadId: rawThread, message, history }: ChatRequest, send: (e: ChatEvent) => void, usage: UsageMeter) {
   // The turn stops when the caller goes away or it runs too long.
@@ -211,8 +207,10 @@ async function runTurn(deps: ChatDeps, requestCtx: BiRequestContext, { threadId:
     if (requestCtx.signal.aborted) return log().info('chat.cancelled', { durationMs: Date.now() - started, ...usage.snapshot() }); // nobody is listening
     usage.unreported(SUPERVISOR); // a failed stream reports no total
     if (isContentFilterError(err)) return declineFiltered(deps, ctx.traceId, Date.now() - started, usage, send);
-    log().error(timeout.aborted ? 'chat.timeout' : 'chat.failed', { durationMs: Date.now() - started, error: err, ...usage.snapshot() });
-    send({ type: 'error', message: failureMessage(timeout.aborted, deps, ctx.traceId) });
+    // What the user is told depends on the kind of failure (core/chat/failure.ts); the details are in the log.
+    const kind = failureKind(err, timeout.aborted);
+    log().error(timeout.aborted ? 'chat.timeout' : 'chat.failed', { durationMs: Date.now() - started, kind, error: err, ...usage.snapshot() });
+    send(failureEvent(kind, ctx.traceId, deps.turnTimeoutMs));
   }
 }
 

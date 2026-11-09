@@ -40,8 +40,11 @@ export type ChatEvent =
   | { type: 'text-reset' }
   | { type: 'final'; result: FinalAnswer }
   | { type: 'suggestions'; questions: string[] }
-  | { type: 'error'; message: string };
+  | ({ type: 'error'; message: string } & Omit<Failure, 'detail'> & { detail?: string });
+
+// Why a turn could not be answered (contract 1.3.0; older servers send only the message).
+export type Failure = { kind?: 'unavailable' | 'busy' | 'timeout' | 'failed' | 'refused'; title?: string; detail: string; retryable?: boolean; reference?: string };
 
 export type Message =
   | { id: string; role: 'user'; text: string }
-  | { id: string; role: 'assistant'; text: string; trace: TraceItem[]; startedAt: number; endedAt?: number; suggestions?: string[]; result?: FinalAnswer; error?: string; pending: boolean };
+  | { id: string; role: 'assistant'; text: string; trace: TraceItem[]; startedAt: number; endedAt?: number; suggestions?: string[]; result?: FinalAnswer; error?: string; failure?: Failure; pending: boolean };

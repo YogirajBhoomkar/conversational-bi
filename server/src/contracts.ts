@@ -75,6 +75,22 @@ export type GenieProgress =
   | { kind: 'thought'; text: string }
   | { kind: 'query'; id: string; title?: string; status: 'running' | 'done' }; // title: sent when it starts
 
+// The turn failed. `message` is the whole text for the user (with the reference, except for a timeout or a refusal).
+// Since 1.3.0 the parts come separately too, so a UI can show a friendly notice: `kind`, a short `title`, the `detail`
+// text, whether trying again may help, and the `reference` (the trace id) to quote.
+function ChatErrorEventSchema() {
+  return z.object({
+    type: z.literal('error'),
+    message: z.string(),
+    kind: z.enum(['unavailable', 'busy', 'timeout', 'failed', 'refused']).optional(),
+    title: z.string().optional(),
+    detail: z.string().optional(),
+    retryable: z.boolean().optional(),
+    reference: z.string().optional(),
+  }).describe('The turn failed; the message is for the user and holds a reference');
+}
+export type ChatErrorEvent = Required<z.infer<ReturnType<typeof ChatErrorEventSchema>>>;
+
 // SSE events streamed by POST /bi/chat. One JSON object per `data:` line.
 export const ChatEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('trace'), item: TraceItemSchema }).describe('One scratchpad entry; the same id again updates it'),
@@ -82,12 +98,12 @@ export const ChatEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('text-reset') }).describe('The answer text streamed so far was a working note after all: clear it'),
   z.object({ type: z.literal('final'), result: FinalAnswerSchema }).describe('The complete answer with table, charts and sources. Ends the answer'),
   z.object({ type: z.literal('suggestions'), questions: z.array(z.string()) }).describe('Follow-up questions; may arrive before or after final'),
-  z.object({ type: z.literal('error'), message: z.string() }).describe('The turn failed; the message is for the user and holds a reference'),
+  ChatErrorEventSchema(),
 ]);
 export type ChatEvent = z.infer<typeof ChatEventSchema>;
 
 // The version of this contract (requests, events, answer). Changes that remove or rename a field raise the major version.
-export const CONTRACT_VERSION = '1.2.0';
+export const CONTRACT_VERSION = '1.3.0';
 
 // Request bodies for POST /bi/chat and POST /bi/feedback. The routes reject anything that does not match (400).
 // One earlier turn of the chat, sent by the UI so a follow-up ("and by region?") works on any instance with no server
