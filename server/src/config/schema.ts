@@ -41,6 +41,8 @@ export const SettingsSchema = z.object({
   GENIE_FULL_ROW_CAP: setting(int(1, 100_000).default(5000), 'Rows kept when the user asks for the full result.', { group: 'Genie behaviour' }),
   GENIE_TIMEOUT_MS: setting(int(1000, 1_800_000).default(180_000), 'How long one Genie call may take, in milliseconds.', { group: 'Genie behaviour' }),
   GENIE_RETRY_ATTEMPTS: setting(int(1, 10).default(3), 'How many times a Genie call is tried before giving up (with backoff between tries).', { group: 'Genie behaviour' }),
+  BI_GENIE_MAX_PER_MINUTE: setting(int(0, 10_000).default(5), 'Most questions this instance starts at Genie per minute (only the POST that starts a question counts, not polling). Set it to the workspace quota divided by the number of pods. 0 turns the limit off.', { group: 'Genie behaviour' }),
+  BI_GENIE_QUEUE_WAIT_MS: setting(int(0, 600_000).default(60_000), 'Longest a question waits for a free Genie slot, in milliseconds; past it the data source answers that it is busy.', { group: 'Genie behaviour' }),
   BI_HISTORY_TURNS: setting(int(0, 10).default(3), 'How many of the latest earlier turns sent by the UI the server passes to the model, so follow-ups work. 0 turns history off.', { group: 'Genie behaviour' }),
   BI_HISTORY_MAX_CHARS: setting(int(100, 20_000).default(1500), 'Longest question and longest answer kept per earlier turn, in characters; longer text is cut and marked with an ellipsis.', { group: 'Genie behaviour' }),
   BI_HISTORY_INCLUDE_SQL: setting(flag().default(false), 'true: pass the SQL of earlier turns, when the UI sends it, to the model. false: any SQL sent is ignored.', { group: 'Genie behaviour' }),

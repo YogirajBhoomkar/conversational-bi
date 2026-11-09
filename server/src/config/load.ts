@@ -41,7 +41,7 @@ export type BiConfig = {
     token?: string;                                         // local mode, shared token
     oauth?: OAuthSettings;                                  // local mode, per-user login
   };
-  genie: { mode: 'conversation' | 'agent'; rowCap: number; fullRowCap: number; timeoutMs: number; retryAttempts: number };
+  genie: { mode: 'conversation' | 'agent'; rowCap: number; fullRowCap: number; timeoutMs: number; retryAttempts: number; maxPerMinute: number; queueWaitMs: number };
   suggestWaitMs: number;
   history: HistorySettings;
   model: ModelSettings;
@@ -118,7 +118,7 @@ function toConfig(s: Settings, spaces: GenieSpace[], domainRules: string): BiCon
         ? { host: s.DATABRICKS_SERVER_HOSTNAME, clientId: s.DATABRICKS_CLIENT_ID, redirectUri: s.DATABRICKS_REDIRECT_URI ?? `http://localhost:${s.PORT}/auth/callback` }
         : undefined,
     },
-    genie: { mode: s.GENIE_MODE, rowCap: s.GENIE_ROW_CAP, fullRowCap: s.GENIE_FULL_ROW_CAP, timeoutMs: s.GENIE_TIMEOUT_MS, retryAttempts: s.GENIE_RETRY_ATTEMPTS },
+    genie: { mode: s.GENIE_MODE, rowCap: s.GENIE_ROW_CAP, fullRowCap: s.GENIE_FULL_ROW_CAP, timeoutMs: s.GENIE_TIMEOUT_MS, retryAttempts: s.GENIE_RETRY_ATTEMPTS, maxPerMinute: s.BI_GENIE_MAX_PER_MINUTE, queueWaitMs: s.BI_GENIE_QUEUE_WAIT_MS },
     suggestWaitMs: s.SUGGEST_WAIT_MS,
     history: { turns: s.BI_HISTORY_TURNS, maxChars: s.BI_HISTORY_MAX_CHARS, includeSql: s.BI_HISTORY_INCLUDE_SQL },
     model: s.LLM_BASE_URL

@@ -2,6 +2,7 @@ import type { GenieClient, GenieProgress, GenieResult } from '../../contracts';
 import type { TokenProvider } from '../../ports/auth';
 import { type AskArgs, DatabricksGenieClient, failedResult, type FeedbackArgs, type GenieClientOptions, isRetryableRun, RETRY_NOTE, type Run, scopeOf } from './client';
 import { log } from '../log';
+import { type GenieLimiter, limitedFetch, noLimit, WAITING_NOTE } from './limiter';
 import { fetchWithRetry, GenieRunFailed, type RetryPolicy, withRetry } from './retry';
 
 // Citation links Genie appends to its prose, e.g. \[[1](https://...)\]
@@ -56,7 +57,9 @@ export class DatabricksGenieAgentClient implements GenieClient {
   private readonly chat: DatabricksGenieClient;
   private readonly fetchFn: typeof fetch;
   private readonly retry: RetryPolicy;
+  private readonly limiter: GenieLimiter;
   constructor(private readonly tokens: TokenProvider, private readonly options: GenieClientOptions) {
+    this.limiter = options.limiter ?? noLimit;
     this.origin = `https://${options.host}`;
     this.fetchFn = options.fetch ?? fetch;
     this.retry = options.retry;
@@ -80,8 +83,9 @@ export class DatabricksGenieAgentClient implements GenieClient {
     const timer = setTimeout(() => timeout.abort(), this.options.timeoutMs);
     const signal = scope.signal ? AbortSignal.any([timeout.signal, scope.signal]) : timeout.signal;
     try {
+      // This POST starts the question, so it is the one paced by the limiter.
       const res = await fetchWithRetry(
-        this.fetchFn,
+        limitedFetch(this.fetchFn, this.limiter, () => onProgress?.({ kind: 'status', text: WAITING_NOTE })),
         `${this.origin}/api/2.0/genie/agents/${spaceId}/responses`,
         {
           method: 'POST',

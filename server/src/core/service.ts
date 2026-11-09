@@ -10,6 +10,7 @@ import { createAgents } from './agents/createAgents';
 import { handleChat, handleFeedback } from './chat/handleChat';
 import { DatabricksGenieAgentClient } from './genie/agentClient';
 import { DatabricksGenieClient } from './genie/client';
+import { createGenieLimiter } from './genie/limiter';
 import { createSpaceRegistry } from './genie/registry';
 import { retryPolicy } from './genie/retry';
 
@@ -17,7 +18,9 @@ export type BiAdapters = { tokens: TokenProvider; model: ModelProvider; logger: 
 
 export function createBiService(config: BiConfig, adapters: BiAdapters) {
   const registry = createSpaceRegistry(config.spaces);
-  const genieOptions = { host: config.databricks.host, rowCap: config.genie.rowCap, timeoutMs: config.genie.timeoutMs, retry: retryPolicy(config.genie.retryAttempts) };
+  const genieOptions = { host: config.databricks.host, rowCap: config.genie.rowCap, timeoutMs: config.genie.timeoutMs, retry: retryPolicy(config.genie.retryAttempts),
+    // One limiter for the instance, shared by every space and user: the quota is per workspace.
+    limiter: createGenieLimiter({ maxPerMinute: config.genie.maxPerMinute, maxWaitMs: config.genie.queueWaitMs }) };
   // GENIE_MODE=agent uses Genie Agent mode (GA), which streams the agent's reasoning. Default is the Conversation API.
   const genie = config.genie.mode === 'agent' ? new DatabricksGenieAgentClient(adapters.tokens, genieOptions) : new DatabricksGenieClient(adapters.tokens, genieOptions);
   const { supervisor, genieAgents, suggestAgent } = createAgents(genie, { registry, model: adapters.model.model, domainRules: config.domainRules, fullRowCap: config.genie.fullRowCap });

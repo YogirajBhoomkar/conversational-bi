@@ -1,5 +1,6 @@
 import type { GenieCaller, GenieClient, GenieResult } from '../../contracts';
 import type { TokenProvider } from '../../ports/auth';
+import { type GenieLimiter, limitedFetch, noLimit, WAITING_NOTE } from './limiter';
 import { fetchWithRetry, GenieRunFailed, type RetryPolicy, withRetry } from './retry';
 
 export type GenieClientOptions = {
@@ -9,6 +10,7 @@ export type GenieClientOptions = {
   retry: RetryPolicy;
   fetch?: typeof fetch;
   pollDelaysMs?: number[]; // Conversation API only: waits between status polls
+  limiter?: GenieLimiter;  // paces the POSTs that start a question (never polling or feedback); none by default
 };
 
 type Attachment = {
@@ -83,16 +85,18 @@ export class DatabricksGenieClient implements GenieClient {
   private readonly fetchFn: typeof fetch;
   private readonly pollDelaysMs: number[];
   private readonly retry: RetryPolicy;
+  private readonly limiter: GenieLimiter;
   constructor(private readonly tokens: TokenProvider, private readonly options: GenieClientOptions) {
+    this.limiter = options.limiter ?? noLimit;
     this.base = `https://${options.host}/api/2.0/genie/spaces`;
     this.fetchFn = options.fetch ?? fetch;
     this.pollDelaysMs = options.pollDelaysMs ?? [1000, 1500, 2000, 3000, 5000];
     this.retry = options.retry;
   }
 
-  private async call<T>(scope: CallScope, method: string, path: string, body?: unknown): Promise<T> {
+  private async call<T>(scope: CallScope, method: string, path: string, body?: unknown, fetchFn = this.fetchFn): Promise<T> {
     const res = await fetchWithRetry(
-      this.fetchFn,
+      fetchFn,
       `${this.base}${path}`,
       {
         method,
@@ -120,9 +124,11 @@ export class DatabricksGenieClient implements GenieClient {
     const { spaceId, question, onProgress } = args;
     const scope = scopeOf(args);
     const call = <T>(m: string, p: string, b?: unknown) => this.call<T>(scope, m, p, b);
+    // Only the POST that starts the question counts against the Genie quota; polling below does not.
+    const starting = limitedFetch(this.fetchFn, this.limiter, () => onProgress?.({ kind: 'status', text: WAITING_NOTE }));
     const started = run.conversationId
-      ? await call<Started>('POST', `/${spaceId}/conversations/${run.conversationId}/messages`, { content: question })
-      : await call<Started>('POST', `/${spaceId}/start-conversation`, { content: question });
+      ? await this.call<Started>(scope, 'POST', `/${spaceId}/conversations/${run.conversationId}/messages`, { content: question }, starting)
+      : await this.call<Started>(scope, 'POST', `/${spaceId}/start-conversation`, { content: question }, starting);
     run.conversationId = started.conversation_id ?? run.conversationId;
     run.messageId = started.message_id ?? started.id ?? '';
     const { conversationId: cid, messageId: mid } = run;
