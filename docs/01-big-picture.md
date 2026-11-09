@@ -131,11 +131,11 @@ In words:
 
 ## Two ways to talk to Genie
 
-The server can talk to Genie in two ways. The setting `GENIE_MODE` chooses.
+The server can talk to Genie in two ways. The setting `GENIE_MODE` chooses. **The default is the Conversation API (chat mode)**; Agent mode is on only with `GENIE_MODE=agent`. Which mode GC will run is an open question (`docs/lift/OPEN-QUESTIONS.md`).
 
-| | Chat mode (older) | Agent mode (newer, currently ON) |
+| | Chat mode (Conversation API, the default) | Agent mode (newer) |
 |---|---|---|
-| Setting | `GENIE_MODE` empty | `GENIE_MODE=agent` |
+| Setting | `GENIE_MODE=conversation` or empty | `GENIE_MODE=agent` |
 | How it works | Server asks, then checks again every few seconds ("polling") until finished | Server opens a stream and Databricks pushes events as they happen |
 | What you see as "thinking" | Only status words like "Running the query..." | The agent's real reasoning sentences, each SQL step, and the result |
 | Row data | Full result (up to 200 rows kept) | A preview, plus a way to load all rows later |
@@ -143,7 +143,7 @@ The server can talk to Genie in two ways. The setting `GENIE_MODE` chooses.
 | Status at Databricks | No separate GA entry found in the release notes we read | **GA**: the Agent mode APIs have been generally available since 27 Aug 2026. Confirm it is enabled in your workspace. Only the Flash option is Beta |
 | Code file | `server/src/core/genie/client.ts` | `server/src/core/genie/agentClient.ts` |
 
-Both give the rest of the app exactly the same kind of result, so nothing else cares which one is used.
+Both give the rest of the app exactly the same kind of result, so nothing else cares which one is used. Two things do depend on the mode: our own follow-up writer runs only when Genie sent none, which in chat mode is rare and in Agent mode is every turn; and the Genie quota (`BI_GENIE_MAX_PER_MINUTE`) is documented for the Conversation API, so the right number for Agent mode has to be confirmed.
 
 ---
 

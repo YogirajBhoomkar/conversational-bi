@@ -1,6 +1,6 @@
 # Lift report: Conversational BI
 
-Where the work to make Conversational BI production ready and movable into GC's platform stands, what was checked, and what is still needed. As of 5 November 2026.
+Where the work to make Conversational BI production ready and movable into GC's platform stands, what was checked, and what is still needed. As of 9 November 2026.
 
 ## Status by phase
 
@@ -19,19 +19,77 @@ Where the work to make Conversational BI production ready and movable into GC's 
 | 10 | UI portability for embedding | Not started; the contract (`docs/CONTRACT.md`) is ready for it |
 | 11 | Verification, this report, README and onboarding | Done; see the documentation note below |
 
-## Verified
+## Production hardening, 9 November 2026
 
-- Type check clean, server 126 tests and UI 17 tests passing, Mastra build and UI build successful.
-- The built server was started with test settings: health and readiness, the version route, the 413 body limit, the 400 validation, security headers, structured log lines, and a failed turn answering the user with a reference while the log holds the cause (and no secret).
-- The demo page (port 1977) streamed a question through to the server.
-- `lift.mjs` against a scratch repository: dry run, copy, refusal on uncommitted changes, refusal on existing files; no `.env` or database file is ever copied.
+Work on branch `feat/today-hardening` (not pushed). Items 1, 2, 3 and 8 are in the Phase 1 scope; items 4 to 7 are *Proposed* extras the client has not confirmed. Each Proposed item is its own commit and was checked to revert on its own: `git revert` of each one alone applies cleanly, and the type check and all tests pass after it.
 
-## Not verified
+| Commit | Item | Proposed? | What |
+|---|---|---|---|
+| `fec454c` | 1a | no | Spike as a test: an agent with no Memory takes a plain messages array |
+| `bb3181b` | 1 | no | The UI sends the chat so far (`history`, contract 1.2.0); Memory, `bi-memory.db` and `@mastra/memory` removed; the prompt rewrites follow-ups into self-contained questions |
+| `cb3a82b` | 2 | no | Conversation mode: our follow-ups are written only after `final`, when Genie sent none |
+| `4fc4db5` | 3 | no | Tokens per agent, and Genie calls, failures, retries and time, in `chat.turn` |
+| `3a7a84b` | 4 | **yes** | Genie limiter: questions started per minute; only the POST that starts one counts |
+| `6e89906` | - | no | Refactor: one setting per line in the service wiring, so items 5 to 7 revert separately |
+| `78d3886` | 5 | **yes** | Input guards on the supervisor: Unicode normalizer, prompt-injection check (off by default), `tripwire` handling |
+| `c01363f` | 6 | **yes** | Output guards: images, links, HTML, URLs and internal names removed; no-data override; the UI renders no images or links |
+| `f64e869` | 7 | **yes** | Groundedness check, log only |
+| `69f6a14` | 8a | no | Our own graceful shutdown on every Mastra version |
+| `aab8b8a` | 8 | no | `compat-check.mjs`, profiles, lift kit notes, `MASTRA-COMPAT.md` |
+| (last) | 9 | no | Docs, open questions, this report |
 
-- **The Docker image.** Docker is not installed on the development machine; the Dockerfile has not been built.
-- **The NestJS templates.** They are not compiled here; they need GC's guard, token service and paths.
-- **A live run against Databricks after the latest changes** (multiple charts, streaming, the scratchpad, answer style). This needs a run with real settings: rebuild, `npm start`, and ask questions in a new chat.
-- **Shutdown under a real SIGTERM.** The logic is unit-tested; a signal-driven test on Linux (the pod) is still to do.
+### Spike results
+
+| Spike | Tried | Found | Did |
+|---|---|---|---|
+| 1a | Supervisor with no Memory, `stream([user, assistant, user])`, stub model | The model gets the messages in order. A delegated sub-agent also gets the supervisor's whole message list (its system prompt too) plus the delegated question | Plain messages array; Memory removed. The prompt still asks for self-contained questions, since the Genie call gets only the question |
+| 3a | Stub models with known usage | Suggester: `generate().usage`. Supervisor: `totalUsage` covers its own steps only. Sub-agents: their `step-finish` chunks arrive inside `tool-output` chunks of `agent-<name>` | Read from the stream; no model wrapper (the model is a Mastra router config, not an SDK model). `complete: false` when a source does not report |
+| 5 | `PromptInjectionDetector` options on 1.79 and 1.32.1 | 1.32.1 has no `onDetection` and no `errorStrategy`; a failing guard model there always lets the question through | The detector runs inside a processor of ours that catches its abort, so log mode works on both. `BI_GUARD_FAIL_CLOSED` works only on newer Mastra |
+| 8 | Mastra's own SIGTERM handling | 1.79 drains 5 s, then exits; 1.32 never exits | Mastra's handling off (`handleShutdownSignals: false`); ours exits |
+
+### Settings added
+
+| Setting | Default | Item |
+|---|---|---|
+| `BI_HISTORY_TURNS` | 3 | 1 |
+| `BI_HISTORY_MAX_CHARS` | 1500 | 1 |
+| `BI_HISTORY_INCLUDE_SQL` | false | 1 |
+| `BI_MAX_BODY_BYTES` | 65536 (was 16384) | 1 |
+| `VITE_HISTORY_TURNS` (UI build) | 3 | 1 |
+| `BI_GENIE_MAX_PER_MINUTE` | 5 (0 = off) | 4, *Proposed* |
+| `BI_GENIE_QUEUE_WAIT_MS` | 60000 | 4, *Proposed* |
+| `BI_GUARD_INJECTION` | off | 5, *Proposed* |
+| `BI_GUARD_MODEL` | none (required when on) | 5, *Proposed* |
+| `BI_GUARD_FAIL_CLOSED` | false | 5, *Proposed* |
+| `BI_GUARD_OUTPUT` | on | 6, *Proposed* |
+| `BI_GROUNDING` | log | 7, *Proposed* |
+
+### Where the code differs from the brief
+
+- Item 1: `@mastra/memory` is gone entirely, so the 1.32 profile does not install it. The older `App.tsx` / `api.ts` path is imported but not rendered, so it was left as is; the main and demo pages both send history through `useChat`.
+- Item 2: the brief mentions existing skip rules for small talk, clarification and errors; there were none. Now no follow-ups are written for a clarification, and a failed turn never starts them.
+- Item 3: Genie retries are counted inside `withRetry`, which covers the question-level and the HTTP-level retries.
+- Item 4: the limiter also has `refund()` (a 429 or 503 gives its slot back) and an `onWait` callback for the status line.
+- Item 6: an agent or tool name tied to a space is replaced by the space's name instead of removed, so sentences stay readable. Genie text with figures counts as usable data for the no-data override (Genie can answer in text only).
+
+### Verified
+
+- Baseline before the work: server 136 tests in 22 files, UI 19 tests in 2 files, type checks clean, UI build passing.
+- Now: server 207 tests in 30 files, UI 24 tests in 4 files; type checks clean; `mastra build`, the UI build and the demo build pass; `.env.example` and the contract files regenerated and in sync; the secret scan finds nothing.
+- `compat-check` on both profiles (`current`, core 1.79.0; `mastra-1.32`, core 1.32.1): install, type check, tests, build, boot, `/health/live`, `/bi/version` and the chat check (model trace first, a friendly error for the dummy model) all pass. The current build also boots and answers on Node 20.20.2 (informational).
+- Each Proposed commit reverted alone: clean; the type check and the tests pass.
+- A follow-up across a simulated restart and a second instance (characterization test: two fresh service instances get the same messages for the same follow-up).
+- Earlier: `lift.mjs` against a scratch repository (dry run, copy, both refusals; no `.env` or database file copied), and the demo page streaming through to the server.
+
+### Not verified
+
+- **No live Genie and no real model calls** for any of today's work: everything ran against stub models, fake streams and a dummy model endpoint.
+- **SIGTERM on Linux.** Windows cannot deliver SIGTERM to a handler, so the compat check skips that step; the shutdown logic is unit-tested with fake timers only.
+- **The client environment** and GC's real Mastra versions.
+- **The guard model's judgement.** The injection tests use a stub detector; whether a real small model flags the fixture questions is untested.
+- **The Docker image** (Docker is not installed) and **the NestJS templates** (not compiled here).
+- Agent-mode Genie on the old Mastra set; the 1.32 profile on Node 20.
+- Mastra prints its own `[WORKFLOW] Error executing step…` line to the console when an input guard blocks; it holds the reason, not the question.
 
 ## Phase 5 in detail (proposed)
 
@@ -40,15 +98,15 @@ Three pieces of state live in plain maps in the process memory: login sessions (
 Problems:
 
 1. The maps never shrink. A long-running pod grows with every conversation.
-2. With more than one pod, a follow-up question that lands on another pod loses its Genie conversation and its memory.
+2. With more than one pod, a follow-up that lands on another pod starts a new Genie conversation (the chat history itself now comes with the request).
 3. The database files sit in `.mastra/output`, so every rebuild deletes them, and a container writes to its image folder.
 
 The plan:
 
 | Step | What |
 |---|---|
-| 5.1 | One `StateStore` implementation in memory (the port exists): entries expire after 8 hours without use, at most 5,000 threads (least recently used dropped first), a sweep timer that does not keep the process alive. All four maps move behind it |
-| 5.2 | `BI_STORAGE_URL` and `BI_MEMORY_URL` settings for Mastra's storage and the conversation memory. Locally: files in `server/data/` (outside the build folder). In GC: in memory by default, or a database URL |
+| 5.1 | One `StateStore` implementation in memory (the port exists): entries expire after 8 hours without use, at most 5,000 threads (least recently used dropped first), a sweep timer that does not keep the process alive. All three maps move behind it |
+| 5.2 | A `BI_STORAGE_URL` setting for Mastra's storage. Locally: files in `server/data/` (outside the build folder). In GC: in memory by default, or a database URL |
 | 5.3 | The model chosen by configuration only (already mostly true) |
 | 5.4 | A snapshot test of the prompts, so any change to the instruction text is visible in review |
 | 5.5 | `docs/lift/STATE.md`: what is kept, where, for how long, and what happens on restart |
@@ -75,7 +133,8 @@ From us:
 
 1. Phase 5: go ahead as planned above?
 2. Phase 10: how the chat page moves into GC's UI (React components in GC's app, or a frame), and who does it.
-3. Push: 27 local commits are not pushed yet.
+3. Push: the `feat/today-hardening` branch is not pushed.
+4. Items 4 to 7: confirm with the client which Proposed items stay; each can be removed with `git revert`.
 
 From GC (details in `OPEN-QUESTIONS.md`):
 
@@ -84,3 +143,4 @@ From GC (details in `OPEN-QUESTIONS.md`):
 3. Space ids, names and descriptions per environment, and who owns the domain rules.
 4. Session affinity, or a shared store for conversation state.
 5. The ingress must not buffer the answer stream.
+6. GC's Mastra versions, the Genie quota and mode, and whether a guard-model call per question is allowed.

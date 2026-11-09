@@ -58,5 +58,5 @@ describe('secret scan', () => {
         return findSecrets(text).map((what) => `${f}: ${what}`);
       });
     expect(hits).toEqual([]);
-  });
+  }, 60_000); // reads every file of the repository: slow when the machine is busy (a build running alongside)
 });

@@ -46,6 +46,20 @@ I listed these by searching the source for `process.env`. "Secret" means: do not
 | `PORT` | no | Server port | 4111 (dev), 1976 (`npm start`) | `mastra/index.ts`, `auth/oauth.ts`, `run.mjs` |
 | `UI_DIST` | no | Folder of the built UI to serve | unset (set by `npm start`) | `mastra/index.ts`, `run.mjs` |
 | `API_URL` | no | Where the Vite dev server proxies `/bi` and `/auth` | `http://localhost:4111` | `ui/vite.config.ts` |
+| `BI_MAX_BODY_BYTES` | no | Largest request body (room for the chat history) | 65536 | `config/schema.ts` |
+| `BI_HISTORY_TURNS` | no | Earlier turns from the UI passed to the model; 0 = off | 3 | `config/schema.ts`, `core/chat/history.ts` |
+| `BI_HISTORY_MAX_CHARS` | no | Cap per earlier question and answer | 1500 | same |
+| `BI_HISTORY_INCLUDE_SQL` | no | Pass earlier turns' SQL to the model | false | same |
+| `BI_GENIE_MAX_PER_MINUTE` | no | *Proposed.* Genie questions started per minute by this instance; 0 = off | 5 | `core/genie/limiter.ts` |
+| `BI_GENIE_QUEUE_WAIT_MS` | no | *Proposed.* Longest wait for a Genie slot | 60000 | same |
+| `BI_GUARD_INJECTION` | no | *Proposed.* Prompt-injection check: off, log, block | off | `core/guards/input.ts` |
+| `BI_GUARD_MODEL` | no | *Proposed.* Model of that check; required when it is on | none | same |
+| `BI_GUARD_FAIL_CLOSED` | no | *Proposed.* Refuse when the guard model fails | false | same |
+| `BI_GUARD_OUTPUT` | no | *Proposed.* Clean images, links, HTML, URLs and internal names from model text | on | `core/guards/output.ts` |
+| `BI_GROUNDING` | no | *Proposed.* Log figures that match no data (log only) | log | `core/guards/grounding.ts` |
+| `VITE_HISTORY_TURNS` | no | Earlier turns the UI sends (UI build time) | 3 | `ui/src/hooks/history.ts` |
+
+Settings added in November 2026 are read through the one schema in `server/src/config/schema.ts`; `server/.env.example` is generated from it and lists every setting with its help text.
 
 Notice `ANTHROPIC_API_KEY` is not read anywhere in the repo's own code. The Mastra AI layer reads it, based on the `anthropic/...` model name. I could not confirm that from the repo, only from the README and `.env.example`.
 
@@ -70,10 +84,12 @@ One thing to know: `server/src/core/genie/registry.ts` has hard-coded fallback G
 
 ## Feature flags
 
-There is no flag system. Two settings change behaviour like flags:
+There is no flag system. These settings change behaviour like flags:
 
 - `GENIE_MODE=agent` switches the whole Genie client (`server/src/mastra/index.ts`).
 - `DATABRICKS_CLIENT_ID` switches between shared-token mode and OAuth (`server/src/mastra/index.ts`).
+- `BI_GUARD_INJECTION`, `BI_GUARD_OUTPUT` and `BI_GROUNDING` switch the guards (all *Proposed*, see `docs/lift/REPORT.md`).
+- `BI_HISTORY_TURNS=0` switches follow-up context off.
 
 The chart library is a build-time choice, not a setting. See [07a-charts.md](07a-charts.md).
 

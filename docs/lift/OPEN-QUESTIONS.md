@@ -24,5 +24,10 @@ Questions we cannot answer without GC (or a decision from our side). Each one is
 | Embedding | Is the page embedded as React code in GC's UI, or shown in a frame? | Either works; for a frame set `BI_FRAME_ANCESTORS` |
 | Spaces | The 5 Genie space ids, names and descriptions (and optional routing text) for dev, QC, UAT and production | Spaces file plus `BI_SPACE_ID_<KEY>` per environment |
 | Domain rules | Who owns the business rules text, and who signs off changes | The example file holds today's rules |
-| State | Conversation memory across pods: a shared store GC already runs (MongoDB?) or session affinity | Memory in the pod; session affinity (phase 5) |
+| State | Genie conversation ids and the last result per thread across pods: a shared store GC already runs (MongoDB?) or session affinity | Kept in the pod, best effort. The chat history no longer is: the UI sends it with each question (contract 1.2.0) |
+| `mastra-version` | GC's exact Mastra versions (`@mastra/core`, `@mastra/deployer`, `@mastra/server`, `@mastra/libsql`, `@mastra/loggers`, the `mastra` CLI). There is no `@mastra/core` 1.32.9 on the public registry | Checked against the current set and a 1.32.1 set (`docs/lift/MASTRA-COMPAT.md`) |
+| `genie-quota` | The Genie question quota of GC's workspace, and the number of pods sharing it | `BI_GENIE_MAX_PER_MINUTE=5` per instance (*Proposed*) |
+| Genie mode | Which Genie mode GC will run: the Conversation API (the code default) or Agent mode. Our follow-ups are written only when Genie sends none (rare in Conversation mode, every turn in Agent mode), and the quota above is documented for the Conversation API | Conversation API |
+| Guard model | Does GC allow one extra model call per question for the prompt-injection check, and which small model? | `BI_GUARD_INJECTION=off` (*Proposed*) |
+| Traces outside | Approval to send any traces outside GC (LangSmith, Mastra Cloud or another exporter) | Nothing leaves; logs only |
 | Datadog | Whether GC wants LLM traces (LangSmith or Mastra's exporters) besides logs | Logs only |

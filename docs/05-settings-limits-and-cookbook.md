@@ -27,7 +27,7 @@ All settings are in `server/.env`. A blank template is `server/.env.example`.
 | `DATABRICKS_REDIRECT_URI` | Overrides where Databricks sends people back after login | Optional |
 | `BI_SPACE_ID_PLACEMENT` | Id of the **placement** Genie space (a default is built in) | Optional |
 | `BI_SPACE_ID_CAPACITY` | Id of the **capacity** Genie space (a default is built in). *Not listed in `.env.example`* | Optional |
-| `GENIE_MODE` | `agent` = streaming Agent mode (current setting). Empty = older chat mode | Optional |
+| `GENIE_MODE` | `conversation` (default) = the Conversation API. `agent` = streaming Agent mode | Optional |
 | `DATABRICKS_HTTP_PATH`, `DATABRICKS_CATALOG`, `DATABRICKS_SCHEMA`, `DATABRICKS_PRODUCT_CATALOG` | Present in the template but **not used by the current code** | No |
 
 ### The AI model
@@ -49,6 +49,25 @@ All settings are in `server/.env`. A blank template is `server/.env.example`.
 | `GENIE_TIMEOUT_MS` | 180000 | How long to wait for Genie (3 minutes) |
 | `PORT` | 4111 (dev) / 1976 (`npm start`) | Server port |
 | `UI_DIST` | set by `npm start` | Folder of the built browser app to serve |
+| `BI_MAX_BODY_BYTES` | 65536 | Largest request body; leaves room for the chat history sent with each question |
+
+### Chat history, Genie pacing, guards (added November 2026)
+
+The complete list, with descriptions, is `server/.env.example` (generated from `server/src/config/schema.ts`).
+
+| Name | Default | Meaning |
+|------|---------|---------|
+| `BI_HISTORY_TURNS` | 3 | Earlier turns sent by the UI that the server passes to the model. 0 turns history off |
+| `BI_HISTORY_MAX_CHARS` | 1500 | Longest question and answer kept per earlier turn |
+| `BI_HISTORY_INCLUDE_SQL` | false | Pass the SQL of earlier turns to the model |
+| `BI_GENIE_MAX_PER_MINUTE` | 5 | *Proposed.* Questions this instance starts at Genie per minute. The workspace quota divided by the number of pods. 0 = off |
+| `BI_GENIE_QUEUE_WAIT_MS` | 60000 | *Proposed.* Longest wait for a free Genie slot |
+| `BI_GUARD_INJECTION` | off | *Proposed.* Prompt-injection check: `off`, `log` or `block`. One guard-model call per question when on |
+| `BI_GUARD_MODEL` | (none) | *Proposed.* The guard's model, same provider as the main model. Required when the check is on |
+| `BI_GUARD_FAIL_CLOSED` | false | *Proposed.* Refuse the question when the guard model fails (newer Mastra only) |
+| `BI_GUARD_OUTPUT` | on | *Proposed.* Remove images, links, HTML, URLs and internal names from what the model writes; replace figures when no data came back |
+| `BI_GROUNDING` | log | *Proposed.* Log how many figures of an answer match nothing the data returned. Never changes the answer |
+| `VITE_HISTORY_TURNS` (UI build) | 3 | Earlier turns the UI sends with each question |
 
 ---
 
