@@ -156,16 +156,26 @@ describe('POST /bi/chat (characterization)', () => {
     ]);
   });
 
-  it('sends our follow-ups before `final` when they are ready first', async () => {
+  // Changed (item 2): only Agent mode writes our follow-ups in parallel with the answer, so only there can they come
+  // before `final`. The Conversation API usually returns Genie's own, so there ours are written after `final`.
+  it('Agent mode: sends our follow-ups before `final` when they are ready first', async () => {
     scenario.suggest = async () => ({ object: { questions: [{ question: 'Which region grew most?', space: 'placement' }] } });
     const slow = turn();
     scenario.chunks = async function* (opts) {
       await delay(30);
       yield* slow(opts);
     };
-    const types = (await events(await call(await loadRoutes(), '/bi/chat', { threadId: 't1', message: 'q' }))).map((e) => e.type);
+    const types = (await events(await call(await loadRoutes({ GENIE_MODE: 'agent' }), '/bi/chat', { threadId: 't1', message: 'q' }))).map((e) => e.type);
     expect(types.indexOf('suggestions')).toBeGreaterThan(-1);
     expect(types.indexOf('suggestions')).toBeLessThan(types.indexOf('final'));
+  });
+
+  it('Conversation mode: writes our follow-ups only after `final`, when Genie sent none', async () => {
+    let calls = 0;
+    scenario.suggest = async () => (calls++, { object: { questions: [{ question: 'Which region grew most?', space: 'placement' }] } });
+    const types = (await events(await call(await loadRoutes(), '/bi/chat', { threadId: 't1', message: 'q' }))).map((e) => e.type);
+    expect(types.slice(-2)).toEqual(['final', 'suggestions']);
+    expect(calls).toBe(1);
   });
 
   it('closes the stream after SUGGEST_WAIT_MS when our follow-ups are slow, without them', async () => {
@@ -177,13 +187,15 @@ describe('POST /bi/chat (characterization)', () => {
     expect(evs.some((e) => e.type === 'suggestions')).toBe(false);
   });
 
-  it("does not wait for our follow-ups when Genie sent its own", async () => {
-    scenario.suggest = () => new Promise(() => undefined);
+  it("does not write or wait for our follow-ups when Genie sent its own", async () => {
+    let calls = 0;
+    scenario.suggest = () => (calls++, new Promise(() => undefined));
     scenario.chunks = turn({ suggestedQuestions: ['Genie follow-up?'] });
     const started = Date.now();
     const evs = await events(await call(await loadRoutes({ SUGGEST_WAIT_MS: '5000' }), '/bi/chat', { threadId: 't1', message: 'q' }));
     expect(Date.now() - started).toBeLessThan(2000);
     expect(evs.at(-1)).toMatchObject({ type: 'final', result: { suggestedQuestions: ['Genie follow-up?'] } });
+    expect(calls).toBe(0);
   });
 
   it('ends a failed turn with an `error` event and no `final`', async () => {

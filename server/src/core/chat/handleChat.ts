@@ -21,6 +21,7 @@ export type ChatDeps = {
   registry: SpaceRegistry;
   modelLabel: string;
   suggestWaitMs: number; // after `final`, how long to wait for our own follow-ups
+  genieMode: 'conversation' | 'agent'; // the Conversation API returns its own follow-ups; Agent mode returns none
   logger: BiLogger;      // the base logger; each turn logs through a child carrying its trace id
   turnTimeoutMs: number; // a turn running longer is stopped
   history: HistorySettings; // how much of the chat history sent by the UI is used
@@ -58,8 +59,14 @@ async function runTurn(deps: ChatDeps, requestCtx: BiRequestContext, { threadId:
   let firstAnswerMs: number | undefined;
   // The chat so far comes with the request (the server keeps no transcript), so any instance can answer a follow-up.
   const earlier = recentHistory(history, deps.history);
-  // Follow-ups need only the space descriptions and the chat so far, so they are written in parallel with the answer.
-  const pendingSuggestions = suggestFollowUps(deps.suggestAgent, deps.registry, { question: message, history: earlier.map((t) => ({ question: t.question, answer: t.answer, suggested: [] })) });
+  // Our follow-ups need only the space descriptions and the chat so far. Agent mode never returns Genie's own, so there
+  // they are written in parallel with the answer. The Conversation API usually does, so there ours are written only
+  // after `final`, when Genie sent none: a model call saved on most turns, for a short wait on the others.
+  const writeSuggestions = () =>
+    suggestFollowUps(deps.suggestAgent, deps.registry, { question: message, history: earlier.map((t) => ({ question: t.question, answer: t.answer, suggested: [] })) }).then((questions) => {
+      if (questions.length) send({ type: 'suggestions', questions }); // may arrive before or after `final`; the UI handles both
+    });
+  let pendingSuggestions = deps.genieMode === 'agent' ? writeSuggestions() : undefined;
 
   const collector = newCollector();
   const requestContext = new RequestContext<TurnValues>();
@@ -86,9 +93,6 @@ async function runTurn(deps: ChatDeps, requestCtx: BiRequestContext, { threadId:
   );
   collector.emit = tracer.progress;
   send({ type: 'trace', item: { id: 'model', kind: 'meta', label: 'Using model', text: deps.modelLabel } });
-  void pendingSuggestions.then((questions) => {
-    if (questions.length) send({ type: 'suggestions', questions }); // may arrive before or after `final`; the UI handles both
-  });
   try {
     const stream = await deps.supervisor.stream([...priorMessages(earlier), { role: 'user' as const, content: message }], {
       requestContext,
@@ -139,17 +143,23 @@ async function runTurn(deps: ChatDeps, requestCtx: BiRequestContext, { threadId:
       durationMs: Date.now() - started, firstAnswerMs, genieCalls: collector.results.length, failedCalls: collector.results.filter((r) => r.error).length,
       charts: collector.charts.length, rows: final.totalRows, inputTokens: usage?.inputTokens, outputTokens: usage?.outputTokens,
     });
-    // Genie's own follow-ups win. Otherwise ours are usually ready already; give them a short moment, never long.
+    // Genie's own follow-ups win. Otherwise wait a short moment for ours, never long. A question back to the user
+    // needs none (the UI shows its choices instead), so none are started for it.
     if (!final.suggestedQuestions.length) {
-      let timer: ReturnType<typeof setTimeout> | undefined;
-      await Promise.race([pendingSuggestions, new Promise((resolve) => (timer = setTimeout(resolve, deps.suggestWaitMs)))]);
-      clearTimeout(timer);
+      pendingSuggestions ??= final.clarification ? undefined : writeSuggestions();
+      if (pendingSuggestions) await waitAtMost(pendingSuggestions, deps.suggestWaitMs);
     }
   } catch (err) {
     if (requestCtx.signal.aborted) return log().info('chat.cancelled', { durationMs: Date.now() - started }); // nobody is listening
     log().error(timeout.aborted ? 'chat.timeout' : 'chat.failed', { durationMs: Date.now() - started, error: err });
     send({ type: 'error', message: failureMessage(timeout.aborted, deps, ctx.traceId) });
   }
+}
+
+async function waitAtMost(work: Promise<unknown>, ms: number) {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  await Promise.race([work, new Promise((resolve) => (timer = setTimeout(resolve, ms)))]);
+  clearTimeout(timer);
 }
 
 export type FeedbackDeps = { genie: GenieClient; registry: SpaceRegistry; logger: BiLogger };

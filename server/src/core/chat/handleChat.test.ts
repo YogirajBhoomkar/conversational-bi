@@ -24,6 +24,7 @@ function deps(chunks: Array<{ type: string; payload?: object }>, seen: Seen[] = 
     registry,
     modelLabel: 'm',
     suggestWaitMs: 0,
+    genieMode: 'conversation',
     logger: silentLogger,
     turnTimeoutMs: 60_000,
     history: { turns: 3, maxChars: 1500, includeSql: false },
@@ -98,6 +99,65 @@ describe('handleChat', () => {
     ]), ctx(), { threadId: 'a', message: 'q' }));
     // model, the text streaming as a possible plan, that note cleared once the step ends without a tool call, the answer, final
     expect(events.map((e) => e.type)).toEqual(['trace', 'trace', 'trace', 'text', 'final']);
+  });
+});
+
+// A turn whose data agent returned a Genie result with the given follow-ups.
+function withGenie(suggestedQuestions: string[], mode: ChatDeps['genieMode'], generate: ReturnType<typeof vi.fn>): ChatDeps {
+  const d = deps([]);
+  d.genieMode = mode;
+  d.suggestWaitMs = 500;
+  d.suggestAgent = { generate } as unknown as ChatDeps['suggestAgent'];
+  d.supervisor = { stream: (async (_m: unknown, opts: Seen) => {
+    const genieResult = { spaceId: 'id-1', question: 'q', summary: '', sql: null, columns: ['n'], rows: [[1]], totalRows: 1, thinking: [], suggestedQuestions, statementId: null, conversationId: 'c', messageId: 'm', error: null };
+    (opts.requestContext.get('collector') as Collector).results.push(genieResult);
+    return { fullStream: (async function* () { yield { type: 'text-delta', payload: { text: 'One.' } }; yield { type: 'step-finish', payload: { stepResult: { reason: 'stop' } } }; })() };
+  }) as unknown as ChatDeps['supervisor']['stream'] };
+  return d;
+}
+const ours = () => vi.fn(async () => ({ object: { questions: [{ question: 'Ours?', space: 'one' }] } }));
+
+describe('follow-up questions', () => {
+  it("conversation mode: Genie's own win, and ours are never written", async () => {
+    const generate = ours();
+    const events = await collect(handleChat(withGenie(['Genie?'], 'conversation', generate), ctx(), { threadId: 'a', message: 'q' }));
+    expect(generate).not.toHaveBeenCalled();
+    expect(events.at(-1)).toMatchObject({ type: 'final', result: { suggestedQuestions: ['Genie?'] } });
+  });
+
+  it('conversation mode: without Genie follow-ups, ours are written after `final` and still arrive', async () => {
+    const generate = ours();
+    const events = await collect(handleChat(withGenie([], 'conversation', generate), ctx(), { threadId: 'a', message: 'q' }));
+    expect(generate).toHaveBeenCalledOnce();
+    expect(events.map((e) => e.type).slice(-2)).toEqual(['final', 'suggestions']);
+  });
+
+  it('agent mode: ours are written up front, in parallel with the answer', async () => {
+    const generate = ours();
+    const d = withGenie([], 'agent', generate);
+    const stream = d.supervisor.stream;
+    d.supervisor = { stream: (async (...args: Parameters<typeof stream>) => {
+      expect(generate).toHaveBeenCalledOnce(); // already started when the supervisor begins
+      return stream(...args);
+    }) as typeof stream };
+    const events = await collect(handleChat(d, ctx(), { threadId: 'a', message: 'q' }));
+    expect(events.some((e) => e.type === 'suggestions')).toBe(true);
+  });
+
+  it('conversation mode: none are written for a failed or timed-out turn, which still ends cleanly', async () => {
+    const generate = ours();
+    const failing = withGenie([], 'conversation', generate);
+    failing.supervisor = { stream: (async () => ({ fullStream: (async function* () { yield { type: 'error', payload: { error: { message: 'down' } } }; })() })) as unknown as ChatDeps['supervisor']['stream'] };
+    expect((await collect(handleChat(failing, ctx(), { threadId: 'a', message: 'q' }))).at(-1)).toMatchObject({ type: 'error' });
+    expect(generate).not.toHaveBeenCalled();
+  });
+
+  it('a slow writer of ours never holds the stream past the wait', async () => {
+    const generate = vi.fn(() => new Promise(() => undefined));
+    const d = withGenie([], 'conversation', generate);
+    d.suggestWaitMs = 30;
+    const events = await collect(handleChat(d, ctx(), { threadId: 'a', message: 'q' }));
+    expect(events.at(-1)?.type).toBe('final');
   });
 });
 
