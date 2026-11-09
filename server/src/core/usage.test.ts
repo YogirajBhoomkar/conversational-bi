@@ -2,6 +2,7 @@ import { Agent } from '@mastra/core/agent';
 import { describe, expect, it } from 'vitest';
 import type { BiLogger } from '../ports/logger';
 import { stubModel } from './agents/stubModel';
+import { getCollector } from './chat/collector';
 import { handleChat, type ChatDeps } from './chat/handleChat';
 import { createSpaceRegistry } from './genie/registry';
 import { createUsageMeter, meter, withMeter } from './usage';
@@ -72,8 +73,16 @@ describe('chat.turn log with real agents and stub models', () => {
     const supervisor = new Agent({ id: 'bi_supervisor', name: 'bi_supervisor', instructions: 's', model: sup.model, agents: { genie_placement: child } });
     const sug = stubModel([{ text: '{"questions":[]}' }], { inputTokens: 7, outputTokens: 3 });
     const suggestAgent = new Agent({ id: 'suggest_agent', name: 'suggest_agent', instructions: 'x', model: sug.model });
+    // The data agent here has no Genie tool, so the turn records the result its tool would have (our follow-ups are
+    // written only for a turn that got data).
+    const withResult: ChatDeps['supervisor'] = {
+      stream: ((messages: unknown, options: { requestContext: Parameters<typeof getCollector>[0] }) => {
+        getCollector(options.requestContext).results.push({ spaceId: 'id-1', question: 'q', summary: '42', sql: 'SELECT 42', columns: ['n'], rows: [[42]], totalRows: 1, thinking: [], suggestedQuestions: [], statementId: null, conversationId: 'c', messageId: 'm', error: null });
+        return (supervisor.stream as (m: unknown, o: unknown) => ReturnType<typeof supervisor.stream>)(messages, options);
+      }) as unknown as typeof supervisor.stream,
+    };
     const deps: ChatDeps = {
-      supervisor, suggestAgent, registry: createSpaceRegistry([{ key: 'placement', name: 'Placement', description: 'd', spaceId: 'id-1' }]),
+      supervisor: withResult, suggestAgent, registry: createSpaceRegistry([{ key: 'placement', name: 'Placement', description: 'd', spaceId: 'id-1' }]),
       modelLabel: 'stub', suggestWaitMs: 2000, genieMode: 'conversation', logger, turnTimeoutMs: 30_000, history: { turns: 3, maxChars: 1500, includeSql: false },
     };
     for await (const _ of handleChat(deps, { userId: 'u', userToken: 't', traceId: 'tr', signal: new AbortController().signal }, { threadId: 'a', message: 'How many placements?' })) void _;

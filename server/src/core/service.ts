@@ -7,6 +7,7 @@ import type { BiRequestContext } from '../ports/context';
 import type { BiLogger } from '../ports/logger';
 import type { ModelProvider } from '../ports/model';
 import { createAgents } from './agents/createAgents';
+import { scopeMessage } from './agents/prompts';
 import { type ChatDeps, handleChat, handleFeedback } from './chat/handleChat';
 import { createOutputGuard } from './guards/output';
 import { DatabricksGenieAgentClient } from './genie/agentClient';
@@ -21,6 +22,7 @@ export type BiAdapters = { tokens: TokenProvider; model: ModelProvider; logger: 
 
 export function createBiService(config: BiConfig, adapters: BiAdapters) {
   const registry = createSpaceRegistry(config.spaces);
+  const scope = scopeMessage(registry.spaces, config.scope.message); // one message, in the prompt and the reply check
   const genieOptions = { host: config.databricks.host, rowCap: config.genie.rowCap, timeoutMs: config.genie.timeoutMs, retry: retryPolicy(config.genie.retryAttempts),
     // One limiter for the instance, shared by every space and user: the quota is per workspace.
     limiter: createGenieLimiter({ maxPerMinute: config.genie.maxPerMinute, maxWaitMs: config.genie.queueWaitMs }) };
@@ -32,6 +34,7 @@ export function createBiService(config: BiConfig, adapters: BiAdapters) {
     domainRules: config.domainRules,
     fullRowCap: config.genie.fullRowCap,
     inputGuards: inputGuards({ injection: config.guards.injection, model: adapters.guardModel?.model, failClosed: config.guards.failClosed }),
+    scopeMessage: scope,
   });
   const chatDeps: ChatDeps = {
     supervisor,

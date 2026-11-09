@@ -21,7 +21,7 @@ All are built in `createAgents` in `server/src/core/agents/prompts.ts`.
 |---|---|---|
 | `bi_supervisor` | 1 | Reads the user's question, delegates to a specialist, writes the final answer |
 | `genie_<key>` | 1 per Genie space (2 today: `placement`, `capacity`) | Turns the question into a Genie call and reports faithfully |
-| `suggest_agent` | 1 | Writes up to three follow-up questions from the Genie descriptions and the chat so far. Runs in parallel with the answer |
+| `suggest_agent` | 1 | Writes up to three follow-up questions from the Genie descriptions and the chat so far, only for a turn that got data (a Genie result with SQL or rows) and only when Genie sent none of its own. Agent mode: starts as soon as the first data comes back. Conversation mode: after the answer |
 
 The supervisor gets the specialists in its `agents` option. That is how it can delegate to them. It also gets `maxSteps: 12`, a limit on how many agent and tool steps one request may take.
 
@@ -74,12 +74,14 @@ All the rules are plain text inside the supervisor's `instructions`:
 
 - Routing by topic: placement, status, layer, total limit and FOT premium go to `genie_placement`. Reinsurer, capacity, authorized or signed, declines and quoted premium go to `genie_capacity`.
 - Never invent numbers.
+- Scope (the SCOPE section): a question is in scope only if one of the spaces can answer it; follow-ups are judged with the earlier turns. A greeting, thanks and "what can you do" are answered without a data agent. Anything else (a joke, general knowledge, coding, writing, opinions, advice) gets the **scope message** and no agent or tool call. A partly in-scope question gets the data part answered and one sentence declining the rest. When it is unclear whether the data can answer, the supervisor asks back instead of refusing.
+- The scope message is built from the spaces: "I can help with questions about <name> (<short phrase>) and <name> (<short phrase>). Ask me something about that data." The short phrase is the first sentence of the description, up to a colon, at most 80 characters. `BI_SCOPE_MESSAGE` replaces it. The function is `scopeMessage` in `server/src/core/agents/prompts.ts`.
 - Ask one short question if unclear.
 - Chart requests: pass the word "chart" in the question to Genie, in one call. The list of drawable chart types comes from `SUPPORTED_CHART_TYPES` in `server/src/core/chart/chartSpec.ts`.
 - If the result is truncated, say so and ask before loading the rest.
 - Final answer is Markdown: a bold headline, 3 to 5 key findings with their figures, what it means, and a one-line data note. Simple answers are one or two sentences.
 
-Because the rules are text, changing wording can change behaviour in ways tests will not catch. There are no tests for the agents.
+Because the rules are text, changing wording can change behaviour in ways tests will not catch. The tests (`prompts.test.ts`, `scope.test.ts`) check that the rules are in the prompt and that each kind of reply flows through correctly with a scripted stub model; they cannot check that a real model follows the rules.
 
 ## How to add a Genie space
 
@@ -96,7 +98,7 @@ No code changes. Everything comes from configuration:
    }
    ```
 2. Give its id with `BI_SPACE_ID_TREATY` (the key in capitals), or put the real id in the file. The environment variable wins, so one file serves dev, QC and UAT.
-3. Write the `description` carefully: say what the space holds and what it does not. The supervisor routes by `routing` when it is set, otherwise by the `description`, and the follow-up writer only suggests what a description mentions.
+3. Write the `description` carefully: say what the space holds and what it does not. The supervisor routes by `routing` when it is set, otherwise by the `description`, and the follow-up writer only suggests what a description mentions. Start it with a short phrase naming what the data is, before a colon or the first full stop (for example "Treaty terms per programme: ..."): that phrase goes into the scope message users see for an off-topic question.
 4. Restart. The agent (`genie_treaty`), its two tools (`ask-treaty`, `fetch-full-treaty`), the routing line and the scratchpad name are all created from the entry.
 
 Business rules that apply to every space (what "Year" means, units, status order, which measures can share a chart) belong in the domain rules file (`BI_DOMAIN_RULES_FILE`), not in a space description.

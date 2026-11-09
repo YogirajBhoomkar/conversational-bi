@@ -102,6 +102,8 @@ describe('handleChat', () => {
   });
 });
 
+const dataResult = (suggestedQuestions: string[]) => ({ spaceId: 'id-1', question: 'q', summary: '', sql: null, columns: ['n'], rows: [[1]], totalRows: 1, thinking: [], suggestedQuestions, statementId: null, conversationId: 'c', messageId: 'm', error: null });
+
 // A turn whose data agent returned a Genie result with the given follow-ups.
 function withGenie(suggestedQuestions: string[], mode: ChatDeps['genieMode'], generate: ReturnType<typeof vi.fn>): ChatDeps {
   const d = deps([]);
@@ -109,8 +111,7 @@ function withGenie(suggestedQuestions: string[], mode: ChatDeps['genieMode'], ge
   d.suggestWaitMs = 500;
   d.suggestAgent = { generate } as unknown as ChatDeps['suggestAgent'];
   d.supervisor = { stream: (async (_m: unknown, opts: Seen) => {
-    const genieResult = { spaceId: 'id-1', question: 'q', summary: '', sql: null, columns: ['n'], rows: [[1]], totalRows: 1, thinking: [], suggestedQuestions, statementId: null, conversationId: 'c', messageId: 'm', error: null };
-    (opts.requestContext.get('collector') as Collector).results.push(genieResult);
+    (opts.requestContext.get('collector') as Collector).results.push(dataResult(suggestedQuestions));
     return { fullStream: (async function* () { yield { type: 'text-delta', payload: { text: 'One.' } }; yield { type: 'step-finish', payload: { stepResult: { reason: 'stop' } } }; })() };
   }) as unknown as ChatDeps['supervisor']['stream'] };
   return d;
@@ -132,15 +133,23 @@ describe('follow-up questions', () => {
     expect(events.map((e) => e.type).slice(-2)).toEqual(['final', 'suggestions']);
   });
 
-  it('agent mode: ours are written up front, in parallel with the answer', async () => {
+  // Changed (scope guard): agent mode used to start ours before the supervisor ran; now they start once data has come
+  // back, still in parallel with the answer, so a turn without data never writes them.
+  it('agent mode: ours start as soon as data comes back, in parallel with the answer', async () => {
     const generate = ours();
     const d = withGenie([], 'agent', generate);
-    const stream = d.supervisor.stream;
-    d.supervisor = { stream: (async (...args: Parameters<typeof stream>) => {
-      expect(generate).toHaveBeenCalledOnce(); // already started when the supervisor begins
-      return stream(...args);
-    }) as typeof stream };
+    let startedBeforeAnswerEnded = false;
+    d.supervisor = { stream: (async (_m: unknown, opts: Seen) => {
+      (opts.requestContext.get('collector') as Collector).results.push(dataResult([]));
+      return { fullStream: (async function* () {
+        yield { type: 'tool-result', payload: {} };
+        yield { type: 'text-delta', payload: { text: 'One.' } };
+        startedBeforeAnswerEnded = generate.mock.calls.length === 1;
+        yield { type: 'step-finish', payload: { stepResult: { reason: 'stop' } } };
+      })() };
+    }) as unknown as ChatDeps['supervisor']['stream'] };
     const events = await collect(handleChat(d, ctx(), { threadId: 'a', message: 'q' }));
+    expect(startedBeforeAnswerEnded).toBe(true);
     expect(events.some((e) => e.type === 'suggestions')).toBe(true);
   });
 

@@ -10,6 +10,10 @@ export type Collector = { results: GenieResult[]; charts: ChartSpec[]; clarifica
 
 export const newCollector = (): Collector => ({ results: [], charts: [] });
 
+// A Genie result that is a data answer: a query ran (it has SQL, even with zero rows) or rows came back. Genie's text
+// alone is not one: it is what a data agent says to a joke or a general question.
+export const isDataResult = (r: GenieResult) => !r.error && (Boolean(r.sql) || r.rows.length > 0);
+
 // What a turn puts in the RequestContext for its tools. `caller` is a function so the identity token inside it
 // is never serialised if Mastra stores or traces the context.
 export type TurnValues = { collector: Collector; threadId: string; caller: () => GenieCaller; signal: AbortSignal };

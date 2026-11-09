@@ -16,7 +16,7 @@ import { createUsageMeter, type UsageMeter, withMeter } from '../usage';
 import { createOutputGuard, type OutputGuard } from '../guards/output';
 import { clarificationFromText } from './clarifyFromText';
 import { priorMessages, recentHistory } from './history';
-import { newCollector, type TurnValues } from './collector';
+import { isDataResult, newCollector, type TurnValues } from './collector';
 
 export type ChatDeps = {
   supervisor: Pick<Agent, 'stream'>;
@@ -70,9 +70,10 @@ async function runTurn(deps: ChatDeps, requestCtx: BiRequestContext, { threadId:
   let firstAnswerMs: number | undefined;
   // The chat so far comes with the request (the server keeps no transcript), so any instance can answer a follow-up.
   const earlier = recentHistory(history, deps.history);
-  // Our follow-ups need only the space descriptions and the chat so far. Agent mode never returns Genie's own, so there
-  // they are written in parallel with the answer. The Conversation API usually does, so there ours are written only
-  // after `final`, when Genie sent none: a model call saved on most turns, for a short wait on the others.
+  // Our follow-ups need only the space descriptions and the chat so far, and only a turn that got data has any: none for
+  // a greeting, an out-of-scope reply, a question back or a failed turn. Agent mode never returns Genie's own, so there
+  // they are started as soon as the first data comes back, in parallel with the answer. The Conversation API usually
+  // does, so there ours are written only after `final`, when Genie sent none: a model call saved on most turns.
   let suggesting = false; // our follow-ups are still being written (their tokens are not counted yet)
   const writeSuggestions = () => {
     suggesting = true;
@@ -81,7 +82,7 @@ async function runTurn(deps: ChatDeps, requestCtx: BiRequestContext, { threadId:
       if (questions.length) send({ type: 'suggestions', questions }); // may arrive before or after `final`; the UI handles both
     });
   };
-  let pendingSuggestions = deps.genieMode === 'agent' ? writeSuggestions() : undefined;
+  let pendingSuggestions: Promise<void> | undefined;
 
   const collector = newCollector();
   const requestContext = new RequestContext<TurnValues>();
@@ -125,6 +126,7 @@ async function runTurn(deps: ChatDeps, requestCtx: BiRequestContext, { threadId:
       if (chunk.type === 'error') throw new Error(errorText(chunk));
       usage.observe(chunk);
       tracer.handle(chunk);
+      if (deps.genieMode === 'agent' && !pendingSuggestions && collector.results.some(isDataResult)) pendingSuggestions = writeSuggestions();
     }
     tracer.end();
     // The model sometimes writes its question back as text instead of using the tool; when no data was fetched and the
@@ -148,6 +150,7 @@ async function runTurn(deps: ChatDeps, requestCtx: BiRequestContext, { threadId:
     const leaks = guarded.leaks + [...traceLeaks.values()].reduce((n, c) => n + c, 0);
     if (leaks) log().warn('guard.output.leak', { count: leaks });
     const withData = [...collector.results].reverse().find((r) => r.columns.length);
+    const gotData = collector.results.some(isDataResult);
     // Loading the full result re-uses an earlier message, so keep one source per message (the latest).
     const sources = [...new Map(collector.results.map((r) => [r.messageId, r])).values()];
     const final: FinalAnswer = {
@@ -165,7 +168,8 @@ async function runTurn(deps: ChatDeps, requestCtx: BiRequestContext, { threadId:
         messageId: r.messageId,
         conversationId: r.conversationId,
       })),
-      suggestedQuestions: [...collector.results].reverse().find((r) => r.suggestedQuestions.length)?.suggestedQuestions ?? [],
+      // Genie's own follow-ups only for a data answer: a text-only reply's would build on the off-topic answer.
+      suggestedQuestions: [...collector.results].reverse().find((r) => isDataResult(r) && r.suggestedQuestions.length)?.suggestedQuestions ?? [],
       ...(collector.clarification ? { clarification: collector.clarification } : {}),
       traceId: ctx.traceId,
     };
@@ -175,10 +179,10 @@ async function runTurn(deps: ChatDeps, requestCtx: BiRequestContext, { threadId:
     const own = await Promise.resolve(stream.totalUsage).catch(() => undefined);
     usage.add(SUPERVISOR, own);
     // Genie's own follow-ups win. Otherwise wait a short moment for ours, never long. A question back to the user
-    // needs none (the UI shows its choices instead), so none are started for it.
-    if (!final.suggestedQuestions.length) {
-      pendingSuggestions ??= final.clarification ? undefined : writeSuggestions();
-      if (pendingSuggestions) await waitAtMost(pendingSuggestions, deps.suggestWaitMs);
+    // needs none (the UI shows its choices instead), and a turn without data has nothing to follow up on.
+    if (gotData && !final.clarification && !final.suggestedQuestions.length) {
+      pendingSuggestions ??= writeSuggestions();
+      await waitAtMost(pendingSuggestions, deps.suggestWaitMs);
     }
     if (suggesting) usage.unreported(SUGGESTER);
     log().info('chat.turn', {

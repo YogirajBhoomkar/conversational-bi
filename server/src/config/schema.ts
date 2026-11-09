@@ -35,6 +35,9 @@ export const SettingsSchema = z.object({
   BI_SPACES_JSON: setting(z.string().optional(), 'The same list as BI_SPACES_FILE, inline as JSON. Wins over BI_SPACES_FILE.', { group: 'Genie spaces' }),
   BI_DOMAIN_RULES_FILE: setting(z.string().optional(), 'Plain-text business rules appended to the supervisor prompt (see config/examples/domain-rules.example.md). Default in local mode: the example file.', { group: 'Genie spaces', example: 'config/domain-rules.md' }),
 
+  // ---------------------------------------------------------------- Scope (off-topic questions)
+  BI_SCOPE_MESSAGE: setting(z.string().trim().min(1).max(1000).optional(), 'The reply to a question none of the Genie spaces can answer (a joke, general knowledge, coding). Default: built from the space names and descriptions ("I can help with questions about <spaces>. Ask me something about that data.").', { group: 'Scope' }),
+
   // ---------------------------------------------------------------- Genie behaviour
   GENIE_MODE: setting(z.enum(['conversation', 'agent']).default('conversation'), 'conversation: the Genie Conversation API. agent: Genie Agent mode (GA), which streams the agent\'s reasoning. Do not enable its Flash option (Beta).', { group: 'Genie behaviour' }),
   GENIE_ROW_CAP: setting(int(1, 10_000).default(200), 'Rows kept per Genie result (the table preview).', { group: 'Genie behaviour' }),

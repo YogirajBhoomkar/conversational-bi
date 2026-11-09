@@ -8,9 +8,9 @@ import { SUPPORTED_CHART_TYPES } from '../chart/chartSpec';
 import { createAskGenieTool, createFetchFullResultsTool } from './askGenie';
 import { createClarifyTool } from './clarify';
 
-export type AgentSettings = { registry: SpaceRegistry; model: MastraModelConfig; domainRules: string; fullRowCap: number; inputGuards?: InputProcessor[] };
+export type AgentSettings = { registry: SpaceRegistry; model: MastraModelConfig; domainRules: string; fullRowCap: number; inputGuards?: InputProcessor[]; scopeMessage?: string };
 
-export function createAgents(client: GenieClient, { registry, model, domainRules, fullRowCap, inputGuards = [] }: AgentSettings) {
+export function createAgents(client: GenieClient, { registry, model, domainRules, fullRowCap, inputGuards = [], scopeMessage }: AgentSettings) {
   const { spaces } = registry;
 
   // One sub-agent per Genie space. Its only job is to turn a question into a Genie call and report faithfully.
@@ -37,7 +37,7 @@ export function createAgents(client: GenieClient, { registry, model, domainRules
     id: 'bi_supervisor',
     name: 'bi_supervisor',
     description: 'Conversational BI supervisor',
-    instructions: supervisorInstructions({ spaces, domainRules, chartTypes: SUPPORTED_CHART_TYPES }),
+    instructions: supervisorInstructions({ spaces, domainRules, chartTypes: SUPPORTED_CHART_TYPES, scopeMessage }),
     model,
     agents: { ...genieAgents },
     tools: { [clarifyToolName]: createClarifyTool() },
