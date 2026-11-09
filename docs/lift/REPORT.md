@@ -112,7 +112,7 @@ Behaviour that changed:
 - **Follow-ups:** written only for a turn that got data. Before, every turn except a clarification or a failure got them.
 - **Agent mode follow-ups:** they used to start before the supervisor ran. They now start as soon as the first data result comes back, still in parallel with the answer.
 - **Text-only Genie replies:** shown as the answer before; now replaced, in every Genie mode. This includes a legitimate one (see below).
-- **Small talk:** the prompt no longer answers small talk other than greetings and thanks.
+- **Small talk:** answered without a data agent only for greetings, thanks, a short reaction, help with using the assistant and questions about the chat itself; anything else gets the scope message. A request for an overview or "story" of the data is delegated. (Widened after a first trial in the UI, where "I am new and want to learn", "tell me the story of the placement data" and "what is my name?" were refused.)
 - **Failed Genie calls:** left alone by the scope check. The output guard's "couldn't get data" message still applies, so a time-out is not answered with "ask me something about the data".
 
 Where the code differs from the brief: the reply check also needs every Genie call to have succeeded.

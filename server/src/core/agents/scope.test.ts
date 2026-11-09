@@ -7,7 +7,7 @@ import type { ChatEvent, FinalAnswer, GenieClient, GenieResult, GenieSpace } fro
 import { handleChat, type ChatDeps } from '../chat/handleChat';
 import { createSpaceRegistry } from '../genie/registry';
 import { createScopeGuard } from '../guards/scope';
-import { ALLOWED_WITHOUT_DATA, DATA_QUESTION, FOLLOW_UP, GENIE_REPLIES, MIXED, OUT_OF_SCOPE } from '../guards/scopeFixtures';
+import { ALLOWED_WITHOUT_DATA, DATA_QUESTION, OVERVIEW, FOLLOW_UP, GENIE_REPLIES, MIXED, OUT_OF_SCOPE } from '../guards/scopeFixtures';
 import { silentLogger } from '../log';
 import { createAgents } from './createAgents';
 import { agentName, askToolName, clarifyToolName, scopeMessage, shortPhrase, supervisorInstructions } from './prompts';
@@ -53,9 +53,17 @@ describe('the supervisor prompt', () => {
 
   it('judges follow-ups with the earlier turns, allows greetings, thanks and "what can you do", and never answers from general knowledge', () => {
     expect(prompt).toContain('Judge a follow-up with the earlier turns of the chat');
-    expect(prompt).toContain('Allowed without a data agent: a short greeting, thanks, and "what can you do" or "what data do you have"');
-    expect(prompt).toContain('jokes, general knowledge, coding, writing, opinions, advice, other tools or services');
+    expect(prompt).toContain('Allowed without a data agent (see 5)');
+    expect(prompt).toContain('a greeting, thanks, or a short reaction such as frustration');
+    expect(prompt).toContain('"how do I use this", "I am new and want to learn"');
+    expect(prompt).toContain('a question about this chat ("what did I ask?", "what is my name?"): answer only from the earlier turns you were given');
+    expect(prompt).toContain('say you can only see the last few turns of the chat');
+    expect(prompt).toContain('jokes (also jokes or poems "about the data"), general knowledge, coding, writing, opinions, advice, other tools or services');
     expect(prompt).toContain('Never answer an out-of-scope request from your own knowledge');
+  });
+
+  it('treats a request for an overview or story of the data as a data question', () => {
+    expect(prompt).toContain('In scope, and delegated like any data question: a request for an overview, summary, walkthrough or "story" of the data');
   });
 
   it('answers the in-scope part of a mixed question, and asks back instead of refusing when unsure', () => {
@@ -117,6 +125,12 @@ describe('a turn, by kind of question', () => {
     expect(final?.suggestedQuestions).toEqual(['How does that split by region?']); // Genie's own, from a data answer
     expect(generate).not.toHaveBeenCalled();
     expect(events.at(-1)?.type).toBe('final');
+  });
+
+  it('a request for the story of the data: delegated, answered from the data', async () => {
+    const { final, genie } = await turn([...delegate('Overview of orders: totals by year and the main trends'), { text: 'Orders grew to **42** in 2024.' }], OVERVIEW);
+    expect(genie.ask).toHaveBeenCalledOnce();
+    expect(final).toMatchObject({ answer: 'Orders grew to **42** in 2024.', rows: [[2024, 42]] });
   });
 
   it('a follow-up that only makes sense with the earlier turn: the model sees that turn, and it is delegated', async () => {
