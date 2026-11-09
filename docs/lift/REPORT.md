@@ -51,11 +51,11 @@ Work on branch `feat/today-hardening` (not pushed). Items 1, 2, 3 and 8 are in t
 
 | Setting | Default | Item |
 |---|---|---|
-| `BI_HISTORY_TURNS` | 3 | 1 |
+| `BI_HISTORY_TURNS` | 6 (3 at first; raised after the scope trial) | 1 |
 | `BI_HISTORY_MAX_CHARS` | 1500 | 1 |
 | `BI_HISTORY_INCLUDE_SQL` | false | 1 |
 | `BI_MAX_BODY_BYTES` | 65536 (was 16384) | 1 |
-| `VITE_HISTORY_TURNS` (UI build) | 3 | 1 |
+| `VITE_HISTORY_TURNS` (UI build) | 6 (3 at first) | 1 |
 | `BI_GENIE_MAX_PER_MINUTE` | 5 (0 = off) | 4, *Proposed* |
 | `BI_GENIE_QUEUE_WAIT_MS` | 60000 | 4, *Proposed* |
 | `BI_GUARD_INJECTION` | off | 5, *Proposed* |
@@ -116,6 +116,8 @@ Behaviour that changed:
 - **Failed Genie calls:** left alone by the scope check. The output guard's "couldn't get data" message still applies, so a time-out is not answered with "ask me something about the data".
 
 Where the code differs from the brief: the reply check also needs every Genie call to have succeeded.
+
+History raised from 3 to 6 earlier turns (`BI_HISTORY_TURNS`, `VITE_HISTORY_TURNS`), after the same trial: "what is my name?" was asked five turns after the user gave it, so the model never saw it. The UI now also cuts each earlier question to 2000 and answer to 4000 characters before sending, so even 10 long turns stay under the 64 KB body limit and inside the contract's limits (before, one very long answer could get the request refused with 400 or 413). The server still keeps 1500 characters of each. Cost: up to about three more earlier turns in each supervisor prompt.
 
 Tests:
 - **Fixtures:** in one place (`core/guards/scopeFixtures.ts`).

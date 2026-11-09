@@ -57,7 +57,7 @@ The complete list, with descriptions, is `server/.env.example` (generated from `
 
 | Name | Default | Meaning |
 |------|---------|---------|
-| `BI_HISTORY_TURNS` | 3 | Earlier turns sent by the UI that the server passes to the model. 0 turns history off |
+| `BI_HISTORY_TURNS` | 6 | Earlier turns sent by the UI that the server passes to the model. 0 turns history off |
 | `BI_HISTORY_MAX_CHARS` | 1500 | Longest question and answer kept per earlier turn |
 | `BI_HISTORY_INCLUDE_SQL` | false | Pass the SQL of earlier turns to the model |
 | `BI_GENIE_MAX_PER_MINUTE` | 5 | *Proposed.* Questions this instance starts at Genie per minute. The workspace quota divided by the number of pods. 0 = off |
@@ -69,7 +69,7 @@ The complete list, with descriptions, is `server/.env.example` (generated from `
 | `BI_GROUNDING` | log | *Proposed.* Log how many figures of an answer match nothing the data returned. Never changes the answer |
 | `BI_GUARD_SCOPE` | enforce | Reply check: when every Genie call of a turn answered with text only (no SQL, no rows), `enforce` replaces the answer with the scope message, `log` only records it, `off` does nothing |
 | `BI_SCOPE_MESSAGE` | (built from the spaces) | The reply to an off-topic question. Default: "I can help with questions about <space name> (<short phrase from its description>) …" |
-| `VITE_HISTORY_TURNS` (UI build) | 3 | Earlier turns the UI sends with each question |
+| `VITE_HISTORY_TURNS` (UI build) | 6 | Earlier turns the UI sends with each question (each cut to 2000 / 4000 characters) |
 
 ---
 

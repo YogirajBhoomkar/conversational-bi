@@ -2,5 +2,5 @@
 declare module "*.css";
 
 interface ImportMetaEnv {
-  readonly VITE_HISTORY_TURNS?: string; // earlier turns sent with each question (default 3, at most 10)
+  readonly VITE_HISTORY_TURNS?: string; // earlier turns sent with each question (default 6, at most 10)
 }

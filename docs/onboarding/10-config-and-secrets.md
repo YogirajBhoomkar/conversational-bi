@@ -47,7 +47,7 @@ I listed these by searching the source for `process.env`. "Secret" means: do not
 | `UI_DIST` | no | Folder of the built UI to serve | unset (set by `npm start`) | `mastra/index.ts`, `run.mjs` |
 | `API_URL` | no | Where the Vite dev server proxies `/bi` and `/auth` | `http://localhost:4111` | `ui/vite.config.ts` |
 | `BI_MAX_BODY_BYTES` | no | Largest request body (room for the chat history) | 65536 | `config/schema.ts` |
-| `BI_HISTORY_TURNS` | no | Earlier turns from the UI passed to the model; 0 = off | 3 | `config/schema.ts`, `core/chat/history.ts` |
+| `BI_HISTORY_TURNS` | no | Earlier turns from the UI passed to the model; 0 = off | 6 | `config/schema.ts`, `core/chat/history.ts` |
 | `BI_HISTORY_MAX_CHARS` | no | Cap per earlier question and answer | 1500 | same |
 | `BI_HISTORY_INCLUDE_SQL` | no | Pass earlier turns' SQL to the model | false | same |
 | `BI_GENIE_MAX_PER_MINUTE` | no | *Proposed.* Genie questions started per minute by this instance; 0 = off | 5 | `core/genie/limiter.ts` |
@@ -59,7 +59,7 @@ I listed these by searching the source for `process.env`. "Secret" means: do not
 | `BI_GROUNDING` | no | *Proposed.* Log figures that match no data (log only) | log | `core/guards/grounding.ts` |
 | `BI_GUARD_SCOPE` | no | Replace a text-only Genie reply with the scope message: off, log, enforce | enforce | `core/guards/scope.ts` |
 | `BI_SCOPE_MESSAGE` | no | Reply to an off-topic question | built from the spaces | `core/agents/prompts.ts` (`scopeMessage`) |
-| `VITE_HISTORY_TURNS` | no | Earlier turns the UI sends (UI build time) | 3 | `ui/src/hooks/history.ts` |
+| `VITE_HISTORY_TURNS` | no | Earlier turns the UI sends (UI build time) | 6 | `ui/src/hooks/history.ts` |
 
 Settings added in November 2026 are read through the one schema in `server/src/config/schema.ts`; `server/.env.example` is generated from it and lists every setting with its help text.
 
