@@ -1,5 +1,6 @@
 import { Agent } from '@mastra/core/agent';
 import type { MastraModelConfig } from '@mastra/core/llm';
+import type { InputProcessor } from '@mastra/core/processors';
 import type { GenieClient } from '../../contracts';
 import { agentName, askToolName, clarifyToolName, fetchFullToolName, genieAgentDescription, genieAgentInstructions, suggestInstructions, supervisorInstructions } from './prompts';
 import type { SpaceRegistry } from '../genie/registry';
@@ -7,9 +8,9 @@ import { SUPPORTED_CHART_TYPES } from '../chart/chartSpec';
 import { createAskGenieTool, createFetchFullResultsTool } from './askGenie';
 import { createClarifyTool } from './clarify';
 
-export type AgentSettings = { registry: SpaceRegistry; model: MastraModelConfig; domainRules: string; fullRowCap: number };
+export type AgentSettings = { registry: SpaceRegistry; model: MastraModelConfig; domainRules: string; fullRowCap: number; inputGuards?: InputProcessor[] };
 
-export function createAgents(client: GenieClient, { registry, model, domainRules, fullRowCap }: AgentSettings) {
+export function createAgents(client: GenieClient, { registry, model, domainRules, fullRowCap, inputGuards = [] }: AgentSettings) {
   const { spaces } = registry;
 
   // One sub-agent per Genie space. Its only job is to turn a question into a Genie call and report faithfully.
@@ -40,6 +41,7 @@ export function createAgents(client: GenieClient, { registry, model, domainRules
     model,
     agents: { ...genieAgents },
     tools: { [clarifyToolName]: createClarifyTool() },
+    inputProcessors: inputGuards, // the supervisor only: see core/guards/input.ts
     defaultOptions: { maxSteps: 12 },
   });
 

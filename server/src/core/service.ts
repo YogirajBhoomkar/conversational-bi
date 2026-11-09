@@ -12,9 +12,11 @@ import { DatabricksGenieAgentClient } from './genie/agentClient';
 import { DatabricksGenieClient } from './genie/client';
 import { createGenieLimiter } from './genie/limiter';
 import { createSpaceRegistry } from './genie/registry';
+import { inputGuards } from './guards/input';
 import { retryPolicy } from './genie/retry';
 
-export type BiAdapters = { tokens: TokenProvider; model: ModelProvider; logger: BiLogger };
+// guardModel: the model of the prompt-injection check, when BI_GUARD_INJECTION is on.
+export type BiAdapters = { tokens: TokenProvider; model: ModelProvider; logger: BiLogger; guardModel?: ModelProvider };
 
 export function createBiService(config: BiConfig, adapters: BiAdapters) {
   const registry = createSpaceRegistry(config.spaces);
@@ -28,6 +30,7 @@ export function createBiService(config: BiConfig, adapters: BiAdapters) {
     model: adapters.model.model,
     domainRules: config.domainRules,
     fullRowCap: config.genie.fullRowCap,
+    inputGuards: inputGuards({ injection: config.guards.injection, model: adapters.guardModel?.model, failClosed: config.guards.failClosed }),
   });
   const chatDeps: ChatDeps = {
     supervisor,

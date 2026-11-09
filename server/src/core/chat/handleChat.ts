@@ -110,6 +110,7 @@ async function runTurn(deps: ChatDeps, requestCtx: BiRequestContext, { threadId:
       abortSignal: ctx.signal,
     });
     for await (const chunk of stream.fullStream as AsyncIterable<StreamChunk>) {
+      if (chunk.type === 'tripwire') return refuse(chunk, Date.now() - started, usage, send);
       if (chunk.type === 'error') throw new Error(errorText(chunk));
       usage.observe(chunk);
       tracer.handle(chunk);
@@ -170,6 +171,16 @@ async function runTurn(deps: ChatDeps, requestCtx: BiRequestContext, { threadId:
     log().error(timeout.aborted ? 'chat.timeout' : 'chat.failed', { durationMs: Date.now() - started, error: err, ...usage.snapshot() });
     send({ type: 'error', message: failureMessage(timeout.aborted, deps, ctx.traceId) });
   }
+}
+
+// An input guard stopped the turn (core/guards/input.ts). The user gets a fixed message; the log gets which guard and
+// why, never the question.
+export const REFUSED_MESSAGE = "I can't help with that request. Please rephrase your question about the data.";
+function refuse(chunk: StreamChunk, durationMs: number, usage: UsageMeter, send: (e: ChatEvent) => void) {
+  const { processorId, reason } = (chunk.payload ?? {}) as { processorId?: string; reason?: unknown };
+  usage.unreported(SUPERVISOR); // a stopped stream reports no total
+  log().warn('guard.input.blocked', { processorId, reason: String(reason ?? '').slice(0, 300), durationMs, ...usage.snapshot() });
+  send({ type: 'error', message: REFUSED_MESSAGE });
 }
 
 async function waitAtMost(work: Promise<unknown>, ms: number) {

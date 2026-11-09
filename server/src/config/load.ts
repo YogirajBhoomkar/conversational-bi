@@ -45,6 +45,7 @@ export type BiConfig = {
   suggestWaitMs: number;
   history: HistorySettings;
   model: ModelSettings;
+  guards: { injection: 'off' | 'log' | 'block'; model?: ModelSettings; failClosed: boolean }; // the guard model shares the main model's provider
   logging: LogSettings;
   service: ServiceSettings;
   spaces: GenieSpace[];
@@ -105,6 +106,12 @@ function readDomainRules(s: Settings, io: ConfigIO, problems: string[]): string 
   }
 }
 
+const mainModel = (s: Settings): ModelSettings =>
+  s.LLM_BASE_URL
+    ? { provider: 'openai-compatible', model: s.LLM_MODEL, baseUrl: s.LLM_BASE_URL, apiKey: s.LLM_API_KEY }
+    : { provider: 'anthropic', model: s.ANTHROPIC_MODEL, apiKey: s.ANTHROPIC_API_KEY ?? '' };
+const withModel = (m: ModelSettings, model: string): ModelSettings => ({ ...m, model });
+
 function toConfig(s: Settings, spaces: GenieSpace[], domainRules: string): BiConfig {
   const local = s.BI_MODE === 'local';
   return {
@@ -121,9 +128,7 @@ function toConfig(s: Settings, spaces: GenieSpace[], domainRules: string): BiCon
     genie: { mode: s.GENIE_MODE, rowCap: s.GENIE_ROW_CAP, fullRowCap: s.GENIE_FULL_ROW_CAP, timeoutMs: s.GENIE_TIMEOUT_MS, retryAttempts: s.GENIE_RETRY_ATTEMPTS, maxPerMinute: s.BI_GENIE_MAX_PER_MINUTE, queueWaitMs: s.BI_GENIE_QUEUE_WAIT_MS },
     suggestWaitMs: s.SUGGEST_WAIT_MS,
     history: { turns: s.BI_HISTORY_TURNS, maxChars: s.BI_HISTORY_MAX_CHARS, includeSql: s.BI_HISTORY_INCLUDE_SQL },
-    model: s.LLM_BASE_URL
-      ? { provider: 'openai-compatible', model: s.LLM_MODEL, baseUrl: s.LLM_BASE_URL, apiKey: s.LLM_API_KEY }
-      : { provider: 'anthropic', model: s.ANTHROPIC_MODEL, apiKey: s.ANTHROPIC_API_KEY ?? '' },
+    model: mainModel(s),
     service: {
       enabled: s.BI_ENABLED,
       maxBodyBytes: s.BI_MAX_BODY_BYTES,
@@ -136,6 +141,7 @@ function toConfig(s: Settings, spaces: GenieSpace[], domainRules: string): BiCon
       frameAncestors: s.BI_FRAME_ANCESTORS?.trim() || "'self'",
       build: s.BI_BUILD_SHA,
     },
+    guards: { injection: s.BI_GUARD_INJECTION, model: s.BI_GUARD_MODEL ? withModel(mainModel(s), s.BI_GUARD_MODEL) : undefined, failClosed: s.BI_GUARD_FAIL_CLOSED },
     logging: { format: s.BI_LOG_FORMAT ?? (local ? 'pretty' : 'json'), level: s.BI_LOG_LEVEL, content: s.BI_LOG_CONTENT },
     spaces,
     domainRules,

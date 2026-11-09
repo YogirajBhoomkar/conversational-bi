@@ -28,7 +28,8 @@ if (!oauth) logger.warn('config.shared_token', { note: 'DATABRICKS_CLIENT_ID not
 const tokens: TokenProvider = oauth ? new SessionTokenProvider((refreshToken) => refreshTokens(oauth, refreshToken)) : new PatTokenProvider(config.databricks.token);
 
 const model = createModelProvider(config.model);
-const service = createBiService(config, { tokens, model, logger });
+const guardModel = config.guards.model && createModelProvider(config.guards.model);
+const service = createBiService(config, { tokens, model, logger, guardModel });
 logger.info('service.started', { mode: config.mode, port: config.port, spaces: config.spaces.map((s) => s.key), genieMode: config.genie.mode, model: model.label });
 const authenticator = new LocalAuthenticator(Boolean(oauth), tokens);
 const { service: limits } = config;

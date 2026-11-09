@@ -55,6 +55,11 @@ export const SettingsSchema = z.object({
   LLM_API_KEY: setting(z.string().optional(), 'API key for LLM_BASE_URL.', { group: 'AI model', secret: true }),
   LLM_MODEL: setting(z.string().min(1).default('gpt-5.1'), 'Model name at LLM_BASE_URL.', { group: 'AI model' }),
 
+  // ---------------------------------------------------------------- Input guards
+  BI_GUARD_INJECTION: setting(z.enum(['off', 'log', 'block']).default('off'), 'Prompt-injection check on each question. off: none. log: record a hit and answer anyway. block: refuse the question. When on, it adds one call to BI_GUARD_MODEL per question, before anything streams.', { group: 'Input guards' }),
+  BI_GUARD_MODEL: setting(z.string().trim().min(1).optional(), 'Model for the prompt-injection check (required unless BI_GUARD_INJECTION=off): a small, cheap model on the same provider and endpoint as the main model.', { group: 'Input guards', example: 'claude-haiku-5-5' }),
+  BI_GUARD_FAIL_CLOSED: setting(flag().default(false), 'true: refuse the question when the guard model fails. false: answer anyway and log it. Honoured only on Mastra versions with errorStrategy; older ones always answer.', { group: 'Input guards' }),
+
   // ---------------------------------------------------------------- Service limits and safety
   BI_ENABLED: setting(flag().default(true), 'false switches chat and feedback off (503 with a friendly message) without taking the service down. Health checks keep answering.', { group: 'Service' }),
   BI_MAX_BODY_BYTES: setting(int(1024, 1_048_576).default(65_536), 'Largest request body accepted, in bytes (413 above it). Leave room for the chat history the UI sends with each question.', { group: 'Service' }),
@@ -93,6 +98,7 @@ export function crossCheck(s: Settings): Array<{ name: SettingName; message: str
     if (s.UI_DIST) problems.push({ name: 'UI_DIST', message: 'the UI is not served in gc mode' });
     if (!s.BI_SPACES_FILE && !s.BI_SPACES_JSON) problems.push({ name: 'BI_SPACES_FILE', message: 'set BI_SPACES_FILE or BI_SPACES_JSON' });
   }
+  if (s.BI_GUARD_INJECTION !== 'off' && !s.BI_GUARD_MODEL) problems.push({ name: 'BI_GUARD_MODEL', message: 'set BI_GUARD_MODEL, or BI_GUARD_INJECTION=off' });
   if (!s.LLM_BASE_URL && !s.ANTHROPIC_API_KEY) problems.push({ name: 'ANTHROPIC_API_KEY', message: 'set ANTHROPIC_API_KEY, or LLM_BASE_URL for an OpenAI-compatible endpoint' });
   return problems;
 }
