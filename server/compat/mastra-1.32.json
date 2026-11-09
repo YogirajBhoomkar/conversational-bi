@@ -1,0 +1,17 @@
+{
+  "name": "mastra-1.32",
+  "description": "The closest published set to the older Mastra the host runs: @mastra/core 1.32.1 (there is no 1.32.9 on the registry). Package version counters are independent; these are matched by release date. The CLI would pull the newest deployer and server, so those are pinned through overrides. @mastra/memory (1.17.5 in this set) is no longer a dependency, so it is not installed.",
+  "useLockfile": false,
+  "dependencies": {
+    "@mastra/core": "1.32.1",
+    "@mastra/libsql": "1.10.0",
+    "@mastra/loggers": "1.1.1"
+  },
+  "devDependencies": {
+    "mastra": "1.7.3"
+  },
+  "overrides": {
+    "@mastra/deployer": "1.32.1",
+    "@mastra/server": "1.32.1"
+  }
+}

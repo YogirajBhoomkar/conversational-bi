@@ -1,5 +1,5 @@
 {
-  "$comment": "What Conversational BI needs from the host monorepo. Kept in sync with server/package.json by a test (lift.test.ts).",
+  "$comment": "What Conversational BI needs from the host monorepo. Kept in sync with server/package.json by a test (depsManifest.test.ts). The versions are the ones tested here; for the Mastra packages the host's lockfile decides (see `mastra`).",
   "node": ">=22.13.0",
   "dependencies": {
     "@ai-sdk/anthropic": {
@@ -8,11 +8,11 @@
     },
     "@mastra/core": {
       "version": "^1.79.0",
-      "why": "Agents, tools and the HTTP server; needs Node 22.13 or later"
+      "why": "Agents, tools and the HTTP server; needs Node 22.13 or later. Version: the host decides, from one Mastra release set"
     },
     "@mastra/libsql": {
       "version": "^1.27.0",
-      "why": "Mastra's own storage for agent runs (LibSQL file or in-memory); the chat history comes from the UI"
+      "why": "Mastra's own storage for agent runs (LibSQL file or in-memory); the chat history comes from the UI. Version: the host decides, from one Mastra release set"
     },
     "dotenv": {
       "version": "^18.0.9",
@@ -30,7 +30,7 @@
     },
     "mastra": {
       "version": "^1.35.0",
-      "why": "Mastra CLI: build and dev server"
+      "why": "Mastra CLI: build and dev server. Version: the host decides, from the same Mastra release set"
     },
     "tsx": {
       "version": "^4.23.15",
@@ -43,6 +43,34 @@
     "vitest": {
       "version": "^3.2.0",
       "why": "Tests"
+    }
+  },
+  "mastra": {
+    "rule": "The host's lockfile decides the Mastra versions. Install one release set: the packages below must all come from the same Mastra release. Their version numbers are independent counters, so match them by release date, not by number. Pin @mastra/deployer and @mastra/server to @mastra/core's version (overrides), or the CLI pulls the newest ones and the server fails at start-up. Check a set with server/scripts/compat-check.mjs (docs/lift/MASTRA-COMPAT.md).",
+    "pinTogether": [
+      "@mastra/core",
+      "@mastra/deployer",
+      "@mastra/server",
+      "@mastra/libsql",
+      "@mastra/loggers",
+      "mastra"
+    ],
+    "testedSets": {
+      "current": {
+        "@mastra/core": "1.79.0",
+        "@mastra/libsql": "1.27.0",
+        "mastra": "1.35.0"
+      },
+      "mastra-1.32": {
+        "@mastra/core": "1.32.1",
+        "@mastra/libsql": "1.10.0",
+        "@mastra/loggers": "1.1.1",
+        "mastra": "1.7.3",
+        "overrides": {
+          "@mastra/deployer": "1.32.1",
+          "@mastra/server": "1.32.1"
+        }
+      }
     }
   }
 }

@@ -5,6 +5,7 @@ server/src                  -> <app>/src
 server/config               -> <app>/config
 server/contracts            -> <app>/contracts
 server/scripts              -> <app>/scripts
+server/compat               -> <app>/compat
 server/package.json         -> <app>/package.json
 server/tsconfig.json        -> <app>/tsconfig.json
 server/.env.example         -> <app>/.env.example

@@ -17,6 +17,8 @@ The files go to `apps/conversational-bi` (change with `--app`). The script refus
 
 The core runs on Mastra, which needs **Node 22.13 or later**. `lift/deps.manifest.json` lists what it needs and why. GC's API runs Node 20 today, so the app runs on its own Node 22 runtime: either as its own NestJS app or with the Mastra server it has. Check `zod` against GC's version before merging dependencies into one root `package.json` (we use zod 4).
 
+The Mastra versions are GC's to choose: the lifted `package.json` shows the ones tested here, but GC's lockfile decides. Install one Mastra release set, with `@mastra/deployer` and `@mastra/server` pinned to `@mastra/core`'s version, and check it with `node scripts/compat-check.mjs --profile <file>` before merging. `lift/deps.manifest.json` (`mastra`) lists the packages that move together, and `docs/lift/MASTRA-COMPAT.md` has the findings for the older 1.32 set.
+
 ## 3. Host it
 
 Use GC's NestJS conventions and GC's own auth, as is:

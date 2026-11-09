@@ -1,0 +1,5 @@
+{
+  "name": "current",
+  "description": "The versions in server/package.json, installed from the lockfile.",
+  "useLockfile": true
+}
