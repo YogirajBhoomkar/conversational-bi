@@ -198,6 +198,28 @@ describe('POST /bi/chat (characterization)', () => {
     expect(calls).toBe(0);
   });
 
+  // New (scope guard): a Genie reply that is text only (no SQL, no rows) is not a data answer. BI_GUARD_SCOPE defaults
+  // to enforce: the answer becomes the scope message, built from the spaces unless BI_SCOPE_MESSAGE is set.
+  it('replaces a text-only Genie reply with the scope message, and sends no follow-ups', async () => {
+    let calls = 0;
+    scenario.suggest = async () => (calls++, { object: { questions: [{ question: 'Another?', space: 'placement' }] } });
+    scenario.chunks = turn({ summary: 'Here is a joke.', sql: null, columns: [], rows: [], totalRows: 0, suggestedQuestions: ['Another joke?'] });
+    const evs = await events(await call(await loadRoutes(), '/bi/chat', { threadId: 't1', message: 'tell me a joke' }));
+    const final = evs.at(-1) as Extract<ChatEvent, { type: 'final' }>;
+    expect(final.type).toBe('final');
+    expect(final.result.answer).toMatch(/^I can help with questions about Lab – Placement Core \(.+\) and Lab – Capacity & Reinsurer \(.+\)\. Ask me something about that data\.$/);
+    expect(final.result).toMatchObject({ sources: [], rows: [], suggestedQuestions: [] });
+    expect(evs.at(-2)).toEqual({ type: 'text', delta: final.result.answer });
+    expect(calls).toBe(0);
+
+    const custom = await events(await call(await loadRoutes({ BI_SCOPE_MESSAGE: 'Only placement and capacity questions, please.' }), '/bi/chat', { threadId: 't1', message: 'tell me a joke' }));
+    expect(custom.at(-1)).toMatchObject({ type: 'final', result: { answer: 'Only placement and capacity questions, please.' } });
+
+    const off = await events(await call(await loadRoutes({ BI_GUARD_SCOPE: 'off' }), '/bi/chat', { threadId: 't1', message: 'tell me a joke' }));
+    // Off: no scope message. The output guard still replaces the figure the model wrote, which no data backs.
+    expect(off.at(-1)).toMatchObject({ type: 'final', result: { answer: "I couldn't get data for that question just now. Please try again or rephrase." } });
+  });
+
   it('ends a failed turn with an `error` event and no `final`', async () => {
     scenario.chunks = async function* () {
       yield { type: 'text-delta', payload: { text: 'Let me check.' } };

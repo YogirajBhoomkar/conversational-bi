@@ -36,6 +36,7 @@ export const SettingsSchema = z.object({
   BI_DOMAIN_RULES_FILE: setting(z.string().optional(), 'Plain-text business rules appended to the supervisor prompt (see config/examples/domain-rules.example.md). Default in local mode: the example file.', { group: 'Genie spaces', example: 'config/domain-rules.md' }),
 
   // ---------------------------------------------------------------- Scope (off-topic questions)
+  BI_GUARD_SCOPE: setting(z.enum(['off', 'log', 'enforce']).default('enforce'), 'Reply check for off-topic questions: when every Genie call of a turn answered with text only (no SQL, no rows) and no question went back to the user, the answer is not data. enforce: replace it with the scope message (no table, charts, sources or follow-ups). log: only record it. off: no check. No extra model calls.', { group: 'Scope' }),
   BI_SCOPE_MESSAGE: setting(z.string().trim().min(1).max(1000).optional(), 'The reply to a question none of the Genie spaces can answer (a joke, general knowledge, coding). Default: built from the space names and descriptions ("I can help with questions about <spaces>. Ask me something about that data.").', { group: 'Scope' }),
 
   // ---------------------------------------------------------------- Genie behaviour

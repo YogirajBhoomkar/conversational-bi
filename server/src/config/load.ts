@@ -52,7 +52,7 @@ export type BiConfig = {
   outputGuard: boolean; // clean what the model writes (core/guards/output.ts)
   spaces: GenieSpace[];
   domainRules: string;
-  scope: { message?: string }; // BI_SCOPE_MESSAGE; absent: built from the spaces (core/agents/prompts.ts scopeMessage)
+  scope: { message?: string; guard: 'off' | 'log' | 'enforce' }; // BI_SCOPE_MESSAGE (absent: built from the spaces, core/agents/prompts.ts) and BI_GUARD_SCOPE
   uiDist?: string;
 };
 
@@ -150,7 +150,7 @@ function toConfig(s: Settings, spaces: GenieSpace[], domainRules: string): BiCon
     grounding: s.BI_GROUNDING === 'log',
     spaces,
     domainRules,
-    scope: { message: s.BI_SCOPE_MESSAGE },
+    scope: { message: s.BI_SCOPE_MESSAGE, guard: s.BI_GUARD_SCOPE },
     uiDist: local ? s.UI_DIST : undefined,
   };
 }

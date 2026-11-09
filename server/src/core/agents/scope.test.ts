@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { ChatEvent, FinalAnswer, GenieClient, GenieResult, GenieSpace } from '../../contracts';
 import { handleChat, type ChatDeps } from '../chat/handleChat';
 import { createSpaceRegistry } from '../genie/registry';
+import { createScopeGuard } from '../guards/scope';
 import { ALLOWED_WITHOUT_DATA, DATA_QUESTION, FOLLOW_UP, GENIE_REPLIES, MIXED, OUT_OF_SCOPE } from '../guards/scopeFixtures';
 import { silentLogger } from '../log';
 import { createAgents } from './createAgents';
@@ -69,7 +70,7 @@ describe('the supervisor prompt', () => {
 
 // A turn with the real agents: the stub model answers each model call in order (supervisor, then the data agent it
 // delegates to, then the supervisor again). The fake Genie answers with the given reply.
-async function turn(steps: StubStep[], message: string, genieReply: GenieResult = GENIE_REPLIES.withRows, history?: Array<{ question: string; answer: string }>) {
+async function turn(steps: StubStep[], message: string, genieReply: GenieResult = GENIE_REPLIES.withRows, history?: Array<{ question: string; answer: string }>, scopeGuard?: ChatDeps['scopeGuard']) {
   const registry = createSpaceRegistry(TWO);
   const { model, prompts } = stubModel(steps);
   const genie = { ask: vi.fn(async () => genieReply), feedback: vi.fn() } as unknown as GenieClient & { ask: ReturnType<typeof vi.fn> };
@@ -77,7 +78,7 @@ async function turn(steps: StubStep[], message: string, genieReply: GenieResult 
   const generate = vi.fn(async () => ({ object: { questions: [{ question: 'How does it split by region?', space: 'orders' }] } }));
   const deps: ChatDeps = {
     supervisor, suggestAgent: { generate } as unknown as ChatDeps['suggestAgent'], registry, modelLabel: 'stub', suggestWaitMs: 1000,
-    genieMode: 'conversation', logger: silentLogger, turnTimeoutMs: 30_000, history: { turns: 3, maxChars: 1500, includeSql: false },
+    genieMode: 'conversation', logger: silentLogger, turnTimeoutMs: 30_000, history: { turns: 3, maxChars: 1500, includeSql: false }, scopeGuard,
   };
   const events: ChatEvent[] = [];
   for await (const e of handleChat(deps, { userId: 'u', userToken: 't', traceId: 'tr', signal: new AbortController().signal }, { threadId: 'a', message, history })) events.push(e);
@@ -132,9 +133,9 @@ describe('a turn, by kind of question', () => {
     expect(final).toMatchObject({ answer, rows: [[2024, 42]] });
   });
 
-  it('no follow-ups at all, ours or Genie\'s, when the only Genie reply was text', async () => {
-    const { final, events, generate } = await turn([...delegate('q'), { text: 'Genie had no figures for that.' }], 'some question here', GENIE_REPLIES.textOnly);
-    expect(final?.suggestedQuestions).toEqual([]);
+  it('delegated anyway and Genie answered with text: the reply check gives the scope message, and no follow-ups', async () => {
+    const { final, events, generate } = await turn([...delegate('Tell me a joke'), { text: 'Here is one: the spreadsheet blushed.' }], OUT_OF_SCOPE[0], GENIE_REPLIES.textOnly, undefined, createScopeGuard('enforce', scopeMessage(TWO)));
+    expect(final).toMatchObject({ answer: scopeMessage(TWO), sources: [], suggestedQuestions: [] });
     expect(generate).not.toHaveBeenCalled();
     expect(events.some((e) => e.type === 'suggestions')).toBe(false);
   });

@@ -57,6 +57,7 @@ I listed these by searching the source for `process.env`. "Secret" means: do not
 | `BI_GUARD_FAIL_CLOSED` | no | *Proposed.* Refuse when the guard model fails | false | same |
 | `BI_GUARD_OUTPUT` | no | *Proposed.* Clean images, links, HTML, URLs and internal names from model text | on | `core/guards/output.ts` |
 | `BI_GROUNDING` | no | *Proposed.* Log figures that match no data (log only) | log | `core/guards/grounding.ts` |
+| `BI_GUARD_SCOPE` | no | Replace a text-only Genie reply with the scope message: off, log, enforce | enforce | `core/guards/scope.ts` |
 | `BI_SCOPE_MESSAGE` | no | Reply to an off-topic question | built from the spaces | `core/agents/prompts.ts` (`scopeMessage`) |
 | `VITE_HISTORY_TURNS` | no | Earlier turns the UI sends (UI build time) | 3 | `ui/src/hooks/history.ts` |
 

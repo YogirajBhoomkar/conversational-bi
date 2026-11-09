@@ -14,6 +14,7 @@ import { suggestFollowUps } from '../suggest/suggest';
 import { createTracer, type TraceChunk } from '../trace/trace';
 import { createUsageMeter, type UsageMeter, withMeter } from '../usage';
 import { createOutputGuard, type OutputGuard } from '../guards/output';
+import type { ScopeGuard } from '../guards/scope';
 import { clarificationFromText } from './clarifyFromText';
 import { priorMessages, recentHistory } from './history';
 import { isDataResult, newCollector, type TurnValues } from './collector';
@@ -30,6 +31,7 @@ export type ChatDeps = {
   turnTimeoutMs: number; // a turn running longer is stopped
   history: HistorySettings; // how much of the chat history sent by the UI is used
   outputGuard?: OutputGuard; // cleans what the model writes (core/guards/output.ts); none when absent
+  scopeGuard?: ScopeGuard; // replaces a text-only Genie reply with the scope message (core/guards/scope.ts); none when absent
 };
 
 type StreamChunk = TraceChunk & { payload?: { error?: unknown }; error?: unknown };
@@ -149,17 +151,28 @@ async function runTurn(deps: ChatDeps, requestCtx: BiRequestContext, { threadId:
     }
     const leaks = guarded.leaks + [...traceLeaks.values()].reduce((n, c) => n + c, 0);
     if (leaks) log().warn('guard.output.leak', { count: leaks });
-    const withData = [...collector.results].reverse().find((r) => r.columns.length);
-    const gotData = collector.results.some(isDataResult);
+    // Genie answered with text only (a joke, general knowledge): not a data answer, so the user gets the scope message
+    // and nothing of that reply (no table, charts, sources or follow-ups). After the output guard, so its no-data
+    // message cannot replace the scope message.
+    const outOfScope = deps.scopeGuard?.check(collector.results, collector.clarification) === 'replace';
+    if (outOfScope) {
+      answer = deps.scopeGuard!.message;
+      send({ type: 'text-reset' });
+      send({ type: 'text', delta: answer });
+    }
+    const results = outOfScope ? [] : collector.results; // what the user is shown; the log still counts every call
+    const charts = outOfScope ? [] : collector.charts;
+    const withData = [...results].reverse().find((r) => r.columns.length);
+    const gotData = results.some(isDataResult);
     // Loading the full result re-uses an earlier message, so keep one source per message (the latest).
-    const sources = [...new Map(collector.results.map((r) => [r.messageId, r])).values()];
+    const sources = [...new Map(results.map((r) => [r.messageId, r])).values()];
     const final: FinalAnswer = {
       answer,
       columns: withData?.columns ?? [],
       rows: withData?.rows ?? [],
       totalRows: withData?.totalRows ?? 0,
-      charts: collector.charts,
-      chartSpec: collector.charts[0] ?? null,
+      charts,
+      chartSpec: charts[0] ?? null,
       sources: sources.map((r) => ({
         spaceId: r.spaceId,
         spaceName: deps.registry.byId(r.spaceId)?.name ?? r.spaceId,
@@ -169,7 +182,7 @@ async function runTurn(deps: ChatDeps, requestCtx: BiRequestContext, { threadId:
         conversationId: r.conversationId,
       })),
       // Genie's own follow-ups only for a data answer: a text-only reply's would build on the off-topic answer.
-      suggestedQuestions: [...collector.results].reverse().find((r) => isDataResult(r) && r.suggestedQuestions.length)?.suggestedQuestions ?? [],
+      suggestedQuestions: [...results].reverse().find((r) => isDataResult(r) && r.suggestedQuestions.length)?.suggestedQuestions ?? [],
       ...(collector.clarification ? { clarification: collector.clarification } : {}),
       traceId: ctx.traceId,
     };
@@ -187,7 +200,7 @@ async function runTurn(deps: ChatDeps, requestCtx: BiRequestContext, { threadId:
     if (suggesting) usage.unreported(SUGGESTER);
     log().info('chat.turn', {
       durationMs, firstAnswerMs, genieCalls: collector.results.length, failedCalls: collector.results.filter((r) => r.error).length,
-      charts: collector.charts.length, rows: final.totalRows, inputTokens: own?.inputTokens, outputTokens: own?.outputTokens, ...usage.snapshot(),
+      charts: charts.length, rows: final.totalRows, ...(outOfScope ? { outOfScope } : {}), inputTokens: own?.inputTokens, outputTokens: own?.outputTokens, ...usage.snapshot(),
       ...(deps.grounding ? { grounding: groundingOf(answer, collector.results, message, earlier) } : {}),
     });
   } catch (err) {

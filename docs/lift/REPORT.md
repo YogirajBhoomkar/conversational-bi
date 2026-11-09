@@ -91,6 +91,60 @@ Work on branch `feat/today-hardening` (not pushed). Items 1, 2, 3 and 8 are in t
 - Agent-mode Genie on the old Mastra set; the 1.32 profile on Node 20.
 - Mastra prints its own `[WORKFLOW] Error executing step…` line to the console when an input guard blocks; it holds the reason, not the question.
 
+## Scope guard: off-topic questions, 9 November 2026
+
+Seen in real use: "Tell me a joke" went to a Genie space, Genie answered with a joke, it was shown as the answer, and follow-ups were written for it. Rule now: a question is in scope only if one of the configured Genie spaces can answer it. Scope comes from the spaces configuration (names, descriptions, routing), never from words in code. Phase 1 scope; branch `feat/scope-guard` (from `feat/today-hardening`, not pushed), two commits:
+
+| Commit | What |
+|---|---|
+| `4e14bad` (A) | A SCOPE section in the supervisor prompt. A greeting, thanks and "what can you do" are answered without a data agent. Anything else that needs no data gets the **scope message** and no agent or tool call. A mixed question gets the data part answered and one sentence declining the rest. When unsure, the supervisor asks back instead of refusing. Follow-ups are judged with the earlier turns. The scope message is built from the spaces: "I can help with questions about <name> (<short phrase from its description>) … Ask me something about that data." No follow-ups, ours or Genie's, for a turn without a Genie result that has SQL or rows |
+| (B) | The reply check (`core/guards/scope.ts`). It applies when Genie was called, every call succeeded, none returned SQL or rows, and no question went back to the user. The answer is then replaced with the same scope message (`text-reset`, then the message), with no table, charts or sources. No model call. Logs `guard.scope.replaced` or `guard.scope.flagged` with counts only, and `outOfScope: true` in `chat.turn` |
+
+Settings:
+
+| Setting | Default | What |
+|---|---|---|
+| `BI_SCOPE_MESSAGE` | built from the spaces | Replaces the scope message, in the prompt and the reply check alike |
+| `BI_GUARD_SCOPE` | enforce | `enforce` replaces a text-only Genie reply, `log` only records it, `off` does nothing |
+
+Behaviour that changed:
+
+- **Follow-ups:** written only for a turn that got data. Before, every turn except a clarification or a failure got them.
+- **Agent mode follow-ups:** they used to start before the supervisor ran. They now start as soon as the first data result comes back, still in parallel with the answer.
+- **Text-only Genie replies:** shown as the answer before; now replaced, in every Genie mode. This includes a legitimate one (see below).
+- **Small talk:** the prompt no longer answers small talk other than greetings and thanks.
+- **Failed Genie calls:** left alone by the scope check. The output guard's "couldn't get data" message still applies, so a time-out is not answered with "ask me something about the data".
+
+Where the code differs from the brief: the reply check also needs every Genie call to have succeeded.
+
+Tests:
+- **Fixtures:** in one place (`core/guards/scopeFixtures.ts`).
+- **Prompt level (`core/agents/scope.test.ts`):**
+  - The real agents with a scripted stub model and a fake Genie.
+  - The five off-topic questions get the scope message, with no Genie call and no follow-ups.
+  - A data question and a follow-up that needs the earlier turn are delegated.
+  - "hello", "thanks" and "what can you do" are answered without Genie.
+  - The mixed question keeps its data.
+  - The message differs for two and five spaces, and the override works.
+- **Guard level (`core/guards/scope.test.ts`):**
+  - A text-only reply is replaced.
+  - Kept: zero rows with SQL, a clarification (tool or text), a failed turn, a failed Genie call.
+  - `log` and `off` leave the answer.
+  - No follow-ups for a replaced turn (both Genie modes) or a greeting.
+- **Characterization:** one new test, through the real configuration: the default `enforce`, the message built from the spaces, `BI_SCOPE_MESSAGE` and `off`.
+- **Counts:** server 246 tests in 32 files (was 207 in 30); type check clean; `.env.example` regenerated.
+- **`compat-check` on both profiles** (`current`, core 1.79.0; `mastra-1.32`, core 1.32.1): install, type check, tests (244 passed, 2 skipped because the copy is not a git checkout), `mastra build`, boot, health, version and the chat check all pass. SIGTERM is skipped on Windows, as before.
+
+Not verified (no live Genie or model):
+
+- **Whether a real model follows the SCOPE section.** The stub plays the model, so the tests show the rule is in the prompt and that each reply flows through correctly, not that the model obeys it. This needs a run of the fixture questions against the real model.
+- **How the real Genie spaces reply to off-topic questions:** text only (replaced), a refusal (also text only, so replaced with our message), or an attempted query (kept, because it has SQL).
+- **Whether a legitimate text-only reply gets replaced.** Genie can answer in text without a query, for example a definition from the space's instructions or "this space has no data on that". Under `enforce` those become the scope message. If that shows up in UAT, `BI_GUARD_SCOPE=log` keeps the answers and still counts them (`guard.scope.flagged`), to size the problem.
+- **The wording of the generated message for the client's real space descriptions.** It takes the part of the first sentence before a colon. A description that starts differently may read oddly; `BI_SCOPE_MESSAGE` is the fix.
+- **The Mastra build in place.** `.mastra/output` was locked by a running local server, so the build was checked only inside `compat-check`, in a temporary copy. The UI was not changed, so it was not rebuilt.
+
+Recommendation (needs the client): the owner of each Genie space should add an instruction to the space itself, such as "Answer only questions about this data; for anything else, say you can only answer questions about <the space's subject>." Genie then stops answering off-topic questions at the source, and our check becomes the backstop.
+
 ## Phase 5 in detail (proposed)
 
 Three pieces of state live in plain maps in the process memory: login sessions (local mode), Genie conversation ids per thread and space, and the last result per thread and space (for "show all rows"). The last two are best-effort: an instance without them starts a new Genie conversation, and "show all rows" says the full result is not available. The chat history is no longer kept on the server: the UI sends it with each question (contract 1.2.0). Mastra's own storage is a LibSQL file in the build folder (`mastra.db`).
@@ -144,3 +198,4 @@ From GC (details in `OPEN-QUESTIONS.md`):
 4. Session affinity, or a shared store for conversation state.
 5. The ingress must not buffer the answer stream.
 6. GC's Mastra versions, the Genie quota and mode, and whether a guard-model call per question is allowed.
+7. The space owners: add a "refuse questions that are not about this data" instruction to each Genie space (see the scope guard section).

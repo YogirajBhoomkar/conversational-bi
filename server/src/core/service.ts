@@ -15,6 +15,7 @@ import { DatabricksGenieClient } from './genie/client';
 import { createGenieLimiter } from './genie/limiter';
 import { createSpaceRegistry } from './genie/registry';
 import { inputGuards } from './guards/input';
+import { createScopeGuard } from './guards/scope';
 import { retryPolicy } from './genie/retry';
 
 // guardModel: the model of the prompt-injection check, when BI_GUARD_INJECTION is on.
@@ -45,6 +46,7 @@ export function createBiService(config: BiConfig, adapters: BiAdapters) {
     genieMode: config.genie.mode,
     logger: adapters.logger,
     outputGuard: createOutputGuard(config.outputGuard, registry),
+    scopeGuard: createScopeGuard(config.scope.guard, scope),
     turnTimeoutMs: config.service.turnTimeoutMs,
     history: config.history,
     grounding: config.grounding,

@@ -67,6 +67,7 @@ The complete list, with descriptions, is `server/.env.example` (generated from `
 | `BI_GUARD_FAIL_CLOSED` | false | *Proposed.* Refuse the question when the guard model fails (newer Mastra only) |
 | `BI_GUARD_OUTPUT` | on | *Proposed.* Remove images, links, HTML, URLs and internal names from what the model writes; replace figures when no data came back |
 | `BI_GROUNDING` | log | *Proposed.* Log how many figures of an answer match nothing the data returned. Never changes the answer |
+| `BI_GUARD_SCOPE` | enforce | Reply check: when every Genie call of a turn answered with text only (no SQL, no rows), `enforce` replaces the answer with the scope message, `log` only records it, `off` does nothing |
 | `BI_SCOPE_MESSAGE` | (built from the spaces) | The reply to an off-topic question. Default: "I can help with questions about <space name> (<short phrase from its description>) …" |
 | `VITE_HISTORY_TURNS` (UI build) | 3 | Earlier turns the UI sends with each question |
 
