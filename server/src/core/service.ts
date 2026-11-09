@@ -7,7 +7,7 @@ import type { BiRequestContext } from '../ports/context';
 import type { BiLogger } from '../ports/logger';
 import type { ModelProvider } from '../ports/model';
 import { createAgents } from './agents/createAgents';
-import { handleChat, handleFeedback } from './chat/handleChat';
+import { type ChatDeps, handleChat, handleFeedback } from './chat/handleChat';
 import { DatabricksGenieAgentClient } from './genie/agentClient';
 import { DatabricksGenieClient } from './genie/client';
 import { createGenieLimiter } from './genie/limiter';
@@ -23,8 +23,23 @@ export function createBiService(config: BiConfig, adapters: BiAdapters) {
     limiter: createGenieLimiter({ maxPerMinute: config.genie.maxPerMinute, maxWaitMs: config.genie.queueWaitMs }) };
   // GENIE_MODE=agent uses Genie Agent mode (GA), which streams the agent's reasoning. Default is the Conversation API.
   const genie = config.genie.mode === 'agent' ? new DatabricksGenieAgentClient(adapters.tokens, genieOptions) : new DatabricksGenieClient(adapters.tokens, genieOptions);
-  const { supervisor, genieAgents, suggestAgent } = createAgents(genie, { registry, model: adapters.model.model, domainRules: config.domainRules, fullRowCap: config.genie.fullRowCap });
-  const chatDeps = { supervisor, suggestAgent, registry, modelLabel: adapters.model.label, suggestWaitMs: config.suggestWaitMs, genieMode: config.genie.mode, logger: adapters.logger, turnTimeoutMs: config.service.turnTimeoutMs, history: config.history };
+  const { supervisor, genieAgents, suggestAgent } = createAgents(genie, {
+    registry,
+    model: adapters.model.model,
+    domainRules: config.domainRules,
+    fullRowCap: config.genie.fullRowCap,
+  });
+  const chatDeps: ChatDeps = {
+    supervisor,
+    suggestAgent,
+    registry,
+    modelLabel: adapters.model.label,
+    suggestWaitMs: config.suggestWaitMs,
+    genieMode: config.genie.mode,
+    logger: adapters.logger,
+    turnTimeoutMs: config.service.turnTimeoutMs,
+    history: config.history,
+  };
 
   return {
     registry,
