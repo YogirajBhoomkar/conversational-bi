@@ -48,6 +48,7 @@ export type BiConfig = {
   guards: { injection: 'off' | 'log' | 'block'; model?: ModelSettings; failClosed: boolean }; // the guard model shares the main model's provider
   logging: LogSettings;
   service: ServiceSettings;
+  outputGuard: boolean; // clean what the model writes (core/guards/output.ts)
   spaces: GenieSpace[];
   domainRules: string;
   uiDist?: string;
@@ -118,6 +119,7 @@ function toConfig(s: Settings, spaces: GenieSpace[], domainRules: string): BiCon
     mode: s.BI_MODE,
     port: s.PORT,
     routePrefix: s.BI_ROUTE_PREFIX,
+    outputGuard: s.BI_GUARD_OUTPUT === 'on',
     databricks: {
       host: s.DATABRICKS_SERVER_HOSTNAME,
       token: local ? s.DATABRICKS_TOKEN : undefined,

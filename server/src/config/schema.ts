@@ -78,6 +78,9 @@ export const SettingsSchema = z.object({
   BI_LOG_LEVEL: setting(z.enum(['debug', 'info', 'warn', 'error']).default('info'), 'The lowest level written.', { group: 'Logging' }),
   BI_LOG_CONTENT: setting(flag().default(false), 'true: also log question and answer text and SQL (for debugging only). Secrets are removed either way.', { group: 'Logging' }),
 
+  // ---------------------------------------------------------------- Output guards
+  BI_GUARD_OUTPUT: setting(z.enum(['on', 'off']).default('on'), 'on: remove images, links, raw HTML, bare URLs and internal agent or tool names from what the model writes, and replace an answer with figures when no data came back. No extra model calls.', { group: 'Output guards' }),
+
   // ---------------------------------------------------------------- Local UI
   UI_DIST: setting(z.string().optional(), 'local only: folder of the built UI to serve from the same port. npm start sets it; do not put it in .env.', { group: 'Local UI' }),
 });

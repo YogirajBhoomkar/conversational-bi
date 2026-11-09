@@ -12,6 +12,7 @@ import type { SpaceRegistry } from '../genie/registry';
 import { suggestFollowUps } from '../suggest/suggest';
 import { createTracer, type TraceChunk } from '../trace/trace';
 import { createUsageMeter, type UsageMeter, withMeter } from '../usage';
+import { createOutputGuard, type OutputGuard } from '../guards/output';
 import { clarificationFromText } from './clarifyFromText';
 import { priorMessages, recentHistory } from './history';
 import { newCollector, type TurnValues } from './collector';
@@ -26,6 +27,7 @@ export type ChatDeps = {
   logger: BiLogger;      // the base logger; each turn logs through a child carrying its trace id
   turnTimeoutMs: number; // a turn running longer is stopped
   history: HistorySettings; // how much of the chat history sent by the UI is used
+  outputGuard?: OutputGuard; // cleans what the model writes (core/guards/output.ts); none when absent
 };
 
 type StreamChunk = TraceChunk & { payload?: { error?: unknown }; error?: unknown };
@@ -87,9 +89,16 @@ async function runTurn(deps: ChatDeps, requestCtx: BiRequestContext, { threadId:
   requestContext.set('signal', ctx.signal);
 
   let answer = '';
+  const guard = deps.outputGuard ?? createOutputGuard(false, deps.registry);
+  const traceLeaks = new Map<string, number>();
   const tracer = createTracer(
     {
-      trace: (item) => send({ type: 'trace', item }),
+      trace: (item) => {
+        if (!item.text) return send({ type: 'trace', item });
+        const { text, leaks } = guard.text(item.text);
+        traceLeaks.set(item.id, leaks); // an item is re-sent as it grows: count its latest text once
+        send({ type: 'trace', item: { ...item, text } });
+      },
       answer: (delta) => {
         firstAnswerMs ??= Date.now() - started;
         answer += delta;
@@ -127,6 +136,15 @@ async function runTurn(deps: ChatDeps, requestCtx: BiRequestContext, { threadId:
         send({ type: 'text-reset' });
       }
     }
+    // What streamed is shown before the server can check it; a corrected answer replaces it (text-reset, then the text).
+    const guarded = guard.answer(answer, collector.results, collector.clarification);
+    if (guarded.text !== answer) {
+      answer = guarded.text;
+      send({ type: 'text-reset' });
+      if (answer) send({ type: 'text', delta: answer });
+    }
+    const leaks = guarded.leaks + [...traceLeaks.values()].reduce((n, c) => n + c, 0);
+    if (leaks) log().warn('guard.output.leak', { count: leaks });
     const withData = [...collector.results].reverse().find((r) => r.columns.length);
     // Loading the full result re-uses an earlier message, so keep one source per message (the latest).
     const sources = [...new Map(collector.results.map((r) => [r.messageId, r])).values()];

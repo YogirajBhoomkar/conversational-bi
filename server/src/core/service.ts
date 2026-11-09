@@ -8,6 +8,7 @@ import type { BiLogger } from '../ports/logger';
 import type { ModelProvider } from '../ports/model';
 import { createAgents } from './agents/createAgents';
 import { type ChatDeps, handleChat, handleFeedback } from './chat/handleChat';
+import { createOutputGuard } from './guards/output';
 import { DatabricksGenieAgentClient } from './genie/agentClient';
 import { DatabricksGenieClient } from './genie/client';
 import { createGenieLimiter } from './genie/limiter';
@@ -40,6 +41,7 @@ export function createBiService(config: BiConfig, adapters: BiAdapters) {
     suggestWaitMs: config.suggestWaitMs,
     genieMode: config.genie.mode,
     logger: adapters.logger,
+    outputGuard: createOutputGuard(config.outputGuard, registry),
     turnTimeoutMs: config.service.turnTimeoutMs,
     history: config.history,
   };
