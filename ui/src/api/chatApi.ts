@@ -1,4 +1,4 @@
-import type { ChatEvent } from '../types';
+import type { ChatEvent, HistoryTurn } from '../types';
 
 /** The server answered 401 with `relogin: true`: the session is missing or expired. */
 export class AuthRequiredError extends Error {}
@@ -17,6 +17,7 @@ async function errorFrom(res: Response): Promise<Error> {
 export async function streamChat(args: {
   threadId: string;
   message: string;
+  history?: HistoryTurn[]; // earlier turns, oldest first
   signal?: AbortSignal;
   onEvent: (event: ChatEvent) => void;
 }): Promise<void> {
@@ -24,7 +25,7 @@ export async function streamChat(args: {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'same-origin',
-    body: JSON.stringify({ threadId: args.threadId, message: args.message }),
+    body: JSON.stringify({ threadId: args.threadId, message: args.message, ...(args.history?.length ? { history: args.history } : {}) }),
     signal: args.signal,
   });
   if (!res.ok) throw await errorFrom(res);

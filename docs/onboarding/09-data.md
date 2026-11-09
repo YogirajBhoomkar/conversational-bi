@@ -16,7 +16,7 @@ The app does not own business tables. The business data lives in Databricks and 
 |---|---|---|
 | Databricks (via Genie) | All business data | Outside this repo |
 | SQLite file `mastra.db` | Mastra's own storage | `server/src/mastra/index.ts`, `LibSQLStore` at `file:./mastra.db` |
-| SQLite file `bi-memory.db` | The supervisor's chat memory | `server/src/core/agents/prompts.ts`, `Memory` |
+| `history` in each chat request | The chat so far, sent by the UI (the server keeps none) | `server/src/core/chat/history.ts` |
 | Server memory | Sessions, PKCE state, Genie conversation ids, last results | `server/src/adapters/local/auth/*.ts`, `server/src/core/genie/conversations.ts` |
 | Browser `localStorage` | The current thread id, key `bi-thread` | `ui/src/App.tsx` |
 

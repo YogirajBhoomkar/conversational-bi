@@ -321,7 +321,7 @@ Skipped for small talk, clarifying questions and errors. If the suggestion step 
 | Pending logins (PKCE) | Server memory (`oauth.ts`) | 10 minutes | **Yes**: the callback may hit a different copy |
 | Genie conversation ids | Server memory (`conversations.ts`) | Until restart | **Yes** |
 | Last result per chat | Server memory (`conversations.ts`) | Until restart | **Yes**: "load everything" could fail |
-| The supervisor's chat memory | File `bi-memory.db` next to the server | Permanent | **Yes**: each copy has its own file |
+| The chat so far | Sent by the UI with each question (`history`); the server keeps none | Per request | No |
 | Mastra's own storage | File `mastra.db` | Permanent | **Yes** |
 | Current chat id (`threadId`) | Browser local storage `bi-thread` | Until cleared | No |
 | Chat bubbles on screen | Browser memory | Until refresh | No (lost on refresh) |

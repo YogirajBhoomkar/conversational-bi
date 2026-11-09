@@ -73,7 +73,7 @@ These are recorded in [99-open-questions.md](99-open-questions.md).
 
 These come from reading the code (not from a deploy file):
 
-- The server needs write access to its working folder for the SQLite files `mastra.db` and `bi-memory.db`.
+- The server needs write access to its working folder for the SQLite file `mastra.db`.
 - Browsers load fonts from Google Fonts (`ui/index.html`). A locked-down network may block that.
 - The OAuth redirect address must match what is registered in Databricks (`server/src/adapters/local/auth/oauth.ts`).
 - The cookie gets the `Secure` flag only when the request URL is `https` (`server/src/mastra/index.ts`). Check how a proxy in front forwards the protocol.

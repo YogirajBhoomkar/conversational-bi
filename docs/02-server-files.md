@@ -333,7 +333,7 @@ There is **no chart agent**. Charts come from Genie and are drawn by plain code 
 | **`genie_<key>`** (one per space) | Ask Genie and report faithfully | Use only its tools; do not make up numbers; mention caveats; say so plainly on errors; report `totalRows` vs `shownRows` when truncated; use `fetch-full` only when asked to load the full result; when asked for a chart, pass the chart request to Genie and report `chartReady`, and never describe or draw a chart itself |
 | **`suggest_agent`** | Propose up to 3 follow-ups | Short (under 90 characters), self-contained, answerable from the described data, never repeat the question |
 
-**Memory:** the supervisor remembers the conversation using a small file database, `bi-memory.db`. That is how "and for last year?" works.
+**Chat history:** the server keeps no transcript. The UI sends the last few turns with each question (`history`, see `docs/CONTRACT.md`), and `core/chat/history.ts` turns them into the supervisor's earlier messages. That is how "and for last year?" works, on any instance and after a restart.
 
 **Goes in:** A `GenieClient` (so agents can call Genie).
 **Comes out:** `{ supervisor, genieAgents, suggestAgent }`.
@@ -416,7 +416,7 @@ flowchart TD
 | `tsconfig.json` | TypeScript compiler settings |
 | `.env` / `.env.example` | Settings. `.env` has secrets; `.env.example` is the blank template |
 | `.mastra/output/` (generated) | The built server that `npm start` actually runs. **Rebuild it after any code change** (`npm run build` in the main folder) |
-| `mastra.db`, `bi-memory.db` (generated) | Mastra storage and the supervisor's chat memory |
+| `mastra.db` (generated) | Mastra's own storage |
 | `../run.mjs` | Helper: `node run.mjs setup`, `build`, `start` (start sets `PORT=1976` and points `UI_DIST` at the built browser app) |
 
 Next: [03-ui-files.md](03-ui-files.md)

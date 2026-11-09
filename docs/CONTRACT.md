@@ -1,4 +1,4 @@
-# Conversational BI API contract (1.1.0)
+# Conversational BI API contract (1.2.0)
 
 For the engineers who embed the chat page in GC's UI or host the service. The machine-readable versions are generated from the code and cannot drift from it: `server/contracts/*.schema.json` (one JSON Schema per message) and `server/contracts/bi.openapi.yaml`. Regenerate with `npm run contracts`; a test fails when they are out of date.
 
@@ -15,10 +15,18 @@ Ask a question. The answer streams back as Server-Sent Events.
 Request (`chat-request.schema.json`):
 
 ```json
-{ "threadId": "a-uuid-per-conversation", "message": "Which regions placed the most limit in 2024?" }
+{
+  "threadId": "a-uuid-per-conversation",
+  "message": "And by region?",
+  "history": [
+    { "question": "How much limit was placed in 2024?", "answer": "**1,737.2M** of limit was placed in 2024.", "space": "Placement" }
+  ]
+}
 ```
 
-`threadId` keeps the conversation: send the same one for follow-up questions, and a new one for a new chat. Threads belong to the user who started them.
+`threadId` names the conversation: send the same one for follow-up questions, and a new one for a new chat. Threads belong to the user who started them.
+
+`history` (optional, added in 1.2.0) is the chat so far, oldest first: each earlier `question` with its `answer` (the `final.result.answer` text), and optionally the `space` name and `sql` of the first source. The service keeps no transcript of its own, so a follow-up such as "and by region?" works only when the earlier turns are sent; any instance can then answer it, after a restart too. At most 10 turns (400 above it); `question` up to 4000 characters, `answer` and `sql` up to 20000, `space` up to 100. The service uses only the latest `BI_HISTORY_TURNS` (default 3), cuts each question and answer to `BI_HISTORY_MAX_CHARS` (default 1500), and ignores `sql` unless `BI_HISTORY_INCLUDE_SQL=true`. Leave out unfinished and failed turns. The text is treated as context, never as instructions. A request without `history` is answered as a new question.
 
 Response: `200`, `Content-Type: text/event-stream`. Each `data:` line holds one event as JSON (`chat-event.schema.json`). Lines starting with `:` are keep-alive comments and can be ignored.
 
@@ -71,7 +79,7 @@ Every error body is JSON with an `error` message that can be shown to the user.
 |---|---|---|
 | `400` | The body does not match the schema | `issues` |
 | `401` | No valid identity | `relogin: true` |
-| `413` | The body is larger than `BI_MAX_BODY_BYTES` (16 KB) | |
+| `413` | The body is larger than `BI_MAX_BODY_BYTES` (64 KB) | |
 | `429` | The user has `BI_MAX_CONCURRENT_PER_USER` (2) questions running, or the instance `BI_MAX_CONCURRENT_TOTAL` | `reason`, header `Retry-After` |
 | `500` | A bug | `traceId` |
 | `502` | Genie refused (feedback) | `traceId` |
@@ -86,3 +94,8 @@ Every response carries `X-Trace-Id`. A caller may send a W3C `traceparent` (or `
 ## Versioning
 
 `contract` in `GET {prefix}/version` and in the schema files follows semantic versioning: adding a field or an event type raises the minor version; removing or renaming one raises the major version. Clients should ignore fields and event types they do not know.
+
+| Version | Change |
+|---|---|
+| 1.2.0 | `history` on the chat request; the service no longer remembers the chat itself |
+| 1.1.0 | `charts` and `clarification` on the final answer |

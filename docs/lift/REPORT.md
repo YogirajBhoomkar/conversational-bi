@@ -35,7 +35,7 @@ Where the work to make Conversational BI production ready and movable into GC's 
 
 ## Phase 5 in detail (proposed)
 
-Today four pieces of state live in plain maps in the process memory: login sessions (local mode), Genie conversation ids per thread and space, the last result per thread and space (for "show all rows"), and the recent turns used for follow-up questions. Mastra's own storage and the conversation memory are LibSQL files in the build folder (`mastra.db`, `bi-memory.db`).
+Three pieces of state live in plain maps in the process memory: login sessions (local mode), Genie conversation ids per thread and space, and the last result per thread and space (for "show all rows"). The last two are best-effort: an instance without them starts a new Genie conversation, and "show all rows" says the full result is not available. The chat history is no longer kept on the server: the UI sends it with each question (contract 1.2.0). Mastra's own storage is a LibSQL file in the build folder (`mastra.db`).
 
 Problems:
 

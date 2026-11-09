@@ -63,7 +63,7 @@ Two different things keep context:
 
 | What | Where | Lifetime |
 |---|---|---|
-| The supervisor's chat memory | `Memory` with a `LibSQLStore` file `bi-memory.db` (`server/src/core/agents/prompts.ts`) | On disk |
+| The chat so far | Sent by the UI with each question (`history`); `server/src/core/chat/history.ts` turns it into earlier messages | Per request |
 | Genie's own conversation id per thread and space | A `Map` in `server/src/core/genie/conversations.ts` | In memory, lost on restart |
 
 After a restart the supervisor still remembers the chat, but Genie starts a new conversation. This is noted in the README ("Known limits").

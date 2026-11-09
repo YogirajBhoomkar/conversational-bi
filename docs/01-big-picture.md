@@ -50,7 +50,7 @@ flowchart LR
         C[Chart maker<br/>plain code, no AI]
         SG[Suggestion agent]
         COL[(Collector<br/>shared tray)]
-        M[(Memory<br/>bi-memory.db)]
+        M[(Chat so far<br/>sent by the UI)]
     end
     subgraph DBX["Databricks"]
         GN[Genie space<br/>Lab - Placement Core]

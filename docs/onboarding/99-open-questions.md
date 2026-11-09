@@ -28,7 +28,7 @@ Each question says what I checked. Where the docs made a choice anyway, it says 
 | 8 | Is production meant to run one server copy? | Sessions, PKCE state and conversation ids are in memory (`server/src/adapters/local/auth/*.ts`, `server/src/core/genie/conversations.ts`) | App owner, platform | Documented as single-copy |
 | 9 | Where do logs, alerts and dashboards live? | Only `console` calls found in the code | Platform or DevOps | [12-logging-and-monitoring.md](12-logging-and-monitoring.md) lists questions |
 | 10 | What Node version is required? | README says "20 or newer". No `engines` field, `.nvmrc` or container file | Platform or DevOps | Documented as "20 or newer, per README" |
-| 11 | Where does `mastra start` write `mastra.db` and `bi-memory.db`? | Code uses relative `file:./...` paths. README says "next to the running server". No `.db` file found in `server/` at the time of checking | App owner | Documented as "depends on the start folder" |
+| 11 | Where does `mastra start` write `mastra.db`? | Code uses relative `file:./...` paths. README says "next to the running server". No `.db` file found in `server/` at the time of checking | App owner | Documented as "depends on the start folder" |
 | 12 | How is the app fronted in production (proxy, TLS)? | The cookie `Secure` flag depends on the request URL (`server/src/mastra/index.ts`) | Platform or DevOps | Flagged in [14-gotchas.md](14-gotchas.md) |
 | 13 | Is the UI always served from the same address as the API? | CORS allows only `http://localhost:5173` (`server/src/mastra/index.ts`) | App owner | Assumed same origin in production |
 

@@ -22,6 +22,8 @@ export type FinalAnswer = {
   clarification?: { question: string; options: string[] }; // the assistant asks the user to choose before it answers
   traceId?: string;
 };
+// One earlier turn sent with a question (contract 1.2.0), so the server can answer a follow-up.
+export type HistoryTurn = { question: string; answer: string; space?: string; sql?: string };
 export type TraceItem = {
   id: string;
   kind: 'meta' | 'note' | 'tool' | 'progress';

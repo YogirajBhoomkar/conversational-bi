@@ -87,12 +87,23 @@ export const ChatEventSchema = z.discriminatedUnion('type', [
 export type ChatEvent = z.infer<typeof ChatEventSchema>;
 
 // The version of this contract (requests, events, answer). Changes that remove or rename a field raise the major version.
-export const CONTRACT_VERSION = '1.1.0';
+export const CONTRACT_VERSION = '1.2.0';
 
 // Request bodies for POST /bi/chat and POST /bi/feedback. The routes reject anything that does not match (400).
+// One earlier turn of the chat, sent by the UI so a follow-up ("and by region?") works on any instance with no server
+// memory. It is untrusted text: the server caps it again, and the model is told it is context, never instructions.
+export const HistoryTurnSchema = z.object({
+  question: z.string().min(1).max(4000),
+  answer: z.string().max(20_000),
+  space: z.string().max(100).optional(), // the data source that answered, when there was one
+  sql: z.string().max(20_000).optional(), // used only when the server allows it (BI_HISTORY_INCLUDE_SQL)
+});
+export type HistoryTurn = z.infer<typeof HistoryTurnSchema>;
+
 export const ChatRequestSchema = z.object({
   threadId: z.string().trim().min(1).max(200),
   message: z.string().trim().min(1).max(4000), // a question, not a document: keeps the cost of one request bounded
+  history: z.array(HistoryTurnSchema).max(10).optional(), // earlier turns, oldest first; the server uses the latest few
 });
 export type ChatRequest = z.infer<typeof ChatRequestSchema>;
 

@@ -41,6 +41,9 @@ export const SettingsSchema = z.object({
   GENIE_FULL_ROW_CAP: setting(int(1, 100_000).default(5000), 'Rows kept when the user asks for the full result.', { group: 'Genie behaviour' }),
   GENIE_TIMEOUT_MS: setting(int(1000, 1_800_000).default(180_000), 'How long one Genie call may take, in milliseconds.', { group: 'Genie behaviour' }),
   GENIE_RETRY_ATTEMPTS: setting(int(1, 10).default(3), 'How many times a Genie call is tried before giving up (with backoff between tries).', { group: 'Genie behaviour' }),
+  BI_HISTORY_TURNS: setting(int(0, 10).default(3), 'How many of the latest earlier turns sent by the UI the server passes to the model, so follow-ups work. 0 turns history off.', { group: 'Genie behaviour' }),
+  BI_HISTORY_MAX_CHARS: setting(int(100, 20_000).default(1500), 'Longest question and longest answer kept per earlier turn, in characters; longer text is cut and marked with an ellipsis.', { group: 'Genie behaviour' }),
+  BI_HISTORY_INCLUDE_SQL: setting(flag().default(false), 'true: pass the SQL of earlier turns, when the UI sends it, to the model. false: any SQL sent is ignored.', { group: 'Genie behaviour' }),
   SUGGEST_WAIT_MS: setting(int(0, 60_000).default(8000), 'After the answer, how long to wait for the app\'s own follow-up questions before closing the stream, in milliseconds.', { group: 'Genie behaviour' }),
 
   // ---------------------------------------------------------------- AI model
@@ -52,7 +55,7 @@ export const SettingsSchema = z.object({
 
   // ---------------------------------------------------------------- Service limits and safety
   BI_ENABLED: setting(flag().default(true), 'false switches chat and feedback off (503 with a friendly message) without taking the service down. Health checks keep answering.', { group: 'Service' }),
-  BI_MAX_BODY_BYTES: setting(int(1024, 1_048_576).default(16_384), 'Largest request body accepted, in bytes (413 above it).', { group: 'Service' }),
+  BI_MAX_BODY_BYTES: setting(int(1024, 1_048_576).default(65_536), 'Largest request body accepted, in bytes (413 above it). Leave room for the chat history the UI sends with each question.', { group: 'Service' }),
   BI_MAX_CONCURRENT_PER_USER: setting(int(1, 20).default(2), 'Questions one user can have running at once (429 above it).', { group: 'Service' }),
   BI_MAX_CONCURRENT_TOTAL: setting(int(1, 10_000).default(50), 'Questions this instance runs at once, all users together (429 above it).', { group: 'Service' }),
   BI_TURN_TIMEOUT_MS: setting(int(10_000, 1_800_000).default(300_000), 'Longest one question may run, in milliseconds; then it is stopped and the user is told.', { group: 'Service' }),

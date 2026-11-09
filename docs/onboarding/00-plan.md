@@ -16,7 +16,7 @@ Conversational BI is a chat app for business questions about reinsurance placeme
 |---|---|---|---|
 | Server runtime | Node.js, ES modules, TypeScript | TypeScript 5.9.3 (installed). Node: README says "20 or newer"; no `engines` field or version file found | `server/package.json`, `server/tsconfig.json`, `README.md` |
 | Agent framework | Mastra (`@mastra/core`, `mastra` CLI) | 1.79.0 / 1.35.0 | `server/package.json` |
-| Agent memory and storage | `@mastra/memory`, `@mastra/libsql` (SQLite files) | 1.39.0 / 1.27.0 | `server/src/core/agents/prompts.ts`, `server/src/mastra/index.ts` |
+| Mastra storage | `@mastra/libsql` (SQLite file) | 1.27.0 | `server/src/core/agents/prompts.ts`, `server/src/mastra/index.ts` |
 | AI model | Anthropic Claude (default `claude-sonnet-5-5`), or any OpenAI-compatible endpoint via `LLM_BASE_URL` | `@ai-sdk/anthropic` 4.0.89 | `server/src/core/agents/prompts.ts` (`model()`) |
 | Data source | Databricks Genie (Conversation API, or Agent mode when `GENIE_MODE=agent`) | n/a (hosted service) | `server/src/core/genie/client.ts`, `server/src/core/genie/agentClient.ts` |
 | Validation | zod | 4.6.7 | `server/src/contracts.ts` |
@@ -98,7 +98,7 @@ These will move to `99-open-questions.md`.
 2. **No deployment files.** No Dockerfile, Helm chart or CI workflow in the repo. How does this reach dev, QC and prod? (Checked: file listing of the whole repo.) Likely owner: the platform or DevOps team.
 3. **README and code disagree.** `README.md` says the supervisor delegates to a `chart_agent`. The code has no such agent. Charts are built in plain code (`server/src/core/chart/chartSpec.ts`). I will treat the code as correct. Please confirm.
 4. **Hard-coded fallback Genie space IDs** in `server/src/core/genie/registry.ts`. They are used when the env variables are unset. Is that intended, and are these IDs safe to keep in source? (I will not copy them into the docs.)
-5. **Where do the SQLite files end up?** Code uses `file:./mastra.db` and `file:./bi-memory.db` (relative paths). README says they sit "next to the running server". I could not confirm where `mastra start` puts them, since the working folder differs between `mastra dev` and the built output.
+5. **Where do the SQLite files end up?** Code uses `file:./mastra.db` (a relative path). README says they sit "next to the running server". I could not confirm where `mastra start` puts them, since the working folder differs between `mastra dev` and the built output.
 6. **Node version.** README says 20 or newer. There is no `engines` field or `.nvmrc`. Which version does the target environment run?
 7. **Which Genie mode runs in production?** `GENIE_MODE=agent` uses the Agent mode API, which is GA since 27 Aug 2026 (`server/src/core/genie/agentClient.ts`). Is it expected in prod?
 8. **Env variables missing from `server/.env.example`.** The code reads `GENIE_ROW_CAP`, `GENIE_TIMEOUT_MS`, `GENIE_FULL_ROW_CAP`, `GENIE_CAPACITY_SPACE_ID` (as `BI_SPACE_ID_CAPACITY`), `DATABRICKS_REDIRECT_URI`, `PORT`, `UI_DIST`, `LLM_*` and `ANTHROPIC_*`. Some are not in the example file. I will list the ones I can confirm from code and flag the rest.

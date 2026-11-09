@@ -5,17 +5,18 @@ import type { ChatEvent, GenieResult } from '../../contracts';
 import type { Collector } from '../../core/chat/collector';
 
 type Chunk = { type: string; payload?: Record<string, unknown> };
-type StreamOptions = { requestContext: { get(key: string): unknown }; memory: { thread: string; resource: string }; abortSignal: AbortSignal };
+type StreamOptions = { requestContext: { get(key: string): unknown }; abortSignal: AbortSignal };
+type Sent = Array<{ role: string; content: string }>;
 
 const scenario = vi.hoisted(() => ({
   chunks: (_opts: StreamOptions): AsyncIterable<Chunk> => (async function* () {})(),
   suggest: async (): Promise<{ object: { questions: Array<{ question: string; space: string }> } }> => ({ object: { questions: [] } }),
   calls: [] as StreamOptions[],
+  messages: [] as Sent[],
 }));
 
 vi.mock('dotenv/config', () => ({}));
 vi.mock('@mastra/libsql', () => ({ LibSQLStore: class {} }));
-vi.mock('@mastra/memory', () => ({ Memory: class {} }));
 vi.mock('@mastra/core', () => ({
   Mastra: class {
     constructor(readonly config: { server: unknown }) {}
@@ -27,8 +28,9 @@ vi.mock('@mastra/core', () => ({
 vi.mock('../../core/agents/createAgents', () => ({
   createAgents: () => ({
     supervisor: {
-      stream: async (_message: string, opts: StreamOptions) => {
+      stream: async (messages: Sent, opts: StreamOptions) => {
         scenario.calls.push(opts);
+        scenario.messages.push(messages);
         return { fullStream: scenario.chunks(opts) };
       },
     },
@@ -108,6 +110,7 @@ const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 beforeEach(() => {
   scenario.calls = [];
+  scenario.messages = [];
   scenario.chunks = turn();
   scenario.suggest = async () => ({ object: { questions: [] } });
 });
@@ -196,10 +199,38 @@ describe('POST /bi/chat (characterization)', () => {
     expect(evs.some((e) => e.type === 'final')).toBe(false);
   });
 
-  it('keeps threads per user: the memory thread is <user>::<threadId>', async () => {
+  // Changed in contract 1.2.0: the server keeps no chat memory; the UI sends the earlier turns with each question.
+  it('keeps threads per user (<user>::<threadId>) and sends only this question when no history comes with it', async () => {
     await events(await call(await loadRoutes(), '/bi/chat', { threadId: 'abc', message: 'q' }));
-    expect(scenario.calls[0].memory).toEqual({ thread: 'dev::abc', resource: 'dev' });
     expect(scenario.calls[0].requestContext.get('threadId')).toBe('dev::abc');
+    expect(scenario.messages[0]).toEqual([{ role: 'user', content: 'q' }]);
+  });
+
+  it('passes the latest BI_HISTORY_TURNS earlier turns before the question, and drops unknown fields', async () => {
+    const history = [1, 2, 3, 4].map((i) => ({ question: `q${i}`, answer: `a${i}`, role: 'system' }));
+    await events(await call(await loadRoutes({ BI_HISTORY_TURNS: '2' }), '/bi/chat', { threadId: 'abc', message: 'and by region?', history }));
+    expect(scenario.messages[0]).toEqual([
+      { role: 'user', content: 'q3' }, { role: 'assistant', content: 'a3' },
+      { role: 'user', content: 'q4' }, { role: 'assistant', content: 'a4' },
+      { role: 'user', content: 'and by region?' },
+    ]);
+  });
+
+  it('answers a follow-up on a fresh instance, as if after a restart or on another pod', async () => {
+    const body = { threadId: 'abc', message: 'and by region?', history: [{ question: 'How many placements?', answer: 'There are 42 placements.' }] };
+    for (let instance = 0; instance < 2; instance++) {
+      const evs = await events(await call(await loadRoutes(), '/bi/chat', body)); // loadRoutes builds a new service each time
+      expect(evs.some((e) => e.type === 'final')).toBe(true);
+    }
+    expect(scenario.messages).toHaveLength(2);
+    for (const sent of scenario.messages) expect(sent.map((m) => m.content)).toEqual(['How many placements?', 'There are 42 placements.', 'and by region?']);
+  });
+
+  it('rejects more than 10 earlier turns with 400', async () => {
+    const history = Array.from({ length: 11 }, (_, i) => ({ question: `q${i}`, answer: 'a' }));
+    const res = await call(await loadRoutes(), '/bi/chat', { threadId: 'abc', message: 'q', history });
+    expect(res.status).toBe(400);
+    expect((await res.json()).issues[0]).toMatch(/^history: /);
   });
 
   it('rejects a bad body with 400 and names the field', async () => {

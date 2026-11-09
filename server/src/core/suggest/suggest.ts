@@ -2,7 +2,7 @@ import type { Agent } from '@mastra/core/agent';
 import { z } from 'zod';
 import type { SpaceRegistry } from '../genie/registry';
 import { log } from '../log';
-import type { Turn } from './history';
+import type { Turn } from '../../ports/state';
 
 // Follow-ups use only what the data agents say they cover (their descriptions, in the agent's instructions) and the chat so far.
 // Each follow-up names the one data agent that can answer it, so we only offer questions the assistant can really handle.

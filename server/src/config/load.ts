@@ -27,6 +27,9 @@ export type ServiceSettings = {
   build: string;
 };
 
+// The earlier turns the UI sends: how many are used, how long each may be, whether their SQL is passed on.
+export type HistorySettings = { turns: number; maxChars: number; includeSql: boolean };
+
 export type LogSettings = { format: 'pretty' | 'json'; level: 'debug' | 'info' | 'warn' | 'error'; content: boolean };
 
 export type BiConfig = {
@@ -40,6 +43,7 @@ export type BiConfig = {
   };
   genie: { mode: 'conversation' | 'agent'; rowCap: number; fullRowCap: number; timeoutMs: number; retryAttempts: number };
   suggestWaitMs: number;
+  history: HistorySettings;
   model: ModelSettings;
   logging: LogSettings;
   service: ServiceSettings;
@@ -116,6 +120,7 @@ function toConfig(s: Settings, spaces: GenieSpace[], domainRules: string): BiCon
     },
     genie: { mode: s.GENIE_MODE, rowCap: s.GENIE_ROW_CAP, fullRowCap: s.GENIE_FULL_ROW_CAP, timeoutMs: s.GENIE_TIMEOUT_MS, retryAttempts: s.GENIE_RETRY_ATTEMPTS },
     suggestWaitMs: s.SUGGEST_WAIT_MS,
+    history: { turns: s.BI_HISTORY_TURNS, maxChars: s.BI_HISTORY_MAX_CHARS, includeSql: s.BI_HISTORY_INCLUDE_SQL },
     model: s.LLM_BASE_URL
       ? { provider: 'openai-compatible', model: s.LLM_MODEL, baseUrl: s.LLM_BASE_URL, apiKey: s.LLM_API_KEY }
       : { provider: 'anthropic', model: s.ANTHROPIC_MODEL, apiKey: s.ANTHROPIC_API_KEY ?? '' },

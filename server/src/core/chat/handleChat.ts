@@ -5,13 +5,14 @@ import { RequestContext } from '@mastra/core/request-context';
 import type { ChatEvent, ChatRequest, FeedbackRequest, FinalAnswer, GenieClient } from '../../contracts';
 import type { BiRequestContext } from '../../ports/context';
 import type { BiLogger } from '../../ports/logger';
+import type { HistorySettings } from '../../config/load';
 import { log, requestLogger, withLogger } from '../log';
 import { ValidationError, UpstreamError } from '../errors';
 import type { SpaceRegistry } from '../genie/registry';
-import { recentTurns, recordTurn } from '../suggest/history';
 import { suggestFollowUps } from '../suggest/suggest';
 import { createTracer, type TraceChunk } from '../trace/trace';
 import { clarificationFromText } from './clarifyFromText';
+import { priorMessages, recentHistory } from './history';
 import { newCollector, type TurnValues } from './collector';
 
 export type ChatDeps = {
@@ -22,6 +23,7 @@ export type ChatDeps = {
   suggestWaitMs: number; // after `final`, how long to wait for our own follow-ups
   logger: BiLogger;      // the base logger; each turn logs through a child carrying its trace id
   turnTimeoutMs: number; // a turn running longer is stopped
+  history: HistorySettings; // how much of the chat history sent by the UI is used
 };
 
 type StreamChunk = TraceChunk & { payload?: { error?: unknown }; error?: unknown };
@@ -47,15 +49,17 @@ const failureMessage = (timedOut: boolean, deps: ChatDeps, traceId: string) =>
     ? `This question took longer than ${Math.round(deps.turnTimeoutMs / 60_000)} minutes and was stopped. Try asking for less at once.`
     : `Something went wrong while answering. If it happens again, quote reference ${traceId}.`;
 
-async function runTurn(deps: ChatDeps, requestCtx: BiRequestContext, { threadId: rawThread, message }: ChatRequest, send: (e: ChatEvent) => void) {
+async function runTurn(deps: ChatDeps, requestCtx: BiRequestContext, { threadId: rawThread, message, history }: ChatRequest, send: (e: ChatEvent) => void) {
   // The turn stops when the caller goes away or it runs too long.
   const timeout = AbortSignal.timeout(deps.turnTimeoutMs);
   const ctx = { ...requestCtx, signal: AbortSignal.any([requestCtx.signal, timeout]) };
   const threadId = threadKey(ctx, rawThread);
   const started = Date.now();
   let firstAnswerMs: number | undefined;
+  // The chat so far comes with the request (the server keeps no transcript), so any instance can answer a follow-up.
+  const earlier = recentHistory(history, deps.history);
   // Follow-ups need only the space descriptions and the chat so far, so they are written in parallel with the answer.
-  const pendingSuggestions = suggestFollowUps(deps.suggestAgent, deps.registry, { question: message, history: recentTurns(threadId) });
+  const pendingSuggestions = suggestFollowUps(deps.suggestAgent, deps.registry, { question: message, history: earlier.map((t) => ({ question: t.question, answer: t.answer, suggested: [] })) });
 
   const collector = newCollector();
   const requestContext = new RequestContext<TurnValues>();
@@ -82,15 +86,12 @@ async function runTurn(deps: ChatDeps, requestCtx: BiRequestContext, { threadId:
   );
   collector.emit = tracer.progress;
   send({ type: 'trace', item: { id: 'model', kind: 'meta', label: 'Using model', text: deps.modelLabel } });
-  let ours: string[] = [];
   void pendingSuggestions.then((questions) => {
-    ours = questions;
     if (questions.length) send({ type: 'suggestions', questions }); // may arrive before or after `final`; the UI handles both
   });
   try {
-    const stream = await deps.supervisor.stream(message, {
+    const stream = await deps.supervisor.stream([...priorMessages(earlier), { role: 'user' as const, content: message }], {
       requestContext,
-      memory: { thread: threadId, resource: ctx.userId },
       abortSignal: ctx.signal,
     });
     for await (const chunk of stream.fullStream as AsyncIterable<StreamChunk>) {
@@ -144,7 +145,6 @@ async function runTurn(deps: ChatDeps, requestCtx: BiRequestContext, { threadId:
       await Promise.race([pendingSuggestions, new Promise((resolve) => (timer = setTimeout(resolve, deps.suggestWaitMs)))]);
       clearTimeout(timer);
     }
-    recordTurn(threadId, { question: message, answer, suggested: final.suggestedQuestions.length ? final.suggestedQuestions : ours });
   } catch (err) {
     if (requestCtx.signal.aborted) return log().info('chat.cancelled', { durationMs: Date.now() - started }); // nobody is listening
     log().error(timeout.aborted ? 'chat.timeout' : 'chat.failed', { durationMs: Date.now() - started, error: err });

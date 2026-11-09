@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AuthRequiredError, streamChat } from '../api/chatApi';
 import type { ChatEvent, Message, TraceItem } from '../types';
+import { buildHistory } from './history';
 
 type Assistant = Extract<Message, { role: 'assistant' }>;
 
@@ -37,6 +38,8 @@ export function useChat() {
     async (text: string) => {
       const question = text.trim();
       if (!question || busy) return;
+      // The chat so far goes with the question: the server keeps no transcript.
+      const history = buildHistory(messages);
       const id = uid();
       const aid = `a-${id}`;
       setMessages((ms) => [
@@ -72,7 +75,7 @@ export function useChat() {
       };
 
       try {
-        await streamChat({ threadId, message: question, signal: ctrl.signal, onEvent: apply });
+        await streamChat({ threadId, message: question, history, signal: ctrl.signal, onEvent: apply });
         // Stream closed without a `final` or `error` event.
         patch(aid, (m) => (m.pending ? { ...m, pending: false, endedAt: Date.now(), error: m.result ? undefined : 'The response ended without an answer.' } : m));
       } catch (err) {
@@ -87,7 +90,7 @@ export function useChat() {
         controllers.current.delete(ctrl);
       }
     },
-    [busy, patch, threadId],
+    [busy, messages, patch, threadId],
   );
 
   const newChat = useCallback(() => {

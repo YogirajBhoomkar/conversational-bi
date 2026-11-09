@@ -12,11 +12,7 @@
     },
     "@mastra/libsql": {
       "version": "^1.27.0",
-      "why": "Storage for agent runs and memory (LibSQL file or in-memory)"
-    },
-    "@mastra/memory": {
-      "version": "^1.39.0",
-      "why": "Conversation memory per thread"
+      "why": "Mastra's own storage for agent runs (LibSQL file or in-memory); the chat history comes from the UI"
     },
     "dotenv": {
       "version": "^18.0.9",

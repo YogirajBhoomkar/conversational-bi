@@ -1,6 +1,4 @@
 import { Agent } from '@mastra/core/agent';
-import { Memory } from '@mastra/memory';
-import { LibSQLStore } from '@mastra/libsql';
 import type { MastraModelConfig } from '@mastra/core/llm';
 import type { GenieClient } from '../../contracts';
 import { agentName, askToolName, clarifyToolName, fetchFullToolName, genieAgentDescription, genieAgentInstructions, suggestInstructions, supervisorInstructions } from './prompts';
@@ -32,6 +30,8 @@ export function createAgents(client: GenieClient, { registry, model, domainRules
     ]),
   );
 
+  // No Memory: the UI sends the chat so far with each question (core/chat/history.ts), so any instance can answer a
+  // follow-up, after a restart too, and the server keeps no transcript.
   const supervisor = new Agent({
     id: 'bi_supervisor',
     name: 'bi_supervisor',
@@ -40,7 +40,6 @@ export function createAgents(client: GenieClient, { registry, model, domainRules
     model,
     agents: { ...genieAgents },
     tools: { [clarifyToolName]: createClarifyTool() },
-    memory: new Memory({ storage: new LibSQLStore({ id: 'bi-memory', url: 'file:./bi-memory.db' }) }),
     defaultOptions: { maxSteps: 12 },
   });
 

@@ -10,12 +10,12 @@ import { type ChatDeps, handleChat, handleFeedback } from './handleChat';
 const registry = createSpaceRegistry([{ key: 'one', name: 'One', description: 'The first fake space.', spaceId: 'id-1' }]);
 const ctx = (signal = new AbortController().signal): BiRequestContext => ({ userId: 'u1', userToken: 'identity-token', traceId: 't', signal });
 
-type Seen = { requestContext: { get(k: string): unknown }; abortSignal: AbortSignal; memory: unknown };
+type Seen = { requestContext: { get(k: string): unknown }; abortSignal: AbortSignal };
 
 function deps(chunks: Array<{ type: string; payload?: object }>, seen: Seen[] = []): ChatDeps {
   return {
     supervisor: {
-      stream: (async (_m: string, opts: Seen) => {
+      stream: (async (_m: unknown, opts: Seen) => {
         seen.push(opts);
         return { fullStream: (async function* () { yield* chunks; })() };
       }) as unknown as ChatDeps['supervisor']['stream'],
@@ -26,6 +26,7 @@ function deps(chunks: Array<{ type: string; payload?: object }>, seen: Seen[] = 
     suggestWaitMs: 0,
     logger: silentLogger,
     turnTimeoutMs: 60_000,
+    history: { turns: 3, maxChars: 1500, includeSql: false },
   };
 }
 
@@ -49,12 +50,12 @@ describe('handleChat', () => {
     expect(signal.aborted).toBe(false);
     abort.abort();
     expect(signal.aborted).toBe(true);
-    expect(seen[0].memory).toEqual({ thread: 'u1::a', resource: 'u1' });
+    expect(rc.get('threadId')).toBe('u1::a');
   });
 
   it('puts a question back to the user, with its options, in the final answer', async () => {
     const asking = deps([]);
-    asking.supervisor = { stream: (async (_m: string, opts: Seen) => {
+    asking.supervisor = { stream: (async (_m: unknown, opts: Seen) => {
       (opts.requestContext.get('collector') as Collector).clarification = { question: 'Which year?', options: ['Underwriting year', 'Calendar year'] };
       return { fullStream: (async function* () {})() };
     }) as unknown as ChatDeps['supervisor']['stream'] };
@@ -85,7 +86,7 @@ describe('handleChat', () => {
   it('stops a turn that runs past the timeout and tells the user in plain words', async () => {
     const hang = deps([]);
     hang.turnTimeoutMs = 30;
-    hang.supervisor = { stream: (async (_m: string, opts: Seen) => ({ fullStream: (async function* () { await new Promise((_, reject) => opts.abortSignal.addEventListener('abort', () => reject(new Error('aborted')))); })() })) as unknown as ChatDeps['supervisor']['stream'] };
+    hang.supervisor = { stream: (async (_m: unknown, opts: Seen) => ({ fullStream: (async function* () { await new Promise((_, reject) => opts.abortSignal.addEventListener('abort', () => reject(new Error('aborted')))); })() })) as unknown as ChatDeps['supervisor']['stream'] };
     const events = await collect(handleChat(hang, ctx(), { threadId: 'a', message: 'q' }));
     expect(events.at(-1)).toEqual({ type: 'error', message: expect.stringContaining('took longer than') });
   });

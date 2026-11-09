@@ -33,7 +33,7 @@ Terms are in alphabetical order.
 | **LLM** | Large language model: the AI behind the agents. Claude by default |
 | **Mastra** | A Node library for building AI agents and their HTTP server (`server/package.json`) |
 | **Mastra Studio** | Mastra's built-in test page in dev mode, at the server address |
-| **Memory** | What the supervisor remembers about a chat. Stored in `bi-memory.db` |
+| **History** | The chat so far, sent by the UI with each question so follow-ups work. The server keeps no transcript |
 | **Mermaid** | A text format for diagrams, used in these docs |
 | **Message thread (thread id)** | An id for one chat. The server prefixes it with the user name |
 | **OAuth** | A standard way to sign in through another service |

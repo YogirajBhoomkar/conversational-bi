@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { GenieClient, GenieResult, GenieSpace } from '../../contracts';
 import { newCollector, type TurnValues } from '../chat/collector';
-import { createAskGenieTool } from './askGenie';
+import { createAskGenieTool, createFetchFullResultsTool } from './askGenie';
 
 const space = (key: string): GenieSpace => ({ key, name: key, description: `The ${key} space.`, spaceId: `id-${key}` });
 
@@ -68,5 +68,30 @@ describe('ask-genie tool: charts of a turn', () => {
   it('collects charts across spaces and answers', async () => {
     const premium = (spaceId: string) => result(spaceId, ['chart_json'], [[chartJson('Premium')]]);
     expect((await turn([[placement, CHART], [capacity, premium]])).titles).toEqual(['Limit', 'Premium']);
+  });
+});
+
+// The per-thread Genie state (core/genie/conversations.ts) is a best-effort optimisation held by one instance. Another
+// instance, or this one after a restart, has none: it must start a new Genie conversation and say plainly that the
+// full result of an earlier query is not available.
+describe('Genie tools on an instance with no state for the thread', () => {
+  const placement = space('placement');
+  const fresh = (): TurnValues => ({ collector: newCollector(), threadId: `new-${Math.random()}`, caller: () => ({ userId: 'u' }), signal: new AbortController().signal });
+
+  it('starts a new Genie conversation', async () => {
+    const values = fresh();
+    const asked: Array<string | undefined> = [];
+    const client: GenieClient = { ask: async (req) => (asked.push(req.conversationId), TABLE(placement.spaceId)), feedback: async () => {} };
+    await createAskGenieTool(placement, client).execute!({ question: 'Placements by region in 2024' }, { requestContext: { get: (k: keyof TurnValues) => values[k] } } as never);
+    expect(asked).toEqual([undefined]);
+  });
+
+  it('"show all rows" fails with its friendly message, without calling Genie', async () => {
+    const values = fresh();
+    let fetched = false;
+    const client: GenieClient = { ask: async () => TABLE(placement.spaceId), feedback: async () => {}, fetchFullResult: async () => ((fetched = true), { columns: [], rows: [], totalRows: 0 }) };
+    const out = await createFetchFullResultsTool(placement, client, 100).execute!({}, { requestContext: { get: (k: keyof TurnValues) => values[k] } } as never);
+    expect(out).toEqual({ ok: false, message: 'The full result is not available for the previous query.', totalRows: 0, shownRows: 0 });
+    expect(fetched).toBe(false);
   });
 });

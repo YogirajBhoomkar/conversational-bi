@@ -305,7 +305,7 @@ npm run typecheck                 # npm run build also type-checks</code></pre>
 <p>When you give an agent an <code>agents</code> list, Mastra lets it call each sub-agent like a tool. Each sub-agent's <code>description</code> tells the supervisor when to use it.</p>
 
 <h3>Memory</h3>
-<p>The supervisor has <code>Memory</code> backed by a small file database (LibSQL, file <code>bi-memory.db</code>). Each chat has a thread id. This is how a follow-up like "and for last year?" works.</p>
+<p>The supervisor has no <code>Memory</code>. The UI sends the last few turns with each question (<code>history</code>), and the server passes them to the supervisor as earlier messages. This is how a follow-up like "and for last year?" works, on any instance and after a restart.</p>
 
 <h3>Mastra instance and routes</h3>
 <p><code>new Mastra({ agents, storage, server })</code> is the root object. We add our own web routes with <code>registerApiRoute</code>. Mastra runs the web server.</p>
@@ -614,11 +614,10 @@ collector.chart = fromJson?.chart ?? null;</code></pre>
   instructions: `...`,
   model: model(),
   agents: { ...genieAgents },
-  memory: new Memory({ storage: new LibSQLStore({ id: 'bi-memory', url: 'file:./bi-memory.db' }) }),
   defaultOptions: { maxSteps: 12 },
 });</code></pre>
 <ul>
-  <li><code>agents</code> is what makes it a supervisor. <code>memory</code> keeps chat history in <code>bi-memory.db</code>.</li>
+  <li><code>agents</code> is what makes it a supervisor. There is no <code>memory</code>: the chat history comes with each request.</li>
   <li><code>maxSteps: 12</code> is a safety limit so one question cannot loop forever.</li>
 </ul>
 <h4>Its instructions, in plain words</h4>
@@ -1141,7 +1140,7 @@ export { Chart } from './RechartsChart';
 </ol>
 <h3>Things to check on any server you deploy to</h3>
 <ul>
-  <li>The server needs write access to its working folder for <code>mastra.db</code> and <code>bi-memory.db</code>.</li>
+  <li>The server needs write access to its working folder for <code>mastra.db</code>.</li>
   <li>Browsers load fonts from Google Fonts.</li>
   <li>The OAuth redirect address must match the registered one.</li>
   <li>The cookie gets <code>Secure</code> only for <code>https</code> request URLs. Check what a proxy in front forwards.</li>
@@ -1285,7 +1284,7 @@ export { Chart } from './RechartsChart';
 <tr><td>5</td><td>Is production meant to run one server copy? (State is in memory.)</td><td>App owner, platform</td></tr>
 <tr><td>6</td><td>Where do logs, alerts and dashboards live?</td><td>Platform / DevOps</td></tr>
 <tr><td>7</td><td>Which Node version is required? (README says 20 or newer; nothing enforces it.)</td><td>Platform / DevOps</td></tr>
-<tr><td>8</td><td>Where does <code>mastra start</code> write <code>mastra.db</code> and <code>bi-memory.db</code>? (Relative paths; no <code>.db</code> file was found in <code>server/</code> when checked.)</td><td>App owner</td></tr>
+<tr><td>8</td><td>Where does <code>mastra start</code> write <code>mastra.db</code>? (Relative paths; no <code>.db</code> file was found in <code>server/</code> when checked.)</td><td>App owner</td></tr>
 <tr><td>9</td><td>How is the app fronted in production (proxy, TLS)? This decides the cookie <code>Secure</code> flag.</td><td>Platform / DevOps</td></tr>
 <tr><td>10</td><td>Is the UI always served from the same address as the API? (CORS allows only the dev address.)</td><td>App owner</td></tr>
 <tr><td>11</td><td>Which Genie mode runs in production? Agent mode is GA; confirm it is enabled in the production workspace.</td><td>App owner</td></tr>

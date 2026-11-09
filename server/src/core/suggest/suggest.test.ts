@@ -1,5 +1,4 @@
 import { describe, expect, it, vi } from 'vitest';
-import { recentTurns, recordTurn } from './history';
 import { createSpaceRegistry } from '../genie/registry';
 import { suggestFollowUps, type SuggestInput } from './suggest';
 
@@ -57,13 +56,5 @@ describe('suggestFollowUps', () => {
   it('returns nothing, without throwing, when the model call fails', async () => {
     const agent = { generate: vi.fn().mockRejectedValue(new Error('boom')) } as any;
     expect(await suggestFollowUps(agent, registry, base)).toEqual([]);
-  });
-});
-
-describe('chat history', () => {
-  it('keeps the six most recent turns per thread', () => {
-    for (let i = 1; i <= 8; i++) recordTurn('t1', { question: `q${i}`, answer: '', suggested: [] });
-    expect(recentTurns('t1').map((t) => t.question)).toEqual(['q3', 'q4', 'q5', 'q6', 'q7', 'q8']);
-    expect(recentTurns('other')).toEqual([]);
   });
 });
