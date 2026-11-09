@@ -14,6 +14,11 @@ export const retryPolicy = (attempts: number): RetryPolicy => ({ attempts, baseD
 export const LIMIT_REACHED = /reached (?:your|the) budget|budget (?:has been |was )?(?:exceeded|exhausted)|quota (?:has been |was )?(?:exceeded|exhausted)|usage limit/i;
 export const GENIE_LIMIT_MESSAGE = 'The data service has reached its usage limit, so no data can be fetched right now.';
 
+// The data source could not be reached at all (no network, DNS, a dropped connection). Shown in the scratchpad in
+// these words instead of Node's "fetch failed".
+export const UNREACHABLE = /fetch failed|ENOTFOUND|EAI_AGAIN|ECONNREFUSED|ECONNRESET|ETIMEDOUT|UND_ERR_CONNECT|network ?error|socket hang up/i;
+export const GENIE_UNREACHABLE_MESSAGE = "The data source couldn't be reached.";
+
 // Genie reported that its own run failed. Worth another try, unless the failure is about access or a used-up limit,
 // which a retry cannot fix.
 export class GenieRunFailed extends Error {

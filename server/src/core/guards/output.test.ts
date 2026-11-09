@@ -108,8 +108,15 @@ describe('output guard on the stream', () => {
   });
 
   it('replaces figures with the no-data message when Genie returned nothing', async () => {
-    const events = await turn(['There are 42.'], [result({ error: 'down', columns: [], rows: [], totalRows: 0 })]);
+    const events = await turn(['There are 42.'], [result({ error: null, summary: '', sql: null, columns: [], rows: [], totalRows: 0 })]);
     expect(events.find((e) => e.type === 'final')).toMatchObject({ result: { answer: NO_DATA_MESSAGE } });
+  });
+
+  // Changed: when every Genie call failed, the turn now ends with the `source` notice (core/chat/failure.ts) instead
+  // of an answer, so the output guard never sees it.
+  it('a turn whose every Genie call failed ends with the notice instead', async () => {
+    const events = await turn(['There are 42.'], [result({ error: 'down', columns: [], rows: [], totalRows: 0 })]);
+    expect(events.at(-1)).toMatchObject({ type: 'error', kind: 'source', retryable: true });
   });
 
   it('changes nothing when BI_GUARD_OUTPUT=off', async () => {

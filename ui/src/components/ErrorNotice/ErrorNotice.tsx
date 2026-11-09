@@ -9,7 +9,7 @@ import './ErrorNotice.css';
 
 // A turn that could not be answered, shown as a calm notice instead of an error line: what happened in a few words,
 // what to do, a button to ask the same question again, and the reference to quote if it keeps happening.
-const ICONS = { unavailable: CloudOffIcon, busy: HourglassIcon, timeout: HourglassIcon, failed: InfoIcon, refused: InfoIcon, limit: CloudOffIcon } as const;
+const ICONS = { unavailable: CloudOffIcon, busy: HourglassIcon, timeout: HourglassIcon, failed: InfoIcon, refused: InfoIcon, limit: CloudOffIcon, source: CloudOffIcon } as const;
 
 export default function ErrorNotice({ failure, onRetry }: { failure: Failure; onRetry?: () => void }) {
   const [copied, setCopied] = useState(false);

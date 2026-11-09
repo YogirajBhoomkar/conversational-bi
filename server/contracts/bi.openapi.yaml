@@ -501,6 +501,7 @@ components:
                 - "failed"
                 - "refused"
                 - "limit"
+                - "source"
             title:
               type: "string"
             detail:

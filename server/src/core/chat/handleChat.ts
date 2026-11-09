@@ -132,13 +132,15 @@ async function runTurn(deps: ChatDeps, requestCtx: BiRequestContext, { threadId:
       if (deps.genieMode === 'agent' && !pendingSuggestions && collector.results.some(isDataResult)) pendingSuggestions = writeSuggestions();
     }
     tracer.end();
-    // Every Genie call hit a used-up Databricks limit: there is no data to answer from, and asking again will not help
-    // until an admin raises it. The user gets the calm notice instead of whatever the model wrote about it.
-    if (collector.results.length && collector.results.every((r) => r.error === GENIE_LIMIT_MESSAGE)) {
+    // Every Genie call failed: there is no data to answer from, so the user gets the calm notice instead of whatever the
+    // model wrote about it. A used-up Databricks limit says so (asking again will not help until an admin raises it);
+    // anything else (no network, Genie down, a failed query) offers to try again.
+    if (collector.results.length && !collector.clarification && collector.results.every((r) => r.error)) {
+      const kind = collector.results.every((r) => r.error === GENIE_LIMIT_MESSAGE) ? 'limit' : 'source';
       usage.add(SUPERVISOR, await Promise.resolve(stream.totalUsage).catch(() => undefined));
-      log().warn('chat.limit', { durationMs: Date.now() - started, genieCalls: collector.results.length, ...usage.snapshot() });
+      log().warn(kind === 'limit' ? 'chat.limit' : 'chat.no_data', { durationMs: Date.now() - started, genieCalls: collector.results.length, ...usage.snapshot() });
       send({ type: 'text-reset' });
-      return send(failureEvent('limit', ctx.traceId, deps.turnTimeoutMs));
+      return send(failureEvent(kind, ctx.traceId, deps.turnTimeoutMs));
     }
     // The model sometimes writes its question back as text instead of using the tool; when no data was fetched and the
     // text is just a question with a few choices, it is shown as choices anyway. Not for a message of one or two words

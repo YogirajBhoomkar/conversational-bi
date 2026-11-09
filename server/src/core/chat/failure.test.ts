@@ -4,7 +4,7 @@ import { ChatEventSchema } from '../../contracts';
 import { createSpaceRegistry } from '../genie/registry';
 import { silentLogger } from '../log';
 import { failedResult } from '../genie/client';
-import { GENIE_LIMIT_MESSAGE, GenieRunFailed } from '../genie/retry';
+import { GENIE_LIMIT_MESSAGE, GENIE_UNREACHABLE_MESSAGE, GenieRunFailed } from '../genie/retry';
 import type { Collector } from './collector';
 import { failureEvent, failureKind } from './failure';
 import { handleChat, type ChatDeps } from './handleChat';
@@ -36,7 +36,7 @@ describe('the kind of failure', () => {
     });
     expect(failureEvent('unavailable', 'ref-1', 300_000)).toMatchObject({ title: "Couldn't reach the AI service", retryable: true, message: expect.stringContaining('quote reference ref-1') });
     expect(failureEvent('timeout', 'ref-1', 300_000)).toMatchObject({ message: 'This question took longer than 5 minutes and was stopped. Try asking for less at once.', reference: 'ref-1' });
-    for (const kind of ['unavailable', 'busy', 'timeout', 'failed', 'refused', 'limit'] as const) expect(ChatEventSchema.safeParse(failureEvent(kind, 'r', 60_000)).success).toBe(true);
+    for (const kind of ['unavailable', 'busy', 'timeout', 'failed', 'refused', 'limit', 'source'] as const) expect(ChatEventSchema.safeParse(failureEvent(kind, 'r', 60_000)).success).toBe(true);
   });
 });
 
@@ -51,12 +51,23 @@ describe('a used-up Databricks limit', () => {
     expect(result.error).toBe(GENIE_LIMIT_MESSAGE);
   });
 
-  it('ends the turn with the notice when every Genie call hit it, and no answer is shown', async () => {
+  it('a network failure is told plainly too, not as "fetch failed"', () => {
+    const run = { conversationId: 'c', messageId: 'm' };
+    const args = { spaceId: 's', question: 'q', caller: { userId: 'u' } };
+    expect(failedResult(args, run, new TypeError('fetch failed')).error).toBe(GENIE_UNREACHABLE_MESSAGE);
+    expect(failedResult(args, run, new Error('request failed', { cause: new Error('getaddrinfo ENOTFOUND example.invalid') })).error).toBe(GENIE_UNREACHABLE_MESSAGE);
+    expect(failedResult(args, run, new Error('Genie message FAILED')).error).toBe('Genie message FAILED');
+  });
+
+  it.each([
+    ['a used-up limit', GENIE_LIMIT_MESSAGE, { kind: 'limit', retryable: false, title: 'Data is unavailable right now' }, 'chat.limit'],
+    ['no network', GENIE_UNREACHABLE_MESSAGE, { kind: 'source', retryable: true, title: "Couldn't get the data" }, 'chat.no_data'],
+  ])('every Genie call failed (%s): the turn ends with the notice, and no answer is shown', async (_name, error, notice, event) => {
     const lines: string[] = [];
     const logger = { debug() {}, info: (e: string) => void lines.push(e), warn: (e: string) => void lines.push(e), error: (e: string) => void lines.push(e), child: () => logger };
     const deps: ChatDeps = {
       supervisor: { stream: (async (_m: unknown, opts: { requestContext: { get(k: string): unknown } }) => {
-        (opts.requestContext.get('collector') as Collector).results.push(...['s1', 's2'].map((spaceId) => ({ spaceId, question: 'q', summary: '', sql: null, columns: [], rows: [], totalRows: 0, thinking: [], suggestedQuestions: [], statementId: null, conversationId: 'c', messageId: 'm', error: GENIE_LIMIT_MESSAGE })));
+        (opts.requestContext.get('collector') as Collector).results.push(...['s1', 's2'].map((spaceId) => ({ spaceId, question: 'q', summary: '', sql: null, columns: [], rows: [], totalRows: 0, thinking: [], suggestedQuestions: [], statementId: null, conversationId: 'c', messageId: 'm', error })));
         return { fullStream: (async function* () { yield { type: 'text-delta', payload: { text: 'The data service is over budget.' } }; yield { type: 'step-finish', payload: { stepResult: { reason: 'stop' } } }; })() };
       }) as unknown as ChatDeps['supervisor']['stream'] },
       suggestAgent: { generate: (async () => ({ object: { questions: [] } })) as unknown as ChatDeps['suggestAgent']['generate'] },
@@ -65,10 +76,10 @@ describe('a used-up Databricks limit', () => {
     };
     const events: ChatEvent[] = [];
     for await (const e of handleChat(deps, { userId: 'u', userToken: 't', traceId: 'tr', signal: new AbortController().signal }, { threadId: 'a', message: 'placements by year' })) events.push(e);
-    expect(events.slice(-2)).toEqual([{ type: 'text-reset' }, expect.objectContaining({ type: 'error', kind: 'limit', retryable: false, title: 'Data is unavailable right now' })]);
+    expect(events.slice(-2)).toEqual([{ type: 'text-reset' }, expect.objectContaining({ type: 'error', ...notice })]);
     expect(events.some((e) => e.type === 'final')).toBe(false);
     expect(JSON.stringify(events)).not.toContain('budget increase');
-    expect(lines).toContain('chat.limit');
+    expect(lines).toContain(event);
   });
 });
 

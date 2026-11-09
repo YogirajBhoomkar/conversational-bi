@@ -38,6 +38,7 @@ const WORDING: Record<FailureKind, { title: string; detail: (turnTimeoutMs: numb
   busy: { title: 'Busy right now', detail: () => 'The assistant is handling a lot of questions right now. Please try again in a minute.', retryable: true },
   timeout: { title: 'This took too long', detail: (ms) => `This question took longer than ${Math.round(ms / 60_000)} minutes and was stopped. Try asking for less at once.`, retryable: true },
   failed: { title: 'Something went wrong', detail: () => 'Something went wrong while answering.', retryable: true },
+  source: { title: "Couldn't get the data", detail: () => "The data sources didn't answer just now, so there is nothing to answer from. Please try again in a minute.", retryable: true },
   limit: { title: 'Data is unavailable right now', detail: () => `${GENIE_LIMIT_MESSAGE} Please let your administrator know; it works again once the limit is raised.`, retryable: false },
   refused: { title: "Can't help with that", detail: () => "I can't help with that request. Please rephrase your question about the data.", retryable: false },
 };

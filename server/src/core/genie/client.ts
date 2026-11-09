@@ -2,7 +2,7 @@ import type { GenieCaller, GenieClient, GenieResult } from '../../contracts';
 import { log } from '../log';
 import type { TokenProvider } from '../../ports/auth';
 import { type GenieLimiter, limitedFetch, noLimit, WAITING_NOTE } from './limiter';
-import { fetchWithRetry, GENIE_LIMIT_MESSAGE, GenieRunFailed, LIMIT_REACHED, type RetryPolicy, withRetry } from './retry';
+import { fetchWithRetry, GENIE_LIMIT_MESSAGE, GENIE_UNREACHABLE_MESSAGE, GenieRunFailed, LIMIT_REACHED, type RetryPolicy, UNREACHABLE, withRetry } from './retry';
 
 export type GenieClientOptions = {
   host: string;           // workspace host, without https://
@@ -78,12 +78,15 @@ export const isRetryableRun = (error: unknown) => error instanceof GenieRunFaile
 // A question that could not be answered. The error goes back to the agent as text instead of failing the whole request.
 // A used-up limit is told in our words; Databricks' own text stays in the log.
 export const failedResult = ({ spaceId, question }: AskArgs, run: Run, error: unknown): GenieResult => {
+  const cause = error instanceof Error && error.cause instanceof Error ? ` ${error.cause.message}` : '';
   const text = error instanceof Error ? error.message : String(error);
   const limit = LIMIT_REACHED.test(text);
+  const unreachable = !limit && UNREACHABLE.test(text + cause);
   if (limit) log().warn('genie.budget_exhausted', { error: text.slice(0, 200) });
+  if (unreachable) log().warn('genie.unreachable', { error: (text + cause).slice(0, 200) });
   return {
     spaceId, question, summary: '', sql: null, columns: [], rows: [], totalRows: 0, thinking: [], suggestedQuestions: [], statementId: null,
-    conversationId: run.conversationId, messageId: run.messageId, error: limit ? GENIE_LIMIT_MESSAGE : text,
+    conversationId: run.conversationId, messageId: run.messageId, error: limit ? GENIE_LIMIT_MESSAGE : unreachable ? GENIE_UNREACHABLE_MESSAGE : text,
   };
 };
 

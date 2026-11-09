@@ -82,7 +82,7 @@ function ChatErrorEventSchema() {
   return z.object({
     type: z.literal('error'),
     message: z.string(),
-    kind: z.enum(['unavailable', 'busy', 'timeout', 'failed', 'refused', 'limit']).optional(),
+    kind: z.enum(['unavailable', 'busy', 'timeout', 'failed', 'refused', 'limit', 'source']).optional(),
     title: z.string().optional(),
     detail: z.string().optional(),
     retryable: z.boolean().optional(),

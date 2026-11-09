@@ -37,7 +37,7 @@ Response: `200`, `Content-Type: text/event-stream`. Each `data:` line holds one 
 | `text-reset` | | The text streamed so far was a working step after all: clear the answer |
 | `final` | `result` | The complete answer (below). Sent once |
 | `suggestions` | `questions` | Up to 3 follow-up questions. Can come before or after `final` |
-| `error` | `message`, and since 1.3.0 `kind`, `title`, `detail`, `retryable`, `reference` | The turn failed. `message` can be shown as is; it includes a reference (except for a timeout or a refusal). For a friendlier notice show `title` and `detail`, offer to ask again when `retryable`, and show `reference` (the trace id) to quote. `kind` is `unavailable` (the AI service could not be reached), `busy` (rate limited), `limit` (a Databricks budget or quota is used up; asking again does not help until an admin raises it), `timeout`, `failed` or `refused` |
+| `error` | `message`, and since 1.3.0 `kind`, `title`, `detail`, `retryable`, `reference` | The turn failed. `message` can be shown as is; it includes a reference (except for a timeout or a refusal). For a friendlier notice show `title` and `detail`, offer to ask again when `retryable`, and show `reference` (the trace id) to quote. `kind` is `unavailable` (the AI service could not be reached), `busy` (rate limited), `source` (every data source failed, for example no network; asking again may help), `limit` (a Databricks budget or quota is used up; asking again does not help until an admin raises it), `timeout`, `failed` or `refused` |
 
 The stream ends after `final` (and `suggestions`, if any), or after `error`. Closing the connection stops the work on the server.
 

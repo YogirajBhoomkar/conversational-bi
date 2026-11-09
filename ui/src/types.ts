@@ -43,7 +43,7 @@ export type ChatEvent =
   | ({ type: 'error'; message: string } & Omit<Failure, 'detail'> & { detail?: string });
 
 // Why a turn could not be answered (contract 1.3.0; older servers send only the message).
-export type Failure = { kind?: 'unavailable' | 'busy' | 'timeout' | 'failed' | 'refused' | 'limit'; title?: string; detail: string; retryable?: boolean; reference?: string };
+export type Failure = { kind?: 'unavailable' | 'busy' | 'timeout' | 'failed' | 'refused' | 'limit' | 'source'; title?: string; detail: string; retryable?: boolean; reference?: string };
 
 export type Message =
   | { id: string; role: 'user'; text: string }
