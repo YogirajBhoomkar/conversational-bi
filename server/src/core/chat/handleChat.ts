@@ -15,6 +15,7 @@ import { createTracer, type TraceChunk } from '../trace/trace';
 import { createUsageMeter, type UsageMeter, withMeter } from '../usage';
 import { createOutputGuard, type OutputGuard } from '../guards/output';
 import type { ScopeGuard } from '../guards/scope';
+import { isContentFilterError } from '../guards/modelRefusal';
 import { clarificationFromText } from './clarifyFromText';
 import { priorMessages, recentHistory } from './history';
 import { isDataResult, newCollector, type TurnValues } from './collector';
@@ -125,7 +126,7 @@ async function runTurn(deps: ChatDeps, requestCtx: BiRequestContext, { threadId:
     });
     for await (const chunk of stream.fullStream as AsyncIterable<StreamChunk>) {
       if (chunk.type === 'tripwire') return refuse(chunk, Date.now() - started, usage, send);
-      if (chunk.type === 'error') throw new Error(errorText(chunk));
+      if (chunk.type === 'error') throw new Error(errorText(chunk), { cause: (chunk.payload ?? chunk).error });
       usage.observe(chunk);
       tracer.handle(chunk);
       if (deps.genieMode === 'agent' && !pendingSuggestions && collector.results.some(isDataResult)) pendingSuggestions = writeSuggestions();
@@ -206,6 +207,7 @@ async function runTurn(deps: ChatDeps, requestCtx: BiRequestContext, { threadId:
   } catch (err) {
     if (requestCtx.signal.aborted) return log().info('chat.cancelled', { durationMs: Date.now() - started, ...usage.snapshot() }); // nobody is listening
     usage.unreported(SUPERVISOR); // a failed stream reports no total
+    if (isContentFilterError(err)) return declineFiltered(deps, ctx.traceId, Date.now() - started, usage, send);
     log().error(timeout.aborted ? 'chat.timeout' : 'chat.failed', { durationMs: Date.now() - started, error: err, ...usage.snapshot() });
     send({ type: 'error', message: failureMessage(timeout.aborted, deps, ctx.traceId) });
   }
@@ -219,6 +221,17 @@ function refuse(chunk: StreamChunk, durationMs: number, usage: UsageMeter, send:
   usage.unreported(SUPERVISOR); // a stopped stream reports no total
   log().warn('guard.input.blocked', { processorId, reason: String(reason ?? '').slice(0, 300), durationMs, ...usage.snapshot() });
   send({ type: 'error', message: REFUSED_MESSAGE });
+}
+
+// The model provider's safety filter refused the call (core/guards/modelRefusal.ts): the user gets the scope message as
+// an ordinary answer, with nothing of what may have streamed before; the log gets a warning, never the question.
+const filteredMessage = (deps: ChatDeps) => deps.scopeGuard?.message ?? REFUSED_MESSAGE;
+function declineFiltered(deps: ChatDeps, traceId: string, durationMs: number, usage: UsageMeter, send: (e: ChatEvent) => void) {
+  log().warn('guard.model.filtered', { durationMs, ...usage.snapshot() });
+  const answer = filteredMessage(deps);
+  send({ type: 'text-reset' });
+  send({ type: 'text', delta: answer });
+  send({ type: 'final', result: { answer, columns: [], rows: [], totalRows: 0, charts: [], chartSpec: null, sources: [], suggestedQuestions: [], traceId } });
 }
 
 async function waitAtMost(work: Promise<unknown>, ms: number) {
