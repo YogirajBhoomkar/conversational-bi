@@ -9,6 +9,7 @@ export const SpaceConfigSchema = z.object({
   name: z.string().trim().min(1).max(100),
   description: z.string().trim().min(20, 'too short to route by: say what data the space covers').max(2000),
   routing: z.string().trim().min(1).max(1000).optional(),
+  examples: z.array(z.string().trim().min(1).max(200)).max(5).optional(), // shown to users in the scope message
   spaceId: z.string().trim().min(1).refine((id) => id !== 'REPLACE_ME', 'still the placeholder REPLACE_ME'),
   enabled: z.boolean().default(true),
 });

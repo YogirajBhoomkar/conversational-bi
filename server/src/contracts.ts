@@ -136,6 +136,7 @@ export type GenieSpace = {
   name: string;
   description: string;  // what the space covers; shown to the supervisor and the follow-up writer
   routing?: string;     // when to route here; defaults to the description
+  examples?: string[];  // example questions this space answers, shown to users (the scope message)
   spaceId: string;
   enabled?: boolean;    // false leaves the space out of routing and prompts
 };

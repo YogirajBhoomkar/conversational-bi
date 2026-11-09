@@ -117,6 +117,8 @@ Behaviour that changed:
 
 Where the code differs from the brief: the reply check also needs every Genie call to have succeeded.
 
+After the first UI trial, the scope message became a fuller Markdown message: one bullet per space with the first sentence of its description, then up to three example questions from a new optional `examples` field per space (in the spaces configuration, up to five each). A CONFIDENTIAL section was added to the prompt: asked which model it runs on, the assistant had made up an answer.
+
 History raised from 3 to 6 earlier turns (`BI_HISTORY_TURNS`, `VITE_HISTORY_TURNS`), after the same trial: "what is my name?" was asked five turns after the user gave it, so the model never saw it. The UI now also cuts each earlier question to 2000 and answer to 4000 characters before sending, so even 10 long turns stay under the 64 KB body limit and inside the contract's limits (before, one very long answer could get the request refused with 400 or 413). The server still keeps 1500 characters of each. Cost: up to about three more earlier turns in each supervisor prompt.
 
 Tests:
@@ -142,7 +144,8 @@ Not verified (no live Genie or model):
 - **Whether a real model follows the SCOPE section.** The stub plays the model, so the tests show the rule is in the prompt and that each reply flows through correctly, not that the model obeys it. This needs a run of the fixture questions against the real model.
 - **How the real Genie spaces reply to off-topic questions:** text only (replaced), a refusal (also text only, so replaced with our message), or an attempted query (kept, because it has SQL).
 - **Whether a legitimate text-only reply gets replaced.** Genie can answer in text without a query, for example a definition from the space's instructions or "this space has no data on that". Under `enforce` those become the scope message. If that shows up in UAT, `BI_GUARD_SCOPE=log` keeps the answers and still counts them (`guard.scope.flagged`), to size the problem.
-- **The wording of the generated message for the client's real space descriptions.** It takes the part of the first sentence before a colon. A description that starts differently may read oddly; `BI_SCOPE_MESSAGE` is the fix.
+- **The wording of the generated message for the client's real space descriptions.** It shows the first sentence of each description, so a description whose first sentence is not a plain summary reads oddly; rewrite that sentence or set `BI_SCOPE_MESSAGE`. The example questions come from the spaces' optional `examples`, which the client's space owners should write.
+- **Whether the model keeps internals confidential under pressure.** The CONFIDENTIAL section is a prompt rule only. The tests check that the rule is in the prompt, not that the model obeys it. Separately, the UI's scratchpad shows the model name ("Using model") on every answer; that is a UI feature, not something the model says.
 - **The Mastra build in place.** `.mastra/output` was locked by a running local server, so the build was checked only inside `compat-check`, in a temporary copy. The UI was not changed, so it was not rebuilt.
 
 Recommendation (needs the client): the owner of each Genie space should add an instruction to the space itself, such as "Answer only questions about this data; for anything else, say you can only answer questions about <the space's subject>." Genie then stops answering off-topic questions at the source, and our check becomes the backstop.

@@ -207,7 +207,7 @@ describe('POST /bi/chat (characterization)', () => {
     const evs = await events(await call(await loadRoutes(), '/bi/chat', { threadId: 't1', message: 'tell me a joke' }));
     const final = evs.at(-1) as Extract<ChatEvent, { type: 'final' }>;
     expect(final.type).toBe('final');
-    expect(final.result.answer).toMatch(/^I can help with questions about Lab – Placement Core \(.+\) and Lab – Capacity & Reinsurer \(.+\)\. Ask me something about that data\.$/);
+    expect(final.result.answer).toMatch(/^That's outside what I can help with\. I answer questions about the data in these areas\.\n\n- \*\*Lab – Placement Core\*\*: .+\.\n- \*\*Lab – Capacity & Reinsurer\*\*: .+\.\n\nFor example, you could ask ".+"$/);
     expect(final.result).toMatchObject({ sources: [], rows: [], suggestedQuestions: [] });
     expect(evs.at(-2)).toEqual({ type: 'text', delta: final.result.answer });
     expect(calls).toBe(0);
