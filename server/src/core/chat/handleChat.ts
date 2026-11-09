@@ -11,6 +11,7 @@ import { ValidationError, UpstreamError } from '../errors';
 import type { SpaceRegistry } from '../genie/registry';
 import { suggestFollowUps } from '../suggest/suggest';
 import { createTracer, type TraceChunk } from '../trace/trace';
+import { createUsageMeter, type UsageMeter, withMeter } from '../usage';
 import { clarificationFromText } from './clarifyFromText';
 import { priorMessages, recentHistory } from './history';
 import { newCollector, type TurnValues } from './collector';
@@ -35,12 +36,18 @@ const errorText = (chunk: StreamChunk) => {
 };
 
 // Threads are per user, so one user can never continue another's chat.
+// Agent names in the usage log, as in core/agents/createAgents.ts.
+const SUPERVISOR = 'bi_supervisor';
+const SUGGESTER = 'suggest_agent';
+
 export const threadKey = (ctx: Pick<BiRequestContext, 'userId'>, threadId: string) => `${ctx.userId}::${threadId}`;
 
 export async function* handleChat(deps: ChatDeps, ctx: BiRequestContext, request: ChatRequest): AsyncGenerator<ChatEvent> {
   const queue = eventQueue();
   // Everything the turn calls, however deep, logs with this request's trace id (see core/log.ts).
-  void withLogger(requestLogger(deps.logger, ctx), () => runTurn(deps, ctx, request, queue.push)).finally(queue.close);
+  // Its model and Genie use is counted the same way (see core/usage.ts).
+  const usage = createUsageMeter();
+  void withLogger(requestLogger(deps.logger, ctx), () => withMeter(usage, () => runTurn(deps, ctx, request, queue.push, usage))).finally(queue.close);
   yield* queue.drain();
 }
 
@@ -50,7 +57,7 @@ const failureMessage = (timedOut: boolean, deps: ChatDeps, traceId: string) =>
     ? `This question took longer than ${Math.round(deps.turnTimeoutMs / 60_000)} minutes and was stopped. Try asking for less at once.`
     : `Something went wrong while answering. If it happens again, quote reference ${traceId}.`;
 
-async function runTurn(deps: ChatDeps, requestCtx: BiRequestContext, { threadId: rawThread, message, history }: ChatRequest, send: (e: ChatEvent) => void) {
+async function runTurn(deps: ChatDeps, requestCtx: BiRequestContext, { threadId: rawThread, message, history }: ChatRequest, send: (e: ChatEvent) => void, usage: UsageMeter) {
   // The turn stops when the caller goes away or it runs too long.
   const timeout = AbortSignal.timeout(deps.turnTimeoutMs);
   const ctx = { ...requestCtx, signal: AbortSignal.any([requestCtx.signal, timeout]) };
@@ -62,10 +69,14 @@ async function runTurn(deps: ChatDeps, requestCtx: BiRequestContext, { threadId:
   // Our follow-ups need only the space descriptions and the chat so far. Agent mode never returns Genie's own, so there
   // they are written in parallel with the answer. The Conversation API usually does, so there ours are written only
   // after `final`, when Genie sent none: a model call saved on most turns, for a short wait on the others.
-  const writeSuggestions = () =>
-    suggestFollowUps(deps.suggestAgent, deps.registry, { question: message, history: earlier.map((t) => ({ question: t.question, answer: t.answer, suggested: [] })) }).then((questions) => {
+  let suggesting = false; // our follow-ups are still being written (their tokens are not counted yet)
+  const writeSuggestions = () => {
+    suggesting = true;
+    return suggestFollowUps(deps.suggestAgent, deps.registry, { question: message, history: earlier.map((t) => ({ question: t.question, answer: t.answer, suggested: [] })) }).then((questions) => {
+      suggesting = false;
       if (questions.length) send({ type: 'suggestions', questions }); // may arrive before or after `final`; the UI handles both
     });
+  };
   let pendingSuggestions = deps.genieMode === 'agent' ? writeSuggestions() : undefined;
 
   const collector = newCollector();
@@ -100,6 +111,7 @@ async function runTurn(deps: ChatDeps, requestCtx: BiRequestContext, { threadId:
     });
     for await (const chunk of stream.fullStream as AsyncIterable<StreamChunk>) {
       if (chunk.type === 'error') throw new Error(errorText(chunk));
+      usage.observe(chunk);
       tracer.handle(chunk);
     }
     tracer.end();
@@ -137,21 +149,25 @@ async function runTurn(deps: ChatDeps, requestCtx: BiRequestContext, { threadId:
       traceId: ctx.traceId,
     };
     send({ type: 'final', result: final });
-    // The supervisor's own model use (the data agents' is not included); absent when the model does not report it.
-    const usage = await Promise.resolve(stream.totalUsage).catch(() => undefined);
-    log().info('chat.turn', {
-      durationMs: Date.now() - started, firstAnswerMs, genieCalls: collector.results.length, failedCalls: collector.results.filter((r) => r.error).length,
-      charts: collector.charts.length, rows: final.totalRows, inputTokens: usage?.inputTokens, outputTokens: usage?.outputTokens,
-    });
+    const durationMs = Date.now() - started;
+    // The supervisor's own model use (its sub-agents' is counted from the stream); absent when the model does not report it.
+    const own = await Promise.resolve(stream.totalUsage).catch(() => undefined);
+    usage.add(SUPERVISOR, own);
     // Genie's own follow-ups win. Otherwise wait a short moment for ours, never long. A question back to the user
     // needs none (the UI shows its choices instead), so none are started for it.
     if (!final.suggestedQuestions.length) {
       pendingSuggestions ??= final.clarification ? undefined : writeSuggestions();
       if (pendingSuggestions) await waitAtMost(pendingSuggestions, deps.suggestWaitMs);
     }
+    if (suggesting) usage.unreported(SUGGESTER);
+    log().info('chat.turn', {
+      durationMs, firstAnswerMs, genieCalls: collector.results.length, failedCalls: collector.results.filter((r) => r.error).length,
+      charts: collector.charts.length, rows: final.totalRows, inputTokens: own?.inputTokens, outputTokens: own?.outputTokens, ...usage.snapshot(),
+    });
   } catch (err) {
-    if (requestCtx.signal.aborted) return log().info('chat.cancelled', { durationMs: Date.now() - started }); // nobody is listening
-    log().error(timeout.aborted ? 'chat.timeout' : 'chat.failed', { durationMs: Date.now() - started, error: err });
+    if (requestCtx.signal.aborted) return log().info('chat.cancelled', { durationMs: Date.now() - started, ...usage.snapshot() }); // nobody is listening
+    usage.unreported(SUPERVISOR); // a failed stream reports no total
+    log().error(timeout.aborted ? 'chat.timeout' : 'chat.failed', { durationMs: Date.now() - started, error: err, ...usage.snapshot() });
     send({ type: 'error', message: failureMessage(timeout.aborted, deps, ctx.traceId) });
   }
 }

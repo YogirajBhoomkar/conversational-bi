@@ -2,6 +2,7 @@ import type { Agent } from '@mastra/core/agent';
 import { z } from 'zod';
 import type { SpaceRegistry } from '../genie/registry';
 import { log } from '../log';
+import { meter } from '../usage';
 import type { Turn } from '../../ports/state';
 
 // Follow-ups use only what the data agents say they cover (their descriptions, in the agent's instructions) and the chat so far.
@@ -34,6 +35,7 @@ const promptOf = ({ question, history }: SuggestInput) =>
 export async function suggestFollowUps(agent: Pick<Agent, 'generate'>, registry: SpaceRegistry, input: SuggestInput): Promise<string[]> {
   try {
     const out = await agent.generate(promptOf(input), { structuredOutput: { schema: suggestionsSchema(registry) } });
+    meter().add('suggest_agent', out.usage);
     const seen = new Set([input.question, ...input.history.flatMap((t) => [t.question, ...t.suggested])].map(norm));
     const questions: string[] = [];
     for (const { question, space } of out.object?.questions ?? []) {
@@ -45,6 +47,7 @@ export async function suggestFollowUps(agent: Pick<Agent, 'generate'>, registry:
     return questions.slice(0, 3);
   } catch (e) {
     log().warn('suggest.failed', { error: e });
+    meter().unreported('suggest_agent');
     return [];
   }
 }

@@ -5,6 +5,7 @@ import { getConversationId, getLastResult, setConversationId, setLastResult } fr
 import { getCaller, getCollector, getSignal, getThreadId } from '../chat/collector';
 import { parseGenieChartJson } from '../chart/chartSpec';
 import { log } from '../log';
+import { meter } from '../usage';
 import { askToolName, fetchFullToolName } from './prompts';
 
 // What a chart shows, whatever its type and title: the same fields over the same rows (in any order; a line chart
@@ -68,6 +69,7 @@ export const createAskGenieTool =(space: GenieSpace, client: GenieClient) =>
         log().warn('genie.unparsed_cell', { space: space.key, column: result.columns[0], content: String(result.rows[0][0]).slice(0, 300) });
       }
       log().info('genie.ask', { space: space.key, durationMs: Date.now() - started, rows: result.totalRows, charts: chartCount, failed: Boolean(result.error) });
+      meter().genieCall({ durationMs: Date.now() - started, failed: Boolean(result.error) });
       collector.results.push(result);
       setLastResult(threadId, space.spaceId, result);
       // Keep the LLM context small; the full capped rows go to the UI via the collector.

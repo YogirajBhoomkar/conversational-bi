@@ -1,4 +1,5 @@
 import { log } from '../log';
+import { meter } from '../usage';
 
 // Genie and the Databricks APIs sometimes fail for reasons that clear on a second try: a 503, a throttled request,
 // or SQL that Genie writes badly once. These helpers retry exactly those cases with exponential backoff and jitter.
@@ -29,6 +30,7 @@ export async function withRetry<T>(
       if (attempt >= policy.attempts || !isRetryable(error)) throw error;
       const wait = Math.min(policy.maxDelayMs, policy.baseDelayMs * 2 ** (attempt - 1)) * (0.5 + Math.random() / 2);
       log().warn('retry', { call: label, attempt, waitMs: Math.round(wait), error: errorText(error) });
+      meter().genieRetry(); // counted for the turn's log, whichever caller retries
       onRetry?.();
       await new Promise((resolve) => setTimeout(resolve, wait));
     }
