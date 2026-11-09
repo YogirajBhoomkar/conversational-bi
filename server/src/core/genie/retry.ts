@@ -8,9 +8,16 @@ export type RetryPolicy = { attempts: number; baseDelayMs: number; maxDelayMs: n
 
 export const retryPolicy = (attempts: number): RetryPolicy => ({ attempts, baseDelayMs: 1000, maxDelayMs: 8000 });
 
-// Genie reported that its own run failed. Worth another try, unless the failure is about access, which a retry cannot fix.
+// Databricks refused because a budget, quota or usage limit is used up (for example "You've reached your budget.
+// Contact your admin…"). Only an admin raising the limit clears it, so it is never retried, and the user is told in our
+// own words (GENIE_LIMIT_MESSAGE), not Databricks'.
+export const LIMIT_REACHED = /reached (?:your|the) budget|budget (?:has been |was )?(?:exceeded|exhausted)|quota (?:has been |was )?(?:exceeded|exhausted)|usage limit/i;
+export const GENIE_LIMIT_MESSAGE = 'The data service has reached its usage limit, so no data can be fetched right now.';
+
+// Genie reported that its own run failed. Worth another try, unless the failure is about access or a used-up limit,
+// which a retry cannot fix.
 export class GenieRunFailed extends Error {
-  readonly retryable = !/PERMISSION|UNAUTHORI[SZ]ED|FORBIDDEN|INSUFFICIENT/i.test(this.message);
+  readonly retryable = !/PERMISSION|UNAUTHORI[SZ]ED|FORBIDDEN|INSUFFICIENT/i.test(this.message) && !LIMIT_REACHED.test(this.message);
 }
 
 const errorText = (error: unknown) => (error instanceof Error ? error.message : String(error)).slice(0, 200);

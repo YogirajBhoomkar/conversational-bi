@@ -2,6 +2,7 @@
 // (the trace id). The error event carries the parts separately (title, detail, reference, whether trying again may
 // help) so a UI can show a friendly notice; `message` is the whole text, for clients that show only that.
 import type { ChatErrorEvent } from '../../contracts';
+import { GENIE_LIMIT_MESSAGE } from '../genie/retry';
 
 export type FailureKind = ChatErrorEvent['kind'];
 
@@ -37,6 +38,7 @@ const WORDING: Record<FailureKind, { title: string; detail: (turnTimeoutMs: numb
   busy: { title: 'Busy right now', detail: () => 'The assistant is handling a lot of questions right now. Please try again in a minute.', retryable: true },
   timeout: { title: 'This took too long', detail: (ms) => `This question took longer than ${Math.round(ms / 60_000)} minutes and was stopped. Try asking for less at once.`, retryable: true },
   failed: { title: 'Something went wrong', detail: () => 'Something went wrong while answering.', retryable: true },
+  limit: { title: 'Data is unavailable right now', detail: () => `${GENIE_LIMIT_MESSAGE} Please let your administrator know; it works again once the limit is raised.`, retryable: false },
   refused: { title: "Can't help with that", detail: () => "I can't help with that request. Please rephrase your question about the data.", retryable: false },
 };
 
@@ -44,6 +46,6 @@ export function failureEvent(kind: FailureKind, reference: string, turnTimeoutMs
   const { title, detail, retryable } = WORDING[kind];
   const text = detail(turnTimeoutMs);
   // `message` as before for each kind: a timeout or refusal never carried the reference, the others do.
-  const message = kind === 'timeout' || kind === 'refused' ? text : `${text} If it happens again, quote reference ${reference}.`;
+  const message = kind === 'timeout' || kind === 'refused' || kind === 'limit' ? text : `${text} If it happens again, quote reference ${reference}.`;
   return { type: 'error', message, kind, title, detail: text, retryable, reference };
 }

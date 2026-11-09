@@ -397,7 +397,8 @@
             "busy",
             "timeout",
             "failed",
-            "refused"
+            "refused",
+            "limit"
           ]
         },
         "title": {
