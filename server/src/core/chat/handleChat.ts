@@ -72,7 +72,10 @@ async function runTurn(deps: ChatDeps, requestCtx: BiRequestContext, { threadId:
   const started = Date.now();
   let firstAnswerMs: number | undefined;
   // The chat so far comes with the request (the server keeps no transcript), so any instance can answer a follow-up.
-  const earlier = recentHistory(history, deps.history);
+  // A turn we refused (off-topic, or the provider's filter) carries nothing a follow-up needs, and sending its question
+  // again could get the next call filtered too, so it is left out.
+  const refusals = new Set([filteredMessage(deps), REFUSED_MESSAGE]);
+  const earlier = recentHistory(history?.filter((t) => !refusals.has(t.answer.trim())), deps.history);
   // Our follow-ups need only the space descriptions and the chat so far, and only a turn that got data has any: none for
   // a greeting, an out-of-scope reply, a question back or a failed turn. Agent mode never returns Genie's own, so there
   // they are started as soon as the first data comes back, in parallel with the answer. The Conversation API usually
