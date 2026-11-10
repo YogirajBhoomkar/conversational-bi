@@ -8,7 +8,7 @@ Under every finished answer, including error turns and declined off-topic questi
 
 1. One click on what was wrong: *Wrong numbers, Wrong data source, Chart or table issue, Too slow, Should have been refused, Other* (none chosen counts as Other).
 2. An optional one-line comment (up to 300 characters).
-3. **Open email**: the user's email app opens with the message filled in: To, Subject and body. They read it, can edit it, and press Send.
+3. **Send email feedback**: the user's email app opens with the message filled in: To, Subject and body. They read it, can edit it, and press Send.
 
 If no email app opens (none is set up, or only Outlook on the web is used), the notice under the button offers **Copy email text**. It copies the same email, and the notice then gives the address and subject to paste it under. If the clipboard is blocked as well, the notice gives the address and the short ref to quote.
 

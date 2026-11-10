@@ -164,7 +164,7 @@ What it means in practice: `BI_GUARD_FAIL_CLOSED` has no effect in GC (1.32 has 
 
 ## Send feedback email (confirmed), 10 November 2026
 
-Every finished answer gets a **Send feedback** button, including errors and declined questions. One click picks what was wrong, a comment is optional, and **Open email** opens the user's own email app with a filled-in message: the type, the comment, the question, the answer and the references. The app sends nothing itself; there is no feedback store. Two `feat(proposed):` commits on branch `feat/feedback-email` (on top of `chore/gc-mastra-1.32`, not pushed): the server, then the UI and docs. Details: `docs/lift/FEEDBACK.md`.
+Every finished answer gets a **Send feedback** button, including errors and declined questions. One click picks what was wrong, a comment is optional, and **Send email feedback** opens the user's own email app with a filled-in message: the type, the comment, the question, the answer and the references. The app sends nothing itself; there is no feedback store. Two `feat(proposed):` commits on branch `feat/feedback-email` (on top of `chore/gc-mastra-1.32`, not pushed): the server, then the UI and docs. Details: `docs/lift/FEEDBACK.md`.
 
 **Confirmed by the client on 10 November 2026** and merged into `main`. The commit messages still say `feat(proposed):` because they were written before.
 
@@ -209,9 +209,9 @@ UI:
 
 **Changed after review:**
 - **Our own agent card** (`<prefix>/.well-known/agent-card.json`) now advertises the feedback setup as an extension.
-- **A designed HTML email was tried and taken out again.** A `mailto:` link can carry plain text only, so an HTML email had to come as a downloaded `.eml` file that the user then opens: one step too many for everyday use. The download, the HTML builder and `BI_FEEDBACK_FORMAT` are gone; there is one way, Open email.
+- **A designed HTML email was tried and taken out again.** A `mailto:` link can carry plain text only, so an HTML email had to come as a downloaded `.eml` file that the user then opens: one step too many for everyday use. The download, the HTML builder and `BI_FEEDBACK_FORMAT` are gone; there is one way, Send email feedback.
 - **The plain-text email is laid out for Outlook**, which shows plain text in a proportional font: short headings in capitals (WHAT WAS WRONG, MY QUESTION, THE ANSWER I GOT, REFERENCES), one `Label: value` per line, no padded columns or checkbox grid (they came out ragged), only the chosen type instead of all six, no empty comment line. It is also shorter, so more of the answer fits in the link: the example is 1,375 characters with nothing shortened, against 1,891 and shortened before.
-- **Copy email text:** after Open email, the notice offers to copy the same email (each text up to 8,000 characters, nothing shortened for the link) for when no email app opened, for example with Outlook on the web only. The notice then says the address and subject to use.
+- **Copy email text:** after Send email feedback, the notice offers to copy the same email (each text up to 8,000 characters, nothing shortened for the link) for when no email app opened, for example with Outlook on the web only. The notice then says the address and subject to use.
 - `feedback.opened` and the client config no longer carry `format`; the agent card's feedback extension says `channel: "mailto"`. Contract 1.4.0 is not released, so it stays 1.4.0.
 
 ## Security fix: Mastra's own API closed, 10 November 2026
