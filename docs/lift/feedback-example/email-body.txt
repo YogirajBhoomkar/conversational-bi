@@ -1,0 +1,32 @@
+Hi team,
+
+I have feedback on an answer from Conversational BI.
+
+WHAT WAS WRONG
+Wrong numbers
+Comment: The 2024 total looks higher than our monthly report.
+
+MY QUESTION
+What was the total order value by year, and which year grew most?
+
+THE ANSWER I GOT
+Order value grew every year, with the biggest rise in 2024 (+10.2%, to 42.0M).
+
+Year | Order value | Change
+2022 | 35.4M | -
+2023 | 38.1M | +7.6%
+2024 | 42.0M | +10.2%
+
+Order value is the sum of all confirmed orders in the year.
+
+Thanks
+
+______________________________
+REFERENCES (please keep these, so the team can trace the answer)
+Feedback ref: 0f1e2d3c-4b5a-4968-8776-655443322110
+User ref: a1b2c3d4e5f6
+Chat id: 6c1d2e3f-0a9b-4c8d-9e7f-123456789abc
+Turn: 2 in this chat
+Time: 2026-11-10T14:05:00+05:30
+App: build example-build, contract 1.4.0
+Genie ids: conv-made-up-1/msg-made-up-1

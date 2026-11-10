@@ -12,6 +12,10 @@ export type SettingMeta = {
 
 const int = (min: number, max: number) => z.coerce.number().int().min(min).max(max);
 const flag = () => z.enum(['true', 'false']).transform((v) => v === 'true');
+const emailList = z
+  .string()
+  .transform((s) => s.split(',').map((a) => a.trim()).filter(Boolean))
+  .pipe(z.array(z.email('not a valid email address')).min(1).max(5, 'at most 5 addresses'));
 const setting = <T extends z.ZodType>(schema: T, description: string, meta: SettingMeta): T => schema.describe(description).meta(meta) as T;
 
 export const SettingsSchema = z.object({
@@ -85,6 +89,11 @@ export const SettingsSchema = z.object({
 
   // ---------------------------------------------------------------- Output guards
   BI_GUARD_OUTPUT: setting(z.enum(['on', 'off']).default('on'), 'on: remove images, links, raw HTML, bare URLs and internal agent or tool names from what the model writes, and replace an answer with figures when no data came back. No extra model calls.', { group: 'Output guards' }),
+
+  // ---------------------------------------------------------------- Feedback email
+  BI_FEEDBACK_EMAIL: setting(emailList.optional(), 'Where the "Send feedback" email goes: one address, or up to 5 separated by commas. Unset hides the button. The app sends nothing itself: the email app of the user opens with a filled-in plain-text message (a mailto link), ready to send.', { group: 'Feedback email', example: 'feedback@example.invalid' }),
+  BI_FEEDBACK_CONTENT: setting(z.enum(['full', 'question', 'ids']).default('full'), 'Data-governance switch: how much chat text goes into the feedback email. full: the question and the answer. question: the question only. ids: the references only (trace id, user ref, chat id), no chat text.', { group: 'Feedback email' }),
+  BI_FEEDBACK_MAX_URL_CHARS: setting(int(800, 8000).default(1900), 'Longest mailto link, counted after URL encoding. Mail apps and browsers cut longer links; about 2000 is safe.', { group: 'Feedback email' }),
 
   // ---------------------------------------------------------------- Local UI
   UI_DIST: setting(z.string().optional(), 'local only: folder of the built UI to serve from the same port. npm start sets it; do not put it in .env.', { group: 'Local UI' }),

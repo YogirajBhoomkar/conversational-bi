@@ -6,11 +6,13 @@ import AssistantMessage from "../../components/Message/AssistantMessage";
 import UserMessage from "../../components/Message/UserMessage";
 import { useAuthGuard } from "../../hooks/useAuthGuard";
 import { useChat } from "../../hooks/useChat";
+import { useClientConfig } from "../../feedback/useClientConfig";
 import "./ChatPage.css";
 
 export default function ChatPage() {
   useAuthGuard();
-  const { messages, busy, send, retry, newChat } = useChat();
+  const { messages, busy, send, retry, newChat, threadId } = useChat();
+  const clientConfig = useClientConfig();
   const [draft, setDraft] = useState("");
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const stickToEnd = useRef(true);
@@ -80,6 +82,8 @@ export default function ChatPage() {
                     message={m}
                     onPickSuggestion={pick}
                     onAnswer={answer}
+                    chatId={threadId}
+                    clientConfig={clientConfig}
                     onRetry={() => {
                       stickToEnd.current = true;
                       retry(m.id);

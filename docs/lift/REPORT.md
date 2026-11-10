@@ -162,6 +162,58 @@ Checked on Node 22.13.0: type check, all tests, `mastra build`, and the built se
 
 What it means in practice: `BI_GUARD_FAIL_CLOSED` has no effect in GC (1.32 has no `errorStrategy`); Mastra's own SIGTERM handling does not exist there, and ours does the shutdown. Nothing else changed: the code was already written against the APIs both versions share. Not verified: SIGTERM on Linux.
 
+## Send feedback email (confirmed), 10 November 2026
+
+Every finished answer gets a **Send feedback** button, including errors and declined questions. One click picks what was wrong, a comment is optional, and **Open email** opens the user's own email app with a filled-in message: the type, the comment, the question, the answer and the references. The app sends nothing itself; there is no feedback store. Two `feat(proposed):` commits on branch `feat/feedback-email` (on top of `chore/gc-mastra-1.32`, not pushed): the server, then the UI and docs. Details: `docs/lift/FEEDBACK.md`.
+
+**Confirmed by the client on 10 November 2026** and merged into `main`. The commit messages still say `feat(proposed):` because they were written before.
+
+| Setting | Default | What |
+|---|---|---|
+| `BI_FEEDBACK_EMAIL` | none (button hidden) | 1 to 5 addresses |
+| `BI_FEEDBACK_CONTENT` | full | `full`, `question` or `ids`: how much chat text goes into the email |
+| `BI_FEEDBACK_MAX_URL_CHARS` | 1900 | Longest mailto link, after URL encoding |
+
+Server:
+- `GET <prefix>/client-config`: the feedback settings, the caller's user ref (the hash the logs use) and the versions.
+- `POST <prefix>/feedback/opened`: a count by type, strict body, 1 KB, logs only the listed fields.
+- Every log line of a turn now carries `chatId`.
+- Contract 1.4.0.
+
+UI:
+- Pure builders for the plain-text email and its link (the budget is measured after encoding), and for the Copy email text fallback.
+- `FeedbackPanel` on the main and demo pages.
+- The trace id is now read from the `X-Trace-Id` header, so failed turns have it too.
+- New dev dependencies, for tests only: `jsdom`, `@testing-library/react` and `@testing-library/dom`.
+
+**Spike, `addFeedback`:**
+- **Found:** Mastra 1.32.1 has it on its observability layer (a recorded trace or span, or the registry's `addFeedback({ traceId, feedback })`). This app does not set observability up, so Mastra uses its no-op implementation and the call would record nothing. It also needs Mastra's own trace id, not ours.
+- **Done:** not added; the beacon logs only. If GC turns on Mastra observability later, the beacon is the place to call it.
+
+**Example**, from a made-up turn ([files](feedback-example/)):
+- The plain-text link is 1,891 characters against the 1,900 budget.
+- Even this short answer got shortened after its third table row: the headings and references take about half the link.
+- [email-body.txt](feedback-example/email-body.txt) is what the user sees in their email app.
+
+**Tests:**
+- Server: 286 tests in 35 files (12 new); UI: 59 tests in 7 files (31 new: 22 builder, 9 component).
+- Type checks are clean; the main and demo builds pass; the contract files and `.env.example` are regenerated.
+- One characterization timing check (2.3 s against 2 s) failed once while the machine was busy, and passed when rerun alone.
+- `compat-check` on both profiles (`current` with the build booted on Node 22.13.0, and `mastra-1.32`): every step passes (284 tests, 2 skipped in the copy); SIGTERM skipped on Windows.
+
+**Not verified:**
+- **Real mail clients:** Outlook desktop, the new Outlook, web mail and mobile. In particular how each handles a link near 1,900 characters.
+- **The client's frame:** whether a `mailto:` click and the clipboard are allowed inside it.
+- **Datadog:** a real search by trace id, user ref and chat id.
+- **The default mail app:** whether users have one configured at all. Without one the link does nothing; Copy email text is the fallback, and if the clipboard is blocked too, the notice gives the address and ref.
+
+**Changed after review:**
+- **Our own agent card** (`<prefix>/.well-known/agent-card.json`) now advertises the feedback setup as an extension.
+- **A designed HTML email was tried and taken out again.** A `mailto:` link can carry plain text only, so an HTML email had to come as a downloaded `.eml` file that the user then opens: one step too many for everyday use. The download, the HTML builder and `BI_FEEDBACK_FORMAT` are gone; there is one way, Open email.
+- **The plain-text email is laid out for Outlook**, which shows plain text in a proportional font: short headings in capitals (WHAT WAS WRONG, MY QUESTION, THE ANSWER I GOT, REFERENCES), one `Label: value` per line, no padded columns or checkbox grid (they came out ragged), only the chosen type instead of all six, no empty comment line. It is also shorter, so more of the answer fits in the link: the example is 1,375 characters with nothing shortened, against 1,891 and shortened before.
+- **Copy email text:** after Open email, the notice offers to copy the same email (each text up to 8,000 characters, nothing shortened for the link) for when no email app opened, for example with Outlook on the web only. The notice then says the address and subject to use.
+- `feedback.opened` and the client config no longer carry `format`; the agent card's feedback extension says `channel: "mailto"`. Contract 1.4.0 is not released, so it stays 1.4.0.
+
 ## Security fix: Mastra's own API closed, 10 November 2026
 
 Mastra's server publishes its own API under `/api` next to ours, and on a running instance it answered without any sign-in:

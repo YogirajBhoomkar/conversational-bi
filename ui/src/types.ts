@@ -47,4 +47,4 @@ export type Failure = { kind?: 'unavailable' | 'busy' | 'timeout' | 'failed' | '
 
 export type Message =
   | { id: string; role: 'user'; text: string }
-  | { id: string; role: 'assistant'; text: string; trace: TraceItem[]; startedAt: number; endedAt?: number; suggestions?: string[]; result?: FinalAnswer; error?: string; failure?: Failure; pending: boolean };
+  | { id: string; role: 'assistant'; text: string; trace: TraceItem[]; startedAt: number; endedAt?: number; suggestions?: string[]; result?: FinalAnswer; error?: string; failure?: Failure; pending: boolean; question?: string; traceId?: string; turn?: number };

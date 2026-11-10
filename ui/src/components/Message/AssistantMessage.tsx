@@ -4,6 +4,8 @@ import ChartCard from "../ChartCard/ChartCard";
 import Clarification from "../Clarification/Clarification";
 import DataTableCard from "../DataTableCard/DataTableCard";
 import ErrorNotice from "../ErrorNotice/ErrorNotice";
+import FeedbackPanel from "../FeedbackPanel/FeedbackPanel";
+import type { ClientConfig } from "../../feedback/types";
 import GenieIcon from "../GenieIcon/GenieIcon";
 import ResponseActions from "../ResponseActions/ResponseActions";
 import SuggestionChips from "../SuggestionChips/SuggestionChips";
@@ -19,6 +21,8 @@ export default function AssistantMessage({
   onRetry,
   answerable,
   answered,
+  chatId,
+  clientConfig,
 }: {
   message: Assistant;
   onPickSuggestion: (q: string) => void;
@@ -26,6 +30,8 @@ export default function AssistantMessage({
   answerable: boolean;              // this is the latest answer and nothing is running
   answered?: string;                // what the user replied next, if they did
   onRetry?: () => void;             // asks the same question again (offered on the latest turn only)
+  chatId?: string;                  // the chat's id, quoted in a feedback email
+  clientConfig?: ClientConfig | null; // where feedback goes; no Send feedback button without it
 }) {
   const r = m.result;
   // Genie's own follow-ups win; otherwise the ones the supervisor model wrote (they can arrive before or after `final`).
@@ -75,6 +81,8 @@ export default function AssistantMessage({
             {!r.clarification && <SuggestionChips questions={followUps} onPick={onPickSuggestion} />}
           </>
         )}
+        {/* Every finished turn, answers, errors and refusals alike; independent of the thumbs and sources. */}
+        {chatId && <FeedbackPanel message={m} config={clientConfig ?? null} chatId={chatId} />}
       </div>
     </div>
   );

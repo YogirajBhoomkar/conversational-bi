@@ -59,6 +59,9 @@ I listed these by searching the source for `process.env`. "Secret" means: do not
 | `BI_GROUNDING` | no | *Proposed.* Log figures that match no data (log only) | log | `core/guards/grounding.ts` |
 | `BI_GUARD_SCOPE` | no | Replace a text-only Genie reply with the scope message: off, log, enforce | enforce | `core/guards/scope.ts` |
 | `BI_SCOPE_MESSAGE` | no | Reply to an off-topic question | built from the spaces | `core/agents/prompts.ts` (`scopeMessage`) |
+| `BI_FEEDBACK_EMAIL` | no | Send feedback email addresses (1 to 5); unset hides the button | none | `edge/mastra/routes.ts` (client-config), `ui/src/feedback` |
+| `BI_FEEDBACK_CONTENT` | no | Chat text in the email: full, question, ids | full | same |
+| `BI_FEEDBACK_MAX_URL_CHARS` | no | Longest mailto link, after encoding | 1900 | same |
 | `VITE_HISTORY_TURNS` | no | Earlier turns the UI sends (UI build time) | 6 | `ui/src/hooks/history.ts` |
 
 Settings added in November 2026 are read through the one schema in `server/src/config/schema.ts`; `server/.env.example` is generated from it and lists every setting with its help text.
