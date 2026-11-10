@@ -206,6 +206,22 @@ UI:
 - **Datadog:** a real search by trace id, user ref and chat id.
 - **The default mail app:** whether users have one configured at all. Without one the link does nothing, and the notice with the address and ref is the fallback.
 
+## Security fix: Mastra's own API closed, 10 November 2026
+
+Mastra's server publishes its own API under `/api` next to ours, and on a running instance it answered without any sign-in:
+- `/api/agents`: every agent with its full instructions.
+- `/api/.well-known/<agent>/agent-card.json`: an "agent card" whose description is the supervisor's whole system prompt.
+- `/api/tools` and `/api/workflows`.
+- Routes that **run an agent directly**, such as `/api/agents/bi_supervisor/generate` (a probe with an empty body got 400, so the request was accepted for processing).
+
+Those runs would bypass our sign-in, admission limits, input and output guards and logs, and use the service's Databricks access.
+
+**Fix:** a middleware answers 404 for everything under `/api` (`closeMastraApi` in `server/src/edge/mastra/security.ts`). Our own routes stay reachable even if a host puts `BI_ROUTE_PREFIX` under `/api`.
+
+**Checked:** `compat-check` now builds and boots the server and checks that five of these routes answer 404 (Mastra 1.79 and 1.32.1, both pass); a unit test covers the prefix rule.
+
+**Not checked:** other paths a future Mastra version may add outside `/api`. The compat step should be extended when the Mastra version changes.
+
 ## Phase 5 in detail (proposed)
 
 Three pieces of state live in plain maps in the process memory: login sessions (local mode), Genie conversation ids per thread and space, and the last result per thread and space (for "show all rows"). The last two are best-effort: an instance without them starts a new Genie conversation, and "show all rows" says the full result is not available. The chat history is no longer kept on the server: the UI sends it with each question (contract 1.2.0). Mastra's own storage is a LibSQL file in the build folder (`mastra.db`).

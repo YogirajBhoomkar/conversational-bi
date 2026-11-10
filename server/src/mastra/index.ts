@@ -14,7 +14,7 @@ import { createAdmission } from '../core/admission';
 import { createBiService } from '../core/service';
 import { localAuthRoutes, serveUi } from '../edge/mastra/local-dev';
 import { createBiRoutes } from '../edge/mastra/routes';
-import { securityHeaders } from '../edge/mastra/security';
+import { closeMastraApi, securityHeaders } from '../edge/mastra/security';
 import { installShutdown, ownSignalHandling } from '../edge/mastra/shutdown';
 import type { TokenProvider } from '../ports/auth';
 
@@ -62,6 +62,7 @@ export const mastra = new Mastra({
     },
     middleware: [
       { path: '/*', handler: securityHeaders(limits.frameAncestors) },
+      { path: '/api/*', handler: closeMastraApi(config.routePrefix) }, // Mastra's own API: see security.ts
       { path: '/*', handler: serveUi(config) },
     ],
     apiRoutes: [
