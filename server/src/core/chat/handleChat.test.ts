@@ -178,3 +178,19 @@ describe('handleFeedback', () => {
     expect(genie.feedback).toHaveBeenCalledWith(expect.objectContaining({ caller: { userId: 'u1', userToken: 'identity-token', sessionId: undefined } }));
   });
 });
+
+describe('the turn log', () => {
+  it('chat.turn carries the trace id, the user hash and the chat id the UI sent (not the per-user key), and no question text', async () => {
+    const lines: Array<{ event: string; fields: Record<string, unknown> }> = [];
+    const make = (bound: Record<string, unknown>): ChatDeps['logger'] => {
+      const at = (event: string, fields: Record<string, unknown> = {}) => void lines.push({ event, fields: { ...bound, ...fields } });
+      return { debug: at, info: at, warn: at, error: at, child: (more) => make({ ...bound, ...more }) };
+    };
+    const d = { ...deps([{ type: 'text-delta', payload: { text: 'Hello' } }]), logger: make({}) };
+    await collect(handleChat(d, ctx(), { threadId: 'chat-123', message: 'a secret question' }));
+    const turn = lines.find((l) => l.event === 'chat.turn')!.fields;
+    expect(turn).toMatchObject({ traceId: 't', chatId: 'chat-123', user: expect.stringMatching(/^[0-9a-f]{12}$/) });
+    expect(JSON.stringify(turn)).not.toContain('u1::');
+    expect(JSON.stringify(lines)).not.toContain('a secret question');
+  });
+});

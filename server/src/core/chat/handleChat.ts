@@ -56,7 +56,8 @@ export async function* handleChat(deps: ChatDeps, ctx: BiRequestContext, request
   // Everything the turn calls, however deep, logs with this request's trace id (see core/log.ts).
   // Its model and Genie use is counted the same way (see core/usage.ts).
   const usage = createUsageMeter();
-  void withLogger(requestLogger(deps.logger, ctx), () => withMeter(usage, () => runTurn(deps, ctx, request, queue.push, usage))).finally(queue.close);
+  // Every line of the turn also carries the chat id the UI sent (not the per-user key), so one chat's turns are found together.
+  void withLogger(requestLogger(deps.logger, ctx).child({ chatId: request.threadId }), () => withMeter(usage, () => runTurn(deps, ctx, request, queue.push, usage))).finally(queue.close);
   yield* queue.drain();
 }
 

@@ -30,6 +30,9 @@ export type ServiceSettings = {
 // The earlier turns the UI sends: how many are used, how long each may be, whether their SQL is passed on.
 export type HistorySettings = { turns: number; maxChars: number; includeSql: boolean };
 
+// Proposed: where the Send feedback email goes and what it holds; `to: null` hides the button.
+export type FeedbackSettings = { to: string[] | null; content: 'full' | 'question' | 'ids'; format: 'text' | 'eml'; maxUrlChars: number };
+
 export type LogSettings = { format: 'pretty' | 'json'; level: 'debug' | 'info' | 'warn' | 'error'; content: boolean };
 
 export type BiConfig = {
@@ -50,6 +53,7 @@ export type BiConfig = {
   grounding: boolean; // log-only check that the answer's figures come from the data
   service: ServiceSettings;
   outputGuard: boolean; // clean what the model writes (core/guards/output.ts)
+  feedback: FeedbackSettings; // Proposed: the Send feedback email (docs/lift/FEEDBACK.md)
   spaces: GenieSpace[];
   domainRules: string;
   scope: { message?: string; guard: 'off' | 'log' | 'enforce' }; // BI_SCOPE_MESSAGE (absent: built from the spaces, core/agents/prompts.ts) and BI_GUARD_SCOPE
@@ -122,6 +126,7 @@ function toConfig(s: Settings, spaces: GenieSpace[], domainRules: string): BiCon
     port: s.PORT,
     routePrefix: s.BI_ROUTE_PREFIX,
     outputGuard: s.BI_GUARD_OUTPUT === 'on',
+    feedback: { to: s.BI_FEEDBACK_EMAIL ?? null, content: s.BI_FEEDBACK_CONTENT, format: s.BI_FEEDBACK_FORMAT, maxUrlChars: s.BI_FEEDBACK_MAX_URL_CHARS },
     databricks: {
       host: s.DATABRICKS_SERVER_HOSTNAME,
       token: local ? s.DATABRICKS_TOKEN : undefined,

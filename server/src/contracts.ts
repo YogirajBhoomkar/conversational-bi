@@ -102,8 +102,31 @@ export const ChatEventSchema = z.discriminatedUnion('type', [
 ]);
 export type ChatEvent = z.infer<typeof ChatEventSchema>;
 
+// Proposed (1.4.0): the "Send feedback" email. GET <prefix>/client-config tells the UI where feedback goes and how;
+// POST <prefix>/feedback/opened counts that a feedback email was opened, by type, with no chat text.
+export const FEEDBACK_REASONS = ['wrong_numbers', 'wrong_source', 'chart_or_table', 'too_slow', 'should_refuse', 'other'] as const;
+export const ClientConfigSchema = z.object({
+  feedback: z.object({
+    to: z.array(z.string()).nullable().describe('Where feedback emails go; null hides the Send feedback button'),
+    content: z.enum(['full', 'question', 'ids']).describe('How much chat text goes into the email'),
+    format: z.enum(['text', 'eml']).describe('text: a mailto link (plain text); eml: a downloaded HTML draft'),
+    maxUrlChars: z.number().int().describe('Budget for the whole mailto link, after URL encoding'),
+  }),
+  userRef: z.string().describe("The caller's short one-way hash, as in the logs; never the user id itself"),
+  build: z.string(),
+  contract: z.string(),
+});
+export type ClientConfig = z.infer<typeof ClientConfigSchema>;
+export const FeedbackOpenedSchema = z.strictObject({
+  traceId: z.string().trim().min(1).max(100),
+  turn: z.number().int().min(1).max(10_000),
+  format: z.enum(['text', 'eml']),
+  reason: z.enum(FEEDBACK_REASONS).nullable(),
+});
+export type FeedbackOpened = z.infer<typeof FeedbackOpenedSchema>;
+
 // The version of this contract (requests, events, answer). Changes that remove or rename a field raise the major version.
-export const CONTRACT_VERSION = '1.3.0';
+export const CONTRACT_VERSION = '1.4.0';
 
 // Request bodies for POST /bi/chat and POST /bi/feedback. The routes reject anything that does not match (400).
 // One earlier turn of the chat, sent by the UI so a follow-up ("and by region?") works on any instance with no server
