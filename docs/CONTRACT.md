@@ -1,4 +1,4 @@
-# Conversational BI API contract (1.3.0)
+# Conversational BI API contract (1.4.0)
 
 For the engineers who embed the chat page in GC's UI or host the service. The machine-readable versions are generated from the code and cannot drift from it: `server/contracts/*.schema.json` (one JSON Schema per message) and `server/contracts/bi.openapi.yaml`. Regenerate with `npm run contracts`; a test fails when they are out of date.
 
@@ -67,6 +67,14 @@ The final answer (`final-answer.schema.json`):
 
 Rate an answer (passed on to Genie): `{ "spaceId", "conversationId", "messageId", "rating": "POSITIVE" | "NEGATIVE" }`, with the ids from `final.result.sources`. Answer: `{ "ok": true }`.
 
+## GET {prefix}/client-config (Proposed, 1.4.0)
+
+Settings the UI needs, for the signed-in caller: `{ feedback: { to, content, format, maxUrlChars }, userRef, build, contract }`. `feedback.to` is the list of addresses from `BI_FEEDBACK_EMAIL`, or `null` (then the UI shows no Send feedback button). `userRef` is the caller's short one-way hash, the same value the logs carry as `user`; the response never holds the user id, an email address or a token. 401 without a valid identity. Schema: `client-config.schema.json`.
+
+## POST {prefix}/feedback/opened (Proposed, 1.4.0)
+
+The UI tells the service that a feedback email was opened, so feedback can be counted by type even when the email is never sent. Body (strict; any other field is a 400): `{ traceId, turn, format: "text" | "eml", reason: "wrong_numbers" | "wrong_source" | "chart_or_table" | "too_slow" | "should_refuse" | "other" | null }`, at most 1 KB (413 above it). The service logs `feedback.opened` on the trace of that turn, with only these fields, and answers 204. The comment, question and answer never come here. Schema: `feedback-opened.schema.json`.
+
 ## GET {prefix}/version, /health/live, /health/ready
 
 `version` gives `{ service, contract, build }`. `live` answers while the process runs. `ready` answers `200` while the service takes questions and `503` while it shuts down. Neither health check calls Databricks.
@@ -97,6 +105,7 @@ Every response carries `X-Trace-Id`. A caller may send a W3C `traceparent` (or `
 
 | Version | Change |
 |---|---|
+| 1.4.0 | Proposed: `GET client-config` and `POST feedback/opened`, for the Send feedback email |
 | 1.3.0 | `kind`, `title`, `detail`, `retryable` and `reference` on the `error` event |
 | 1.2.0 | `history` on the chat request; the service no longer remembers the chat itself |
 | 1.1.0 | `charts` and `clarification` on the final answer |

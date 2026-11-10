@@ -69,6 +69,10 @@ The complete list, with descriptions, is `server/.env.example` (generated from `
 | `BI_GROUNDING` | log | *Proposed.* Log how many figures of an answer match nothing the data returned. Never changes the answer |
 | `BI_GUARD_SCOPE` | enforce | Reply check: when every Genie call of a turn answered with text only (no SQL, no rows), `enforce` replaces the answer with the scope message, `log` only records it, `off` does nothing |
 | `BI_SCOPE_MESSAGE` | (built from the spaces) | The reply to an off-topic question. Default: built from the spaces, one bullet per space (name and the first sentence of its description) and a few of their `examples` |
+| `BI_FEEDBACK_EMAIL` | (none) | *Proposed.* Where the Send feedback email goes: 1 to 5 addresses, comma-separated. Unset hides the button |
+| `BI_FEEDBACK_CONTENT` | full | *Proposed.* How much chat text goes into the email: `full` (question and answer), `question`, `ids` (references only). A data-governance switch |
+| `BI_FEEDBACK_FORMAT` | text | *Proposed.* `text`: a mailto link, plain text. `eml`: a downloaded HTML draft for Outlook desktop |
+| `BI_FEEDBACK_MAX_URL_CHARS` | 1900 | *Proposed.* Longest mailto link, after URL encoding (800 to 8000) |
 | `VITE_HISTORY_TURNS` (UI build) | 6 | Earlier turns the UI sends with each question (each cut to 2000 / 4000 characters) |
 
 ---

@@ -50,7 +50,7 @@ export function useChat() {
       setMessages((ms) => [
         ...ms,
         { id: `u-${id}`, role: 'user', text: question },
-        { id: aid, role: 'assistant', text: '', trace: [], startedAt: Date.now(), pending: true },
+        { id: aid, role: 'assistant', text: '', trace: [], startedAt: Date.now(), pending: true, question, turn: messages.filter((m) => m.role === 'user').length + 1 },
       ]);
 
       const ctrl = new AbortController();
@@ -80,7 +80,7 @@ export function useChat() {
       };
 
       try {
-        await streamChat({ threadId, message: question, history, signal: ctrl.signal, onEvent: apply });
+        await streamChat({ threadId, message: question, history, signal: ctrl.signal, onEvent: apply, onTraceId: (traceId) => patch(aid, (m) => ({ ...m, traceId })) });
         // Stream closed without a `final` or `error` event.
         patch(aid, (m) => (m.pending ? { ...m, pending: false, endedAt: Date.now(), ...(m.result ? {} : { error: NO_ANSWER.detail, failure: NO_ANSWER }) } : m));
       } catch (err) {
@@ -120,5 +120,5 @@ export function useChat() {
     [busy, messages, send],
   );
 
-  return { messages, busy, send, retry, newChat };
+  return { messages, busy, send, retry, newChat, threadId };
 }

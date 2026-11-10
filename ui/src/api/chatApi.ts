@@ -20,6 +20,7 @@ export async function streamChat(args: {
   history?: HistoryTurn[]; // earlier turns, oldest first
   signal?: AbortSignal;
   onEvent: (event: ChatEvent) => void;
+  onTraceId?: (traceId: string) => void; // the turn's reference, from the response header (failed turns have it too)
 }): Promise<void> {
   const res = await fetch('/bi/chat', {
     method: 'POST',
@@ -28,6 +29,8 @@ export async function streamChat(args: {
     body: JSON.stringify({ threadId: args.threadId, message: args.message, ...(args.history?.length ? { history: args.history } : {}) }),
     signal: args.signal,
   });
+  const traceId = res.headers.get('X-Trace-Id');
+  if (traceId) args.onTraceId?.(traceId);
   if (!res.ok) throw await errorFrom(res);
   if (!res.body) throw new Error('The server did not return a stream.');
 
@@ -70,4 +73,28 @@ export async function sendFeedback(body: { spaceId: string; conversationId: stri
     body: JSON.stringify(body),
   });
   if (!res.ok) throw await errorFrom(res);
+}
+
+// Proposed (contract 1.4.0): where feedback emails go, and the caller's user ref. null when it cannot be read, which
+// hides the Send feedback button.
+export async function getClientConfig(): Promise<import('../feedback/types').ClientConfig | null> {
+  try {
+    const res = await fetch('/bi/client-config', { credentials: 'same-origin' });
+    return res.ok ? await res.json() : null;
+  } catch {
+    return null;
+  }
+}
+
+// Proposed: counts that a feedback email was opened, by type. Fire and forget: a failure is never shown.
+export function sendFeedbackOpened(body: { traceId: string; turn: number; format: 'text' | 'eml'; reason: string | null }): Promise<void> {
+  return fetch('/bi/feedback/opened', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'same-origin',
+    body: JSON.stringify(body),
+  }).then(
+    () => undefined,
+    () => undefined,
+  );
 }
