@@ -2,7 +2,7 @@
 // checks and sends: one JSON Schema per message, and an OpenAPI description of the routes. Written to server/contracts
 // by `npm run contracts`; contractFiles.test.ts fails when the committed files are out of date.
 import { z } from 'zod';
-import { ChartSpecSchema, ChatEventSchema, ChatRequestSchema, ClientConfigSchema, CONTRACT_VERSION, FeedbackOpenedSchema, FeedbackRequestSchema, FinalAnswerSchema } from './contracts';
+import { AgentCardSchema, ChartSpecSchema, ChatEventSchema, ChatRequestSchema, ClientConfigSchema, CONTRACT_VERSION, FeedbackOpenedSchema, FeedbackRequestSchema, FinalAnswerSchema } from './contracts';
 
 const SCHEMAS = {
   ChatRequest: ChatRequestSchema,
@@ -12,6 +12,7 @@ const SCHEMAS = {
   ChartSpec: ChartSpecSchema,
   ClientConfig: ClientConfigSchema,
   FeedbackOpened: FeedbackOpenedSchema,
+  AgentCard: AgentCardSchema,
 } as const;
 
 const fileName = (name: string) => `${name.replace(/[A-Z]/g, (c, i) => (i ? '-' : '') + c.toLowerCase())}.schema.json`;
@@ -75,6 +76,12 @@ function openApi() {
           summary: 'Proposed: count that a feedback email was opened (type only, no chat text)',
           requestBody: { required: true, content: json(ref('FeedbackOpened')) },
           responses: { '204': { description: 'Counted' }, ...errors(400, 401, 413, 500) },
+        },
+      },
+      '/bi/.well-known/agent-card.json': {
+        get: {
+          summary: 'What this assistant can do: its data areas as skills, and the Send feedback email setup as an extension. Built from configuration; never the prompt',
+          responses: { '200': { description: 'The agent card', content: json(ref('AgentCard')) }, ...errors(401, 500) },
         },
       },
       '/bi/version': {

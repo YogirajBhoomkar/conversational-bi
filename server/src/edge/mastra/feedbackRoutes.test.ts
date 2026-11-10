@@ -1,7 +1,9 @@
 // Proposed: the Send feedback email's two routes (GET client-config, POST feedback/opened) and its settings.
 import { describe, expect, it } from 'vitest';
-import { ClientConfigSchema, CONTRACT_VERSION } from '../../contracts';
-import { ConfigError, loadConfig } from '../../config/load';
+import { AgentCardSchema, ClientConfigSchema, CONTRACT_VERSION } from '../../contracts';
+import { createSpaceRegistry } from '../../core/genie/registry';
+import { FEEDBACK_EXTENSION } from '../../core/agentCard';
+import { ConfigError, type FeedbackSettings, loadConfig } from '../../config/load';
 import type { ConfigIO } from '../../config/spaces';
 import { createAdmission } from '../../core/admission';
 import { userTag } from '../../core/log';
@@ -16,7 +18,11 @@ type Line = { event: string; fields: Record<string, unknown> };
 const USER = 'someone@example.invalid';
 const signedIn: Authenticator = { authenticate: async () => ({ ok: true, identity: { userId: USER, userToken: 'identity-token' } }) };
 const rejected: Authenticator = { authenticate: async () => ({ ok: false, status: 401, message: 'Please sign in.', relogin: true }) };
-const FEEDBACK = { to: ['feedback@example.invalid'], content: 'full' as const, format: 'text' as const, maxUrlChars: 1900 };
+const REGISTRY = createSpaceRegistry([
+  { key: 'orders', name: 'Fake orders', description: 'Order figures by year and region: value and count. Not for stock.', spaceId: 'secret-space-id-1', examples: ['Which region ordered most?'] },
+  { key: 'stock', name: 'Fake stock', description: 'Stock levels by site and week.', spaceId: 'secret-space-id-2' },
+]);
+const FEEDBACK: FeedbackSettings = { to: ['feedback@example.invalid'], content: 'full', format: 'text', maxUrlChars: 1900 };
 
 function routes(authenticator = signedIn, feedback: typeof FEEDBACK | null = FEEDBACK) {
   const lines: Line[] = [];
@@ -25,7 +31,7 @@ function routes(authenticator = signedIn, feedback: typeof FEEDBACK | null = FEE
     return { debug: at, info: at, warn: at, error: at, child: (more) => make({ ...bound, ...more }) };
   };
   const admission = createAdmission({ enabled: true, maxPerUser: 2, maxTotal: 10 });
-  const list = createBiRoutes({} as BiService, authenticator, admission, make({}), { prefix: '/bi', maxBodyBytes: 65_536, heartbeatMs: 0, build: 'test-build', feedback: feedback ?? undefined }) as unknown as Route[];
+  const list = createBiRoutes({ registry: REGISTRY } as unknown as BiService, authenticator, admission, make({}), { prefix: '/bi', maxBodyBytes: 65_536, heartbeatMs: 0, build: 'test-build', feedback: feedback ?? undefined }) as unknown as Route[];
   const call = (path: string, method: string, body?: unknown, headers: Record<string, string> = {}) => {
     const route = list.find((r) => r.path === path && r.method === method)!;
     const raw = new Request(`http://localhost${path}`, { method, ...(body === undefined ? {} : { body: typeof body === 'string' ? body : JSON.stringify(body) }) });
@@ -88,6 +94,41 @@ describe('POST /bi/feedback/opened', () => {
 
   it('needs a signed-in caller', async () => {
     expect((await routes(rejected).call('/bi/feedback/opened', 'POST', beacon)).status).toBe(401);
+  });
+});
+
+describe('GET /bi/.well-known/agent-card.json', () => {
+  const card = async (feedback: typeof FEEDBACK | null = FEEDBACK) => {
+    const res = await routes(signedIn, feedback).call('/bi/.well-known/agent-card.json', 'GET');
+    expect(res.status).toBe(200);
+    return AgentCardSchema.parse(await res.json());
+  };
+  const feedbackOf = (c: Awaited<ReturnType<typeof card>>) => c.capabilities.extensions.find((e) => e.uri === FEEDBACK_EXTENSION)!;
+
+  it('lists the data areas as skills, with their first sentence and example questions', async () => {
+    const c = await card();
+    expect(c.skills).toEqual([
+      { id: 'orders', name: 'Fake orders', description: 'Order figures by year and region: value and count.', tags: ['data'], examples: ['Which region ordered most?'] },
+      { id: 'stock', name: 'Fake stock', description: 'Stock levels by site and week.', tags: ['data'], examples: [] },
+    ]);
+    expect(c).toMatchObject({ url: '/bi/chat', version: 'test-build', contract: CONTRACT_VERSION, capabilities: { streaming: true } });
+  });
+
+  it('reflects the feedback email configuration', async () => {
+    expect(feedbackOf(await card()).params).toEqual({ enabled: true, to: ['feedback@example.invalid'], format: 'text', content: 'full', maxUrlChars: 1900 });
+    expect(feedbackOf(await card({ ...FEEDBACK, format: 'eml', content: 'ids' })).params).toEqual({ enabled: true, to: ['feedback@example.invalid'], format: 'eml', content: 'ids' });
+    const off = feedbackOf(await card(null));
+    expect(off.params).toMatchObject({ enabled: false, to: [] });
+    expect(off.description).toMatch(/switched off/);
+  });
+
+  it('never holds the system prompt, agent or tool names, or space ids', async () => {
+    const text = JSON.stringify(await card());
+    for (const s of ['secret-space-id', 'genie_', 'ask-', 'bi_supervisor', 'ask_user_to_choose', 'You are a business-intelligence assistant']) expect(text).not.toContain(s);
+  });
+
+  it('needs a signed-in caller', async () => {
+    expect((await routes(rejected).call('/bi/.well-known/agent-card.json', 'GET')).status).toBe(401);
   });
 });
 

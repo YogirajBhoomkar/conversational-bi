@@ -6,6 +6,7 @@ import { ChatRequestSchema, type ClientConfig, CONTRACT_VERSION, FeedbackOpenedS
 import type { FeedbackSettings } from '../../config/load';
 import { type Admission, isRefusal } from '../../core/admission';
 import { requestLogger, userTag } from '../../core/log';
+import { buildAgentCard } from '../../core/agentCard';
 import type { BiService } from '../../core/service';
 import type { Authenticator } from '../../ports/auth';
 import type { BiLogger } from '../../ports/logger';
@@ -100,6 +101,21 @@ export function createBiRoutes(service: BiService, authenticator: Authenticator,
           if (beacon instanceof Response) return beacon;
           requestLogger(logger, { traceId: beacon.traceId, userId: identity.userId }).info('feedback.opened', { turn: beacon.turn, format: beacon.format, reason: beacon.reason });
           return new Response(null, { status: 204 });
+        } catch (e) {
+          return errorResponse(e, logger.child({ traceId }), traceId);
+        }
+      },
+    }),
+    // Our agent card, in place of Mastra's (which published the system prompt and is closed): data areas and the
+    // feedback email setup, from configuration. Signed-in callers only, as the feedback addresses are in it.
+    registerApiRoute(`${opts.prefix}/.well-known/agent-card.json`, {
+      method: 'GET',
+      handler: async (c) => {
+        const traceId = traceIdOf((n) => c.req.header(n));
+        try {
+          const identity = await identify(c, traceId);
+          if (identity instanceof Response) return identity;
+          return c.json(buildAgentCard({ spaces: service.registry.spaces, feedback: opts.feedback ?? NO_FEEDBACK, prefix: opts.prefix, build: opts.build, contract: CONTRACT_VERSION }));
         } catch (e) {
           return errorResponse(e, logger.child({ traceId }), traceId);
         }

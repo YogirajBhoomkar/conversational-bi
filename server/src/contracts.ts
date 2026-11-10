@@ -125,6 +125,24 @@ export const FeedbackOpenedSchema = z.strictObject({
 });
 export type FeedbackOpened = z.infer<typeof FeedbackOpenedSchema>;
 
+// GET <prefix>/.well-known/agent-card.json (1.4.0): what this assistant can do, A2A-shaped, built from configuration.
+export const AgentCardSchema = z.object({
+  name: z.string(),
+  description: z.string(),
+  url: z.string().describe('The chat route (Server-Sent Events); not an A2A JSON-RPC endpoint'),
+  version: z.string().describe('The build'),
+  contract: z.string(),
+  capabilities: z.object({
+    streaming: z.boolean(),
+    pushNotifications: z.boolean(),
+    extensions: z.array(z.object({ uri: z.string(), description: z.string(), required: z.boolean(), params: z.record(z.string(), z.unknown()) })),
+  }),
+  defaultInputModes: z.array(z.string()),
+  defaultOutputModes: z.array(z.string()),
+  skills: z.array(z.object({ id: z.string(), name: z.string(), description: z.string(), tags: z.array(z.string()), examples: z.array(z.string()) })).describe('One per data area'),
+});
+export type AgentCard = z.infer<typeof AgentCardSchema>;
+
 // The version of this contract (requests, events, answer). Changes that remove or rename a field raise the major version.
 export const CONTRACT_VERSION = '1.4.0';
 

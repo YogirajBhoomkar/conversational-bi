@@ -177,6 +177,28 @@ paths:
             "application/json":
               schema:
                 "$ref": "#/components/schemas/Error"
+  "/bi/.well-known/agent-card.json":
+    get:
+      summary: "What this assistant can do: its data areas as skills, and the Send feedback email setup as an extension. Built from configuration; never the prompt"
+      responses:
+        "200":
+          description: "The agent card"
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/AgentCard"
+        "401":
+          description: "No valid identity"
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/Error"
+        "500":
+          description: "A bug; the body holds the trace id"
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/Error"
   "/bi/version":
     get:
       summary: "Contract and build version"
@@ -880,6 +902,97 @@ components:
         - "format"
         - "reason"
       additionalProperties: false
+    AgentCard:
+      type: "object"
+      properties:
+        name:
+          type: "string"
+        description:
+          type: "string"
+        url:
+          type: "string"
+          description: "The chat route (Server-Sent Events); not an A2A JSON-RPC endpoint"
+        version:
+          type: "string"
+          description: "The build"
+        contract:
+          type: "string"
+        capabilities:
+          type: "object"
+          properties:
+            streaming:
+              type: "boolean"
+            pushNotifications:
+              type: "boolean"
+            extensions:
+              type: "array"
+              items:
+                type: "object"
+                properties:
+                  uri:
+                    type: "string"
+                  description:
+                    type: "string"
+                  required:
+                    type: "boolean"
+                  params:
+                    type: "object"
+                    propertyNames:
+                      type: "string"
+                    additionalProperties: {}
+                required:
+                  - "uri"
+                  - "description"
+                  - "required"
+                  - "params"
+          required:
+            - "streaming"
+            - "pushNotifications"
+            - "extensions"
+        defaultInputModes:
+          type: "array"
+          items:
+            type: "string"
+        defaultOutputModes:
+          type: "array"
+          items:
+            type: "string"
+        skills:
+          type: "array"
+          items:
+            type: "object"
+            properties:
+              id:
+                type: "string"
+              name:
+                type: "string"
+              description:
+                type: "string"
+              tags:
+                type: "array"
+                items:
+                  type: "string"
+              examples:
+                type: "array"
+                items:
+                  type: "string"
+            required:
+              - "id"
+              - "name"
+              - "description"
+              - "tags"
+              - "examples"
+          description: "One per data area"
+      required:
+        - "name"
+        - "description"
+        - "url"
+        - "version"
+        - "contract"
+        - "capabilities"
+        - "defaultInputModes"
+        - "defaultOutputModes"
+        - "skills"
     Error:
       type: "object"
       required:
