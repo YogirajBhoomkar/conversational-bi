@@ -1,5 +1,5 @@
 {
-  "$comment": "What Conversational BI needs from the host monorepo. Kept in sync with server/package.json by a test (depsManifest.test.ts). The versions are the ones tested here; for the Mastra packages the host's lockfile decides (see `mastra`).",
+  "$comment": "What Conversational BI needs from the host monorepo. Kept in sync with server/package.json by a test (depsManifest.test.ts). GC runs Mastra 1.32.1 on Node 22.13 or later, and this repository is pinned to exactly that set (see `mastra`).",
   "node": ">=22.13.0",
   "dependencies": {
     "@ai-sdk/anthropic": {
@@ -7,12 +7,12 @@
       "why": "Anthropic model access (only used when LLM_BASE_URL is not set)"
     },
     "@mastra/core": {
-      "version": "^1.79.0",
-      "why": "Agents, tools and the HTTP server; needs Node 22.13 or later. Version: the host decides, from one Mastra release set"
+      "version": "1.32.1",
+      "why": "Agents, tools and the HTTP server; needs Node 22.13 or later. Pinned to GC's version"
     },
     "@mastra/libsql": {
-      "version": "^1.27.0",
-      "why": "Mastra's own storage for agent runs (LibSQL file or in-memory); the chat history comes from the UI. Version: the host decides, from one Mastra release set"
+      "version": "1.10.0",
+      "why": "Mastra's own storage for agent runs (LibSQL file or in-memory); the chat history comes from the UI. From the same Mastra release as @mastra/core"
     },
     "dotenv": {
       "version": "^18.0.9",
@@ -29,8 +29,8 @@
       "why": "Types"
     },
     "mastra": {
-      "version": "^1.35.0",
-      "why": "Mastra CLI: build and dev server. Version: the host decides, from the same Mastra release set"
+      "version": "1.7.3",
+      "why": "Mastra CLI: build and dev server. From the same Mastra release as @mastra/core"
     },
     "tsx": {
       "version": "^4.23.15",
@@ -46,7 +46,7 @@
     }
   },
   "mastra": {
-    "rule": "The host's lockfile decides the Mastra versions. Install one release set: the packages below must all come from the same Mastra release. Their version numbers are independent counters, so match them by release date, not by number. Pin @mastra/deployer and @mastra/server to @mastra/core's version (overrides), or the CLI pulls the newest ones and the server fails at start-up. Check a set with server/scripts/compat-check.mjs (docs/lift/MASTRA-COMPAT.md).",
+    "rule": "GC runs Mastra 1.32.1 on Node 22.13 or later; this repository is pinned to exactly that release set, so what is tested here is what runs in GC. The packages below must all come from that one release. Their version numbers are independent counters, matched by release date. @mastra/deployer, @mastra/server and @mastra/loggers are pinned through overrides, or the CLI pulls newer ones. Moving to another set: change server/package.json and check it with server/scripts/compat-check.mjs (docs/lift/MASTRA-COMPAT.md).",
     "pinTogether": [
       "@mastra/core",
       "@mastra/deployer",
@@ -56,20 +56,21 @@
       "mastra"
     ],
     "testedSets": {
-      "current": {
-        "@mastra/core": "1.79.0",
-        "@mastra/libsql": "1.27.0",
-        "mastra": "1.35.0"
-      },
-      "mastra-1.32": {
+      "gc (pinned)": {
         "@mastra/core": "1.32.1",
         "@mastra/libsql": "1.10.0",
-        "@mastra/loggers": "1.1.1",
         "mastra": "1.7.3",
         "overrides": {
           "@mastra/deployer": "1.32.1",
-          "@mastra/server": "1.32.1"
-        }
+          "@mastra/server": "1.32.1",
+          "@mastra/loggers": "1.1.1"
+        },
+        "node": "22.13.0 and later"
+      },
+      "mastra-1.79 (earlier default, no longer used)": {
+        "@mastra/core": "1.79.0",
+        "@mastra/libsql": "1.27.0",
+        "mastra": "1.35.0"
       }
     }
   }

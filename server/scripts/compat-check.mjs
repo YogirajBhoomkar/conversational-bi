@@ -208,7 +208,9 @@ async function bootChecks(label, nodeBin) {
       const first = events[0];
       if (first?.type !== 'trace' || first.item?.id !== 'model') throw new Error(`first event ${JSON.stringify(first)}`);
       const last = events.at(-1);
-      if (last?.type !== 'error' || !/^Something went wrong while answering/.test(last.message) || /\bat .*\(|Error:/.test(last.message)) throw new Error(`last event ${JSON.stringify(last)}`);
+      // The dummy model endpoint cannot be reached, so the error is `unavailable` (contract 1.3.0); `failed` on a setup
+      // where the address resolves but refuses differently. Either way: our words and a reference, never a stack trace.
+      if (last?.type !== 'error' || !['unavailable', 'failed'].includes(last.kind) || !last.reference || /\bat .*\(|Error:/.test(last.message)) throw new Error(`last event ${JSON.stringify(last)}`);
       return `${events.length} events, ends with: ${last.message}`;
     });
     await stepAsync(p(`SIGTERM ends the process within ${GRACE_MS + 2000} ms`), async () => {

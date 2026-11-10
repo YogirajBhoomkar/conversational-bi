@@ -154,6 +154,14 @@ Not verified (no live Genie or model):
 
 Recommendation (needs the client): the owner of each Genie space should add an instruction to the space itself, such as "Answer only questions about this data; for anything else, say you can only answer questions about <the space's subject>." Genie then stops answering off-topic questions at the source, and our check becomes the backstop.
 
+## Pinned to GC's Mastra, 10 November 2026
+
+GC uses `@mastra/core` 1.32.1 on Node 22.13 or later, so the repository now installs exactly that set instead of 1.79: `@mastra/core` 1.32.1, `@mastra/libsql` 1.10.0, the `mastra` CLI 1.7.3, and overrides for `@mastra/deployer` and `@mastra/server` (1.32.1) and `@mastra/loggers` (1.1.1). Exact versions, no `^`. `engines` already required Node 22.13, and the Docker image already uses Node 22.
+
+Checked on Node 22.13.0: type check, all tests, `mastra build`, and the built server booting and answering (health, version, chat). The same on Node 26. `compat-check`'s chat step now expects the error kinds of contract 1.3.0 instead of one fixed sentence.
+
+What it means in practice: `BI_GUARD_FAIL_CLOSED` has no effect in GC (1.32 has no `errorStrategy`); Mastra's own SIGTERM handling does not exist there, and ours does the shutdown. Nothing else changed: the code was already written against the APIs both versions share. Not verified: SIGTERM on Linux.
+
 ## Phase 5 in detail (proposed)
 
 Three pieces of state live in plain maps in the process memory: login sessions (local mode), Genie conversation ids per thread and space, and the last result per thread and space (for "show all rows"). The last two are best-effort: an instance without them starts a new Genie conversation, and "show all rows" says the full result is not available. The chat history is no longer kept on the server: the UI sends it with each question (contract 1.2.0). Mastra's own storage is a LibSQL file in the build folder (`mastra.db`).

@@ -15,7 +15,7 @@ Conversational BI is a chat app for business questions about reinsurance placeme
 | Layer | Technology | Version | Where it is set |
 |---|---|---|---|
 | Server runtime | Node.js, ES modules, TypeScript | TypeScript 5.9.3 (installed). Node: README says "20 or newer"; no `engines` field or version file found | `server/package.json`, `server/tsconfig.json`, `README.md` |
-| Agent framework | Mastra (`@mastra/core`, `mastra` CLI) | 1.79.0 / 1.35.0 | `server/package.json` |
+| Agent framework | Mastra (`@mastra/core`, `mastra` CLI) | 1.32.1 / 1.7.3 (GC's set, pinned) | `server/package.json` |
 | Mastra storage | `@mastra/libsql` (SQLite file) | 1.27.0 | `server/src/core/agents/prompts.ts`, `server/src/mastra/index.ts` |
 | AI model | Anthropic Claude (default `claude-sonnet-5-5`), or any OpenAI-compatible endpoint via `LLM_BASE_URL` | `@ai-sdk/anthropic` 4.0.89 | `server/src/core/agents/prompts.ts` (`model()`) |
 | Data source | Databricks Genie (Conversation API, or Agent mode when `GENIE_MODE=agent`) | n/a (hosted service) | `server/src/core/genie/client.ts`, `server/src/core/genie/agentClient.ts` |
