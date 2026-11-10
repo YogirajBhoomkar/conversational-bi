@@ -1,7 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { base64Utf8, buildFeedbackEml, headerValue } from './eml';
-import { answerHtml, buildFeedbackHtml, escapeHtml } from './html';
-import { buildFeedbackMailto, cutText } from './mailto';
+import { buildFeedbackCopy, buildFeedbackMailto, cutText } from './mailto';
 import { markdownToPlainText } from './markdownToPlainText';
 import { type FeedbackInput, genieIdsLine, isoWithOffset } from './types';
 
@@ -42,16 +40,17 @@ describe('markdownToPlainText', () => {
 });
 
 describe('the plain-text email (mailto)', () => {
-  it('has every reference, the chosen type as [x], CRLF line breaks and the subject with the short ref', () => {
+  it('has every reference, the chosen type, the exchange, CRLF line breaks and the subject with the short ref', () => {
     const { subject, body, url, to } = buildFeedbackMailto(input(), MAX);
     expect(to).toEqual(['feedback@example.invalid']);
     expect(subject).toBe('[Conversational BI] Feedback - ref 0f1e2d3c');
-    for (const s of ['Feedback ref : 0f1e2d3c-4b5a-4968-8776-655443322110', 'User ref     : a1b2c3d4e5f6', 'Chat id      : chat-made-up-1', 'Turn         : 2 in this chat', 'Time         : 2026-11-10T14:05:00+05:30', 'App          : build test-build, contract 1.4.0', 'Genie ids    : conv-a/msg-a']) {
+    for (const s of ['Feedback ref: 0f1e2d3c-4b5a-4968-8776-655443322110', 'User ref: a1b2c3d4e5f6', 'Chat id: chat-made-up-1', 'Turn: 2 in this chat', 'Time: 2026-11-10T14:05:00+05:30', 'App: build test-build, contract 1.4.0', 'Genie ids: conv-a/msg-a']) {
       expect(body).toContain(s);
     }
-    expect(body).toContain('[x] Wrong numbers');
-    expect(body).toContain('[ ] Wrong data source');
-    expect(body).toContain('Comment: The 2024 total looks too high.');
+    expect(body).toContain('WHAT WAS WRONG\r\nWrong numbers\r\nComment: The 2024 total looks too high.');
+    expect(body).not.toContain('Wrong data source');
+    expect(body).toContain('MY QUESTION\r\nWhat was the total order value by year?');
+    expect(body).toContain('THE ANSWER I GOT\r\nOrder value was 42.0M in 2024.');
     expect(body).toContain('Order value was 42.0M in 2024.');
     expect(body).toContain('2024 | 42.0M');
     expect(body.split('\n').every((l, i, all) => i === all.length - 1 || l.endsWith('\r'))).toBe(true);
@@ -59,16 +58,22 @@ describe('the plain-text email (mailto)', () => {
     expect(decode(url)).toBe(body);
   });
 
-  it('is ASCII only for ASCII content, and never prints undefined', () => {
+  it('does not rely on a monospace font: no padded columns or checkbox grid', () => {
+    const { body } = buildFeedbackMailto(input(), MAX);
+    expect(body).not.toMatch(/ {2,}/);
+    expect(body).not.toContain('[x]');
+  });
+
+  it('is ASCII only for ASCII content, and never prints undefined or an empty comment', () => {
     const { body } = buildFeedbackMailto(input({ comment: undefined, question: undefined, genieIds: [] }), MAX);
     expect(/^[\x00-\x7F]*$/.test(body)).toBe(true);
     expect(body).not.toContain('undefined');
-    expect(body).toContain('Comment: -');
+    expect(body).not.toContain('Comment:');
     expect(body).not.toContain('Genie ids');
   });
 
   it('no type chosen counts as Other', () => {
-    expect(buildFeedbackMailto(input({ reason: null }), MAX).body).toContain('[x] Other');
+    expect(buildFeedbackMailto(input({ reason: null }), MAX).body).toContain('WHAT WAS WRONG\r\nOther');
   });
 
   it.each([
@@ -79,15 +84,15 @@ describe('the plain-text email (mailto)', () => {
     const { url, body } = buildFeedbackMailto(input({ answer }), MAX);
     expect(url.length).toBeLessThanOrEqual(MAX);
     expect(body).toContain('...[shortened]');
-    expect(body).toContain('Feedback ref : 0f1e2d3c-4b5a-4968-8776-655443322110');
-    expect(body).toContain('User ref     : a1b2c3d4e5f6');
+    expect(body).toContain('Feedback ref: 0f1e2d3c-4b5a-4968-8776-655443322110');
+    expect(body).toContain('User ref: a1b2c3d4e5f6');
   });
 
   it('gives the question about 300 characters first when both are long', () => {
     const { body, url } = buildFeedbackMailto(input({ question: 'question '.repeat(100), answer: 'answer '.repeat(1000) }), MAX);
-    const q = body.split('Question:\r\n')[1].split('\r\n')[0];
+    const q = body.split('MY QUESTION\r\n')[1].split('\r\n')[0];
     expect(q.length).toBeLessThan(330);
-    expect(body).toContain('Answer:');
+    expect(body).toContain('THE ANSWER I GOT');
     expect(url.length).toBeLessThanOrEqual(MAX);
   });
 
@@ -95,8 +100,8 @@ describe('the plain-text email (mailto)', () => {
     const many = input({ genieIds: Array.from({ length: 5 }, (_, i) => `conv-${'x'.repeat(200)}-${i}/msg-${i}`), comment: 'c'.repeat(300) });
     const { body, url } = buildFeedbackMailto(many, 1500);
     expect(body).not.toContain('Genie ids');
-    expect(body).toContain('Feedback ref : 0f1e2d3c');
-    expect(body).toContain('User ref     : a1b2c3d4e5f6');
+    expect(body).toContain('Feedback ref: 0f1e2d3c');
+    expect(body).toContain('User ref: a1b2c3d4e5f6');
     expect(url.length).toBeLessThanOrEqual(1500);
     expect(buildFeedbackMailto(many, 800).body).not.toContain('Comment:');
   });
@@ -104,9 +109,9 @@ describe('the plain-text email (mailto)', () => {
   it('honours BI_FEEDBACK_CONTENT: question leaves out the answer; ids leaves out the whole exchange', () => {
     const question = buildFeedbackMailto(input({ content: 'question' }), MAX).body;
     expect(question).toContain('What was the total order value by year?');
-    expect(question).not.toContain('Answer:');
+    expect(question).not.toContain('THE ANSWER I GOT');
     const ids = buildFeedbackMailto(input({ content: 'ids' }), MAX).body;
-    expect(ids).not.toContain('THE EXCHANGE');
+    expect(ids).not.toContain('MY QUESTION');
     expect(ids).not.toContain('total order value');
     expect(ids).toContain('REFERENCES');
   });
@@ -126,78 +131,19 @@ describe('the plain-text email (mailto)', () => {
   });
 });
 
-describe('the HTML email', () => {
-  it('is laid out as a branded email: header band, greeting, the six types as pills (the chosen one filled), the exchange, references, sign-off, footer band', () => {
-    const html = buildFeedbackHtml(input());
-    expect(html).toContain('<title>Conversational BI - Feedback</title>');
-    expect(html).toContain('Feedback on an answer &middot; ref 0f1e2d3c');
-    expect(html).toContain('Hello team,');
-    expect((html.match(/border-radius:999px/g) ?? []).length).toBe(6);
-    expect(html).toMatch(/background:#7b3fe4;color:#ffffff;[^"]*">&#10003;&nbsp;Wrong numbers</);
-    expect(html).toMatch(/color:#6b7280;[^"]*">Wrong data source</);
-    for (const s of ['What was wrong', 'The question', 'The answer', 'My comment', 'The 2024 total looks too high.', 'Regards,', 'Sent from Conversational BI']) expect(html).toContain(s);
-    for (const s of ['0f1e2d3c-4b5a-4968-8776-655443322110', 'a1b2c3d4e5f6', 'chat-made-up-1', '2 in this chat', 'conv-a/msg-a', 'Please keep these']) expect(html).toContain(s);
-    expect(html).not.toMatch(/<script|<img|<link|@import|url\(|<svg/i);
+describe('the Copy email text fallback', () => {
+  it('is the same email with nothing shortened for the link, capped at 8,000 characters per text', () => {
+    const { to, subject, body } = buildFeedbackCopy(input({ answer: 'word '.repeat(3000) }));
+    expect(to).toEqual(['feedback@example.invalid']);
+    expect(subject).toBe('[Conversational BI] Feedback - ref 0f1e2d3c');
+    expect(body.length).toBeGreaterThan(8000);
+    expect(body.length).toBeLessThan(9000);
+    expect(body).toContain('...[shortened]');
+    expect(buildFeedbackCopy(input()).body).not.toContain('[shortened]');
+    expect(buildFeedbackCopy(input()).body).toContain('Genie ids: conv-a/msg-a');
   });
 
-  it('leaves out the exchange per BI_FEEDBACK_CONTENT, and the comment block without a comment', () => {
-    const ids = buildFeedbackHtml(input({ content: 'ids', comment: '' }));
-    expect(ids).not.toContain('The question');
-    expect(ids).not.toContain('My comment');
-    expect(buildFeedbackHtml(input({ content: 'question' }))).not.toContain('The answer');
-  });
-
-  it('renders a Markdown table in the answer as a real table', () => {
-    expect(answerHtml('| Year | Value |\n|---|---|\n| 2024 | 42 |')).toMatch(/<table[^>]*>.*<th[^>]*>Year<\/th>.*<td[^>]*>42<\/td>/s);
-  });
-
-  it('escapes every value from users and the model', () => {
-    const html = buildFeedbackHtml(input({ question: '<script>alert(1)</script>', answer: '<img src=x onerror="alert(1)"> & "quotes"', comment: "it's <b>bad</b>", chatId: '<i>x</i>' }));
-    expect(html).not.toContain('<script>alert');
-    expect(html).not.toContain('<img src=x');
-    expect(html).not.toContain('<b>bad');
-    expect(html).not.toContain('<i>x');
-    expect(html).toContain('&lt;script&gt;alert(1)&lt;/script&gt;');
-    expect(html).toContain('&amp; &quot;quotes&quot;');
-    expect(escapeHtml(`<>&"'`)).toBe('&lt;&gt;&amp;&quot;&#39;');
-  });
-});
-
-describe('the .eml draft', () => {
-  const partOf = (eml: string, type: string) => {
-    const body = eml.split(`Content-Type: ${type}; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n`)[1].split('\r\n--')[0];
-    return new TextDecoder().decode(Uint8Array.from(atob(body.replace(/\r\n/g, '')), (c) => c.charCodeAt(0)));
-  };
-
-  it('is an unsent draft with a text and an HTML part, base64 wrapped at 76, CRLF', () => {
-    const { filename, content } = buildFeedbackEml(input());
-    expect(filename).toBe('feedback-0f1e2d3c.eml');
-    expect(content).toMatch(/^To: feedback@example\.invalid\r\nSubject: =\?UTF-8\?B\?[A-Za-z0-9+/=]+\?=\r\nX-Unsent: 1\r\nMIME-Version: 1\.0\r\nContent-Type: multipart\/alternative; boundary="[^"]+"\r\n/);
-    expect(content.split('\r\n').every((l) => l.length <= 998)).toBe(true);
-    const b64 = content.split('base64\r\n\r\n')[1].split('\r\n--')[0].split('\r\n');
-    expect(b64.slice(0, -1).every((l) => l.length === 76)).toBe(true);
-    expect(partOf(content, 'text/plain')).toContain('Feedback ref : 0f1e2d3c-4b5a-4968-8776-655443322110');
-    expect(partOf(content, 'text/html')).toContain('Conversational BI - Feedback');
-  });
-
-  it('round-trips non-ASCII text through base64', () => {
-    const text = 'Umsatz 42 € — 这是 📈';
-    expect(new TextDecoder().decode(Uint8Array.from(atob(base64Utf8(text)), (c) => c.charCodeAt(0)))).toBe(text);
-    expect(partOf(buildFeedbackEml(input({ question: text })).content, 'text/plain')).toContain(text);
-  });
-
-  it('cannot be made to add a header (no Bcc smuggled in through the comment, address or ids)', () => {
-    const evil = 'x\r\nBcc: x@example.invalid';
-    const { content } = buildFeedbackEml(input({ comment: evil, to: [`feedback@example.invalid${evil}`], traceId: `0f1e2d3c${evil}` }));
-    const headers = content.split('\r\n\r\n')[0];
-    expect(headers).not.toMatch(/^Bcc:/m);
-    expect(headers.split('\r\n').every((l) => /^(To|Subject|X-Unsent|MIME-Version|Content-Type):/.test(l))).toBe(true);
-    expect(headerValue('a\r\nb\nc')).toBe('a b c');
-  });
-
-  it('caps the question and answer at 8,000 characters', () => {
-    const { content } = buildFeedbackEml(input({ answer: 'z'.repeat(20_000) }));
-    expect(partOf(content, 'text/plain')).toContain('[shortened]');
-    expect(partOf(content, 'text/plain').length).toBeLessThan(10_000);
+  it('honours BI_FEEDBACK_CONTENT too', () => {
+    expect(buildFeedbackCopy(input({ content: 'ids' })).body).not.toContain('total order value');
   });
 });

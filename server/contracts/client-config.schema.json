@@ -29,14 +29,6 @@
           ],
           "description": "How much chat text goes into the email"
         },
-        "format": {
-          "type": "string",
-          "enum": [
-            "text",
-            "eml"
-          ],
-          "description": "text: a mailto link (plain text); eml: a downloaded HTML draft"
-        },
         "maxUrlChars": {
           "type": "integer",
           "minimum": -9007199254740991,
@@ -47,7 +39,6 @@
       "required": [
         "to",
         "content",
-        "format",
         "maxUrlChars"
       ]
     },

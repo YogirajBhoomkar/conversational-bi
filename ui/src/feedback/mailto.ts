@@ -1,49 +1,40 @@
-// The plain-text feedback email, as a mailto: link. A mailto link carries plain text only, and mail apps and browsers
-// cut long links (about 2,000 characters), so the whole link is kept within maxUrlChars, counted AFTER URL encoding:
-// the fixed parts first, then the question (up to about 300 characters), then the answer with what is left, each cut
-// on a word boundary. The layout uses ASCII only ([x], -): any other character costs up to 9 characters encoded, and
-// even "=" costs 3 (%3D), so the dividers are made of "-", which encoding leaves alone.
+// The feedback email, as a mailto: link. A mailto link carries plain text only, and mail apps and browsers cut long
+// links (about 2,000 characters), so the whole link is kept within maxUrlChars, counted AFTER URL encoding: the fixed
+// parts first, then the question (up to about 300 characters), then the answer with what is left, each cut on a word
+// boundary.
+// The layout is made for how Outlook shows plain text: in a proportional font, so nothing relies on columns lining up
+// (no padded labels, no checkbox grid); short headings in capitals, a blank line between sections, one "Label: value"
+// per line. ASCII only where we choose the characters: anything else costs up to 9 characters encoded, and the rule
+// above the references is made of "_", which encoding leaves alone.
 import { markdownToPlainText } from './markdownToPlainText';
 import { chosen, type FeedbackInput, genieIdsLine, REASONS, subjectOf } from './types';
 
 const NL = '\r\n';
-const RULE = '-'.repeat(40);
+const RULE = '_'.repeat(30);
 const SHORTENED = ' ...[shortened]';
 const QUESTION_SHARE = 300;
 
 export type TextParts = { question?: string; answer?: string; genieIds: boolean; comment: boolean };
 
-const section = (title: string) => [RULE, ` ${title}`, RULE];
-const indent = (text: string) => text.split(/\r?\n/).map((l) => (l ? `   ${l}` : ''));
-
-// Two choices per line, padded to line up in a monospace font.
-function choices(input: FeedbackInput): string[] {
-  const pick = chosen(input);
-  const cells = REASONS.map((r) => `[${r.id === pick ? 'x' : ' '}] ${r.label}`);
-  const lines: string[] = [];
-  for (let i = 0; i < cells.length; i += 2) lines.push(` ${cells[i].padEnd(28)} ${cells[i + 1] ?? ''}`.trimEnd());
-  return lines;
-}
+const reasonLabel = (input: FeedbackInput) => REASONS.find((r) => r.id === chosen(input))!.label;
 
 export function renderFeedbackText(input: FeedbackInput, parts: TextParts): string {
   const comment = input.comment?.trim();
-  const lines = ['Hi team,', '', 'I have feedback on an answer from Conversational BI.', '', ...section('MY FEEDBACK'), ...choices(input)];
-  if (parts.comment) lines.push(` Comment: ${comment || '-'}`);
-  if (input.content !== 'ids' && (parts.question !== undefined || parts.answer !== undefined)) {
-    lines.push('', ...section('THE EXCHANGE'));
-    if (parts.question !== undefined) lines.push(' Question:', ...indent(parts.question));
-    if (input.content === 'full' && parts.answer !== undefined) lines.push('', ' Answer:', ...indent(parts.answer));
-  }
+  const lines = ['Hi team,', '', 'I have feedback on an answer from Conversational BI.', '', 'WHAT WAS WRONG', reasonLabel(input)];
+  if (parts.comment && comment) lines.push(`Comment: ${comment}`);
+  if (input.content !== 'ids' && parts.question !== undefined) lines.push('', 'MY QUESTION', ...parts.question.split(/\r?\n/));
+  if (input.content === 'full' && parts.answer !== undefined) lines.push('', 'THE ANSWER I GOT', ...parts.answer.split(/\r?\n/));
   const genie = parts.genieIds ? genieIdsLine(input.genieIds) : undefined;
   lines.push(
-    '', ...section('REFERENCES (please keep this part)'),
-    ` Feedback ref : ${input.traceId}`,
-    ` User ref     : ${input.userRef}`,
-    ` Chat id      : ${input.chatId}`,
-    ` Turn         : ${input.turn} in this chat`,
-    ` Time         : ${input.time}`,
-    ` App          : build ${input.build}, contract ${input.contract}`,
-    ...(genie ? [` Genie ids    : ${genie}`] : []),
+    '', 'Thanks', '', RULE,
+    'REFERENCES (please keep these, so the team can trace the answer)',
+    `Feedback ref: ${input.traceId}`,
+    `User ref: ${input.userRef}`,
+    `Chat id: ${input.chatId}`,
+    `Turn: ${input.turn} in this chat`,
+    `Time: ${input.time}`,
+    `App: build ${input.build}, contract ${input.contract}`,
+    ...(genie ? [`Genie ids: ${genie}`] : []),
   );
   return lines.join(NL);
 }
@@ -105,6 +96,38 @@ export function buildFeedbackMailto(input: FeedbackInput, maxUrlChars: number): 
   let a = answer;
   if (a !== undefined) a = longestFitting(a, (part) => fits({ ...base, question: q, answer: part }));
   return make({ ...base, question: q, answer: a });
+}
+
+// The same email with nothing shortened for the link (each text capped at 8,000 characters), for the Copy email text
+// fallback when no email app opens: the clipboard has no 2,000-character limit.
+export const COPY_CAP = 8000;
+export function buildFeedbackCopy(input: FeedbackInput): { to: string[]; subject: string; body: string } {
+  const question = input.content !== 'ids' && input.question?.trim() ? cutText(input.question.trim(), COPY_CAP) : undefined;
+  const answer = input.content === 'full' && input.answer?.trim() ? cutText(markdownToPlainText(input.answer), COPY_CAP) : undefined;
+  return { to: input.to, subject: subjectOf(input.traceId), body: renderFeedbackText(input, { question, answer, genieIds: true, comment: true }) };
+}
+
+// Puts text on the clipboard. The Clipboard API first; inside a frame that does not allow it, the older copy command.
+export async function copyText(text: string, doc: Document = document): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    const box = doc.createElement('textarea');
+    box.value = text;
+    box.setAttribute('readonly', '');
+    box.style.position = 'fixed';
+    box.style.opacity = '0';
+    doc.body.appendChild(box);
+    box.select();
+    try {
+      return doc.execCommand('copy');
+    } catch {
+      return false;
+    } finally {
+      box.remove();
+    }
+  }
 }
 
 // Opens the link as a click on a real anchor: this works better than window.location inside a frame.

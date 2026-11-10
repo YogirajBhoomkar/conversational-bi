@@ -3,15 +3,15 @@ import Button from '@mui/material/Button';
 import ButtonBase from '@mui/material/ButtonBase';
 import MailOutlineIcon from '@mui/icons-material/EmailOutlined';
 import { sendFeedbackOpened } from '../../api/chatApi';
-import { buildFeedbackEml, downloadEml } from '../../feedback/eml';
-import { buildFeedbackMailto, openMailto } from '../../feedback/mailto';
+import { buildFeedbackCopy, buildFeedbackMailto, copyText, openMailto } from '../../feedback/mailto';
 import { type ClientConfig, type FeedbackInput, isoWithOffset, ref8, type Reason, REASONS } from '../../feedback/types';
 import type { Message } from '../../types';
 import './FeedbackPanel.css';
 
 // Proposed: "Send feedback" under a finished answer. One click on a type, an optional comment, then the user's own
-// email app opens with a filled-in message (or an .eml draft downloads). The app itself sends nothing; it only counts
-// that feedback was opened, by type (never the comment, question or answer).
+// email app opens with a filled-in plain-text message, ready to send. When no email app opens, Copy email text puts the
+// same email on the clipboard for any mail (Outlook on the web too). The app itself sends nothing; it only counts that
+// feedback was opened, by type (never the comment, question or answer).
 type Assistant = Extract<Message, { role: 'assistant' }>;
 export const MAX_COMMENT = 300;
 
@@ -40,27 +40,27 @@ export default function FeedbackPanel({ message, config, chatId }: { message: As
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState<Reason | null>(null);
   const [comment, setComment] = useState('');
-  const [notice, setNotice] = useState<string | null>(null);
+  const [sent, setSent] = useState<FeedbackInput | null>(null);
+  const [copied, setCopied] = useState<boolean | null>(null);
   if (!config?.feedback.to || message.pending) return null;
   const input = feedbackInput(message, config, chatId, reason, comment);
   if (!input) return null;
-  const eml = config.feedback.format === 'eml';
 
   const send = () => {
-    if (eml) {
-      downloadEml(buildFeedbackEml(input));
-      setNotice('Draft downloaded. Open the file to see your email, then press Send.');
-    } else {
-      openMailto(buildFeedbackMailto(input, config.feedback.maxUrlChars).url);
-      setNotice(`Opening your email app. If it did not open, write to ${input.to.join(', ')} and quote ref ${ref8(input.traceId)}.`);
-    }
-    void sendFeedbackOpened({ traceId: input.traceId, turn: input.turn, format: config.feedback.format, reason: reason ?? 'other' });
+    openMailto(buildFeedbackMailto(input, config.feedback.maxUrlChars).url);
+    void sendFeedbackOpened({ traceId: input.traceId, turn: input.turn, reason: reason ?? 'other' });
+    setSent(input);
+    setCopied(null);
     setOpen(false);
   };
+  const copy = async () => {
+    if (sent) setCopied(await copyText(buildFeedbackCopy(sent).body));
+  };
+  const copyFor = sent ? buildFeedbackCopy(sent) : null;
 
   return (
     <div className="fb">
-      <ButtonBase className="fb__toggle" onClick={() => { setOpen((o) => !o); setNotice(null); }} aria-expanded={open}>
+      <ButtonBase className="fb__toggle" onClick={() => { setOpen((o) => !o); setSent(null); }} aria-expanded={open}>
         <MailOutlineIcon fontSize="inherit" aria-hidden /> Send feedback
       </ButtonBase>
       {open && (
@@ -89,13 +89,24 @@ export default function FeedbackPanel({ message, config, chatId }: { message: As
           />
           <div className="fb__actions">
             <Button className="fb__send" variant="contained" disableElevation onClick={send}>
-              {eml ? 'Download draft' : 'Open email'}
+              Open email
             </Button>
             <ButtonBase className="fb__cancel" onClick={() => setOpen(false)}>Cancel</ButtonBase>
           </div>
         </div>
       )}
-      {notice && <div className="fb__notice" role="status">{notice}</div>}
+      {copyFor && (
+        <div className="fb__notice" role="status">
+          {copied === true ? (
+            <>Copied. Paste it into a new email to <strong>{copyFor.to.join(', ')}</strong> with the subject <strong>{copyFor.subject}</strong>.</>
+          ) : copied === false ? (
+            <>Copying is blocked here. Write to <strong>{copyFor.to.join(', ')}</strong> and quote ref <strong>{ref8(sent!.traceId)}</strong>.</>
+          ) : (
+            <>Your email app is opening with the feedback filled in: check it and press Send. Did it not open?{' '}
+              <ButtonBase className="fb__copy" onClick={() => void copy()}>Copy email text</ButtonBase></>
+          )}
+        </div>
+      )}
     </div>
   );
 }

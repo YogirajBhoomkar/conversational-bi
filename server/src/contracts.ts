@@ -109,7 +109,6 @@ export const ClientConfigSchema = z.object({
   feedback: z.object({
     to: z.array(z.string()).nullable().describe('Where feedback emails go; null hides the Send feedback button'),
     content: z.enum(['full', 'question', 'ids']).describe('How much chat text goes into the email'),
-    format: z.enum(['text', 'eml']).describe('text: a mailto link (plain text); eml: a downloaded HTML draft'),
     maxUrlChars: z.number().int().describe('Budget for the whole mailto link, after URL encoding'),
   }),
   userRef: z.string().describe("The caller's short one-way hash, as in the logs; never the user id itself"),
@@ -120,7 +119,6 @@ export type ClientConfig = z.infer<typeof ClientConfigSchema>;
 export const FeedbackOpenedSchema = z.strictObject({
   traceId: z.string().trim().min(1).max(100),
   turn: z.number().int().min(1).max(10_000),
-  format: z.enum(['text', 'eml']),
   reason: z.enum(FEEDBACK_REASONS).nullable(),
 });
 export type FeedbackOpened = z.infer<typeof FeedbackOpenedSchema>;

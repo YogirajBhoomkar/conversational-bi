@@ -13,13 +13,6 @@
       "minimum": 1,
       "maximum": 10000
     },
-    "format": {
-      "type": "string",
-      "enum": [
-        "text",
-        "eml"
-      ]
-    },
     "reason": {
       "anyOf": [
         {
@@ -42,7 +35,6 @@
   "required": [
     "traceId",
     "turn",
-    "format",
     "reason"
   ],
   "additionalProperties": false,

@@ -10,11 +10,10 @@ export const REASONS = [
 export type Reason = (typeof REASONS)[number]['id'];
 
 export type FeedbackContent = 'full' | 'question' | 'ids';
-export type FeedbackFormat = 'text' | 'eml';
 
 // What the server's GET <prefix>/client-config returns (contract 1.4.0).
 export type ClientConfig = {
-  feedback: { to: string[] | null; content: FeedbackContent; format: FeedbackFormat; maxUrlChars: number };
+  feedback: { to: string[] | null; content: FeedbackContent; maxUrlChars: number };
   userRef: string;
   build: string;
   contract: string;

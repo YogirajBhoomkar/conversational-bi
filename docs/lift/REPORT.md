@@ -170,7 +170,6 @@ Every finished answer gets a **Send feedback** button, including errors and decl
 |---|---|---|
 | `BI_FEEDBACK_EMAIL` | none (button hidden) | 1 to 5 addresses |
 | `BI_FEEDBACK_CONTENT` | full | `full`, `question` or `ids`: how much chat text goes into the email |
-| `BI_FEEDBACK_FORMAT` | eml | `eml` (designed HTML draft for Outlook desktop) or `text` (plain mailto link) |
 | `BI_FEEDBACK_MAX_URL_CHARS` | 1900 | Longest mailto link, after URL encoding |
 
 Server:
@@ -180,7 +179,7 @@ Server:
 - Contract 1.4.0.
 
 UI:
-- Pure builders for the plain-text card and its link (the budget is measured after encoding), the HTML body (every value escaped) and the `.eml` draft (CR and LF stripped from headers).
+- Pure builders for the plain-text email and its link (the budget is measured after encoding), and for the Copy email text fallback.
 - `FeedbackPanel` on the main and demo pages.
 - The trace id is now read from the `X-Trace-Id` header, so failed turns have it too.
 - New dev dependencies, for tests only: `jsdom`, `@testing-library/react` and `@testing-library/dom`.
@@ -192,7 +191,7 @@ UI:
 **Example**, from a made-up turn ([files](feedback-example/)):
 - The plain-text link is 1,891 characters against the 1,900 budget.
 - Even this short answer got shortened after its third table row: the headings and references take about half the link.
-- [email-body.txt](feedback-example/email-body.txt) is what the user sees in a plain-text email; [email.html](feedback-example/email.html) is the `eml` body.
+- [email-body.txt](feedback-example/email-body.txt) is what the user sees in their email app.
 
 **Tests:**
 - Server: 286 tests in 35 files (12 new); UI: 59 tests in 7 files (31 new: 22 builder, 9 component).
@@ -201,15 +200,17 @@ UI:
 - `compat-check` on both profiles (`current` with the build booted on Node 22.13.0, and `mastra-1.32`): every step passes (284 tests, 2 skipped in the copy); SIGTERM skipped on Windows.
 
 **Not verified:**
-- **Real mail clients:** Outlook desktop, the new Outlook, web mail and mobile. In particular how each handles a link near 1,900 characters, and whether a `.eml` with `X-Unsent: 1` opens as an editable draft in the client's Outlook.
-- **The client's frame:** whether a `mailto:` click or a download is allowed inside it.
+- **Real mail clients:** Outlook desktop, the new Outlook, web mail and mobile. In particular how each handles a link near 1,900 characters.
+- **The client's frame:** whether a `mailto:` click and the clipboard are allowed inside it.
 - **Datadog:** a real search by trace id, user ref and chat id.
-- **The default mail app:** whether users have one configured at all. Without one the link does nothing, and the notice with the address and ref is the fallback.
+- **The default mail app:** whether users have one configured at all. Without one the link does nothing; Copy email text is the fallback, and if the clipboard is blocked too, the notice gives the address and ref.
 
 **Changed after review:**
-- **The email is now a designed HTML email, and `eml` is the default format.** The layout follows a branded notification: an indigo header band with the app's mark, a greeting, bold sections with type pills, the exchange in soft panels, references, a sign-off and a footer band. A `mailto:` link cannot carry HTML, so the designed email comes as a downloaded draft; `text` remains for setups where that does not work.
 - **Our own agent card** (`<prefix>/.well-known/agent-card.json`) now advertises the feedback setup as an extension.
-- **Not verified:** how the new layout renders in Outlook desktop (its Word engine ignores rounded corners and some spacing; the layout is built to degrade to square corners), in the new Outlook and on the web, where a `.eml` may open read-only.
+- **A designed HTML email was tried and taken out again.** A `mailto:` link can carry plain text only, so an HTML email had to come as a downloaded `.eml` file that the user then opens: one step too many for everyday use. The download, the HTML builder and `BI_FEEDBACK_FORMAT` are gone; there is one way, Open email.
+- **The plain-text email is laid out for Outlook**, which shows plain text in a proportional font: short headings in capitals (WHAT WAS WRONG, MY QUESTION, THE ANSWER I GOT, REFERENCES), one `Label: value` per line, no padded columns or checkbox grid (they came out ragged), only the chosen type instead of all six, no empty comment line. It is also shorter, so more of the answer fits in the link: the example is 1,375 characters with nothing shortened, against 1,891 and shortened before.
+- **Copy email text:** after Open email, the notice offers to copy the same email (each text up to 8,000 characters, nothing shortened for the link) for when no email app opened, for example with Outlook on the web only. The notice then says the address and subject to use.
+- `feedback.opened` and the client config no longer carry `format`; the agent card's feedback extension says `channel: "mailto"`. Contract 1.4.0 is not released, so it stays 1.4.0.
 
 ## Security fix: Mastra's own API closed, 10 November 2026
 

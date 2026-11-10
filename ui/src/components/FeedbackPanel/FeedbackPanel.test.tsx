@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ClientConfig } from '../../feedback/types';
 import type { Message } from '../../types';
@@ -8,7 +8,7 @@ import FeedbackPanel, { MAX_COMMENT } from './FeedbackPanel';
 type Assistant = Extract<Message, { role: 'assistant' }>;
 
 const config = (over: Partial<ClientConfig['feedback']> = {}): ClientConfig => ({
-  feedback: { to: ['feedback@example.invalid'], content: 'full', format: 'text', maxUrlChars: 1900, ...over },
+  feedback: { to: ['feedback@example.invalid'], content: 'full', maxUrlChars: 1900, ...over },
   userRef: 'a1b2c3d4e5f6',
   build: 'test-build',
   contract: '1.4.0',
@@ -27,12 +27,10 @@ let fetchMock: ReturnType<typeof vi.fn>;
 beforeEach(() => {
   clicked = [];
   vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
-    clicked.push(this.download ? `download:${this.download}` : this.href);
+    clicked.push(this.href);
   });
   fetchMock = vi.fn(async () => new Response(null, { status: 204 }));
   vi.stubGlobal('fetch', fetchMock);
-  URL.createObjectURL = vi.fn(() => 'blob:made-up');
-  URL.revokeObjectURL = vi.fn();
 });
 afterEach(() => {
   cleanup();
@@ -77,7 +75,7 @@ describe('FeedbackPanel', () => {
     expect(box.value.length).toBe(MAX_COMMENT);
   });
 
-  it('Open email opens the mailto link and counts it by type, never sending the comment', async () => {
+  it('Open email opens the mailto link and counts it by type, never sending the comment', () => {
     render(<FeedbackPanel message={answered} config={config()} chatId="chat-1" />);
     fireEvent.click(screen.getByRole('button', { name: /Send feedback/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Wrong numbers' }));
@@ -86,25 +84,37 @@ describe('FeedbackPanel', () => {
     expect(clicked).toHaveLength(1);
     expect(clicked[0]).toMatch(/^mailto:feedback@example\.invalid\?subject=/);
     const body = decodeURIComponent(clicked[0].split('&body=')[1]);
-    expect(body).toContain('[x] Wrong numbers');
+    expect(body).toContain('WHAT WAS WRONG\r\nWrong numbers');
     expect(body).toContain('Comment: secret remark');
-    expect(body).toContain('Feedback ref : trace-made-up-123');
-    expect(body).toContain('Chat id      : chat-1');
-    expect(body).toContain('Genie ids    : conv-1/msg-1');
+    expect(body).toContain('Feedback ref: trace-made-up-123');
+    expect(body).toContain('Chat id: chat-1');
+    expect(body).toContain('Genie ids: conv-1/msg-1');
     expect(body).not.toContain('SELECT 42');
-    expect(beaconBody()).toEqual({ traceId: 'trace-made-up-123', turn: 1, format: 'text', reason: 'wrong_numbers' });
+    expect(beaconBody()).toEqual({ traceId: 'trace-made-up-123', turn: 1, reason: 'wrong_numbers' });
     expect(JSON.stringify(fetchMock.mock.calls)).not.toContain('secret remark');
-    expect(screen.getByRole('status').textContent).toMatch(/Opening your email app\. If it did not open, write to feedback@example\.invalid and quote ref trace-ma\./);
+    expect(screen.getByRole('status').textContent).toContain('Your email app is opening with the feedback filled in');
+    expect(screen.queryByRole('button', { name: 'Download draft' })).toBeNull();
   });
 
-  it('with the eml format, downloads a draft instead', () => {
-    render(<FeedbackPanel message={answered} config={config({ format: 'eml' })} chatId="chat-1" />);
+  it('when no email app opened, Copy email text copies the email and says where to send it', async () => {
+    const writeText = vi.fn(async (_text: string) => undefined);
+    vi.stubGlobal('navigator', { clipboard: { writeText } });
+    render(<FeedbackPanel message={answered} config={config()} chatId="chat-1" />);
     fireEvent.click(screen.getByRole('button', { name: /Send feedback/ }));
-    fireEvent.click(screen.getByRole('button', { name: 'Download draft' }));
-    expect(clicked).toEqual(['download:feedback-trace-ma.eml']);
-    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:made-up');
-    expect(beaconBody()).toMatchObject({ format: 'eml', reason: 'other' });
-    expect(screen.getByRole('status').textContent).toContain('Draft downloaded');
+    fireEvent.click(screen.getByRole('button', { name: 'Open email' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Copy email text' }));
+    await waitFor(() => expect(screen.getByRole('status').textContent).toContain('Copied. Paste it into a new email to feedback@example.invalid with the subject [Conversational BI] Feedback - ref trace-ma.'));
+    expect(String(writeText.mock.calls[0][0])).toContain('Feedback ref: trace-made-up-123');
+  });
+
+  it('when copying is blocked too, gives the address and the ref', async () => {
+    vi.stubGlobal('navigator', { clipboard: { writeText: vi.fn(async () => { throw new Error('blocked'); }) } });
+    document.execCommand = vi.fn(() => false);
+    render(<FeedbackPanel message={answered} config={config()} chatId="chat-1" />);
+    fireEvent.click(screen.getByRole('button', { name: /Send feedback/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open email' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Copy email text' }));
+    await waitFor(() => expect(screen.getByRole('status').textContent).toContain('Copying is blocked here. Write to feedback@example.invalid and quote ref trace-ma.'));
   });
 
   it('a failing count never breaks the click', () => {

@@ -31,7 +31,7 @@ export type ServiceSettings = {
 export type HistorySettings = { turns: number; maxChars: number; includeSql: boolean };
 
 // Proposed: where the Send feedback email goes and what it holds; `to: null` hides the button.
-export type FeedbackSettings = { to: string[] | null; content: 'full' | 'question' | 'ids'; format: 'text' | 'eml'; maxUrlChars: number };
+export type FeedbackSettings = { to: string[] | null; content: 'full' | 'question' | 'ids'; maxUrlChars: number };
 
 export type LogSettings = { format: 'pretty' | 'json'; level: 'debug' | 'info' | 'warn' | 'error'; content: boolean };
 
@@ -126,7 +126,7 @@ function toConfig(s: Settings, spaces: GenieSpace[], domainRules: string): BiCon
     port: s.PORT,
     routePrefix: s.BI_ROUTE_PREFIX,
     outputGuard: s.BI_GUARD_OUTPUT === 'on',
-    feedback: { to: s.BI_FEEDBACK_EMAIL ?? null, content: s.BI_FEEDBACK_CONTENT, format: s.BI_FEEDBACK_FORMAT, maxUrlChars: s.BI_FEEDBACK_MAX_URL_CHARS },
+    feedback: { to: s.BI_FEEDBACK_EMAIL ?? null, content: s.BI_FEEDBACK_CONTENT, maxUrlChars: s.BI_FEEDBACK_MAX_URL_CHARS },
     databricks: {
       host: s.DATABRICKS_SERVER_HOSTNAME,
       token: local ? s.DATABRICKS_TOKEN : undefined,

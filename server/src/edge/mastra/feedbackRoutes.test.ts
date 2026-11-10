@@ -22,7 +22,7 @@ const REGISTRY = createSpaceRegistry([
   { key: 'orders', name: 'Fake orders', description: 'Order figures by year and region: value and count. Not for stock.', spaceId: 'secret-space-id-1', examples: ['Which region ordered most?'] },
   { key: 'stock', name: 'Fake stock', description: 'Stock levels by site and week.', spaceId: 'secret-space-id-2' },
 ]);
-const FEEDBACK: FeedbackSettings = { to: ['feedback@example.invalid'], content: 'full', format: 'text', maxUrlChars: 1900 };
+const FEEDBACK: FeedbackSettings = { to: ['feedback@example.invalid'], content: 'full', maxUrlChars: 1900 };
 
 function routes(authenticator = signedIn, feedback: typeof FEEDBACK | null = FEEDBACK) {
   const lines: Line[] = [];
@@ -64,23 +64,23 @@ describe('GET /bi/client-config', () => {
 });
 
 describe('POST /bi/feedback/opened', () => {
-  const beacon = { traceId: 'trace-of-the-turn', turn: 3, format: 'text', reason: 'wrong_numbers' };
+  const beacon = { traceId: 'trace-of-the-turn', turn: 3, reason: 'wrong_numbers' };
 
   it('logs feedback.opened on the trace of the turn, with only the listed fields, and answers 204', async () => {
     const { call, lines } = routes();
     const res = await call('/bi/feedback/opened', 'POST', beacon);
     expect(res.status).toBe(204);
     const line = lines.find((l) => l.event === 'feedback.opened')!;
-    expect(line.fields).toEqual({ traceId: 'trace-of-the-turn', user: userTag(USER), turn: 3, format: 'text', reason: 'wrong_numbers' });
+    expect(line.fields).toEqual({ traceId: 'trace-of-the-turn', user: userTag(USER), turn: 3, reason: 'wrong_numbers' });
   });
 
   it('accepts no reason (none chosen)', async () => {
     expect((await routes().call('/bi/feedback/opened', 'POST', { ...beacon, reason: null })).status).toBe(204);
   });
 
-  it('refuses extra fields (a comment or question must never come here), a bad reason and a bad format', async () => {
+  it('refuses extra fields (a comment, question or anything else must never come here) and a bad reason', async () => {
     const { call, lines } = routes();
-    for (const bad of [{ ...beacon, comment: 'the numbers are off' }, { ...beacon, question: 'q' }, { ...beacon, reason: 'spam' }, { ...beacon, format: 'pdf' }, { ...beacon, turn: 0 }]) {
+    for (const bad of [{ ...beacon, comment: 'the numbers are off' }, { ...beacon, question: 'q' }, { ...beacon, reason: 'spam' }, { ...beacon, format: 'text' }, { ...beacon, turn: 0 }]) {
       expect((await call('/bi/feedback/opened', 'POST', bad)).status).toBe(400);
     }
     expect(lines.some((l) => l.event === 'feedback.opened')).toBe(false);
@@ -115,8 +115,8 @@ describe('GET /bi/.well-known/agent-card.json', () => {
   });
 
   it('reflects the feedback email configuration', async () => {
-    expect(feedbackOf(await card()).params).toEqual({ enabled: true, to: ['feedback@example.invalid'], format: 'text', content: 'full', maxUrlChars: 1900 });
-    expect(feedbackOf(await card({ ...FEEDBACK, format: 'eml', content: 'ids' })).params).toEqual({ enabled: true, to: ['feedback@example.invalid'], format: 'eml', content: 'ids' });
+    expect(feedbackOf(await card()).params).toEqual({ enabled: true, to: ['feedback@example.invalid'], channel: 'mailto', content: 'full', maxUrlChars: 1900 });
+    expect(feedbackOf(await card({ ...FEEDBACK, content: 'ids', maxUrlChars: 2500 })).params).toEqual({ enabled: true, to: ['feedback@example.invalid'], channel: 'mailto', content: 'ids', maxUrlChars: 2500 });
     const off = feedbackOf(await card(null));
     expect(off.params).toMatchObject({ enabled: false, to: [] });
     expect(off.description).toMatch(/switched off/);
@@ -145,20 +145,19 @@ describe('feedback settings', () => {
     }
   };
 
-  it('defaults: no address (button hidden), full content, the designed HTML draft (eml), 1900 characters for text', () => {
-    expect(load({})).toEqual({ to: null, content: 'full', format: 'eml', maxUrlChars: 1900 });
+  it('defaults: no address (button hidden), full content, a 1900-character link', () => {
+    expect(load({})).toEqual({ to: null, content: 'full', maxUrlChars: 1900 });
   });
 
   it('takes up to 5 comma-separated addresses', () => {
     expect(load({ BI_FEEDBACK_EMAIL: ' a@example.invalid, b@example.invalid ' }).to).toEqual(['a@example.invalid', 'b@example.invalid']);
   });
 
-  it('refuses a bad address, more than 5, a link budget out of bounds, and an unknown content or format', () => {
+  it('refuses a bad address, more than 5, a link budget out of bounds, and an unknown content', () => {
     expect(problems({ BI_FEEDBACK_EMAIL: 'not-an-address' }).join()).toMatch(/BI_FEEDBACK_EMAIL.*not a valid email address/);
     expect(problems({ BI_FEEDBACK_EMAIL: Array.from({ length: 6 }, (_, i) => `u${i}@example.invalid`).join(',') }).join()).toMatch(/at most 5/);
     expect(problems({ BI_FEEDBACK_MAX_URL_CHARS: '500' }).join()).toMatch(/BI_FEEDBACK_MAX_URL_CHARS/);
     expect(problems({ BI_FEEDBACK_MAX_URL_CHARS: '9000' }).join()).toMatch(/BI_FEEDBACK_MAX_URL_CHARS/);
     expect(problems({ BI_FEEDBACK_CONTENT: 'everything' }).join()).toMatch(/BI_FEEDBACK_CONTENT/);
-    expect(problems({ BI_FEEDBACK_FORMAT: 'pdf' }).join()).toMatch(/BI_FEEDBACK_FORMAT/);
   });
 });

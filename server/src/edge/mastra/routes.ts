@@ -17,7 +17,7 @@ export type RouteOptions = { prefix: string; maxBodyBytes: number; heartbeatMs: 
 
 // The beacon body is a few short fields: anything larger is refused before it is read.
 const FEEDBACK_OPENED_MAX_BYTES = 1024;
-const NO_FEEDBACK: FeedbackSettings = { to: null, content: 'full', format: 'eml', maxUrlChars: 1900 };
+const NO_FEEDBACK: FeedbackSettings = { to: null, content: 'full', maxUrlChars: 1900 };
 
 export function createBiRoutes(service: BiService, authenticator: Authenticator, admission: Admission, logger: BiLogger, opts: RouteOptions) {
   // Authenticates the caller. A refusal is answered here (401/403, with whether to log in again) and logged.
@@ -99,7 +99,7 @@ export function createBiRoutes(service: BiService, authenticator: Authenticator,
           if (identity instanceof Response) return identity;
           const beacon = await readBody(c, FeedbackOpenedSchema, FEEDBACK_OPENED_MAX_BYTES);
           if (beacon instanceof Response) return beacon;
-          requestLogger(logger, { traceId: beacon.traceId, userId: identity.userId }).info('feedback.opened', { turn: beacon.turn, format: beacon.format, reason: beacon.reason });
+          requestLogger(logger, { traceId: beacon.traceId, userId: identity.userId }).info('feedback.opened', { turn: beacon.turn, reason: beacon.reason });
           return new Response(null, { status: 204 });
         } catch (e) {
           return errorResponse(e, logger.child({ traceId }), traceId);

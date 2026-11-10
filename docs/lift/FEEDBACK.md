@@ -1,6 +1,6 @@
 # Send feedback email (Proposed)
 
-For the people who run Conversational BI and read the feedback it produces. **Proposed**: the client has not confirmed this feature. It ships switched off and is removable with `git revert` of its two commits.
+For the people who run Conversational BI and read the feedback it produces. **Proposed**: the client has not confirmed this feature. It ships switched off and is removable with `git revert` of its commits.
 
 ## What the user sees
 
@@ -8,29 +8,26 @@ Under every finished answer, including error turns and declined off-topic questi
 
 1. One click on what was wrong: *Wrong numbers, Wrong data source, Chart or table issue, Too slow, Should have been refused, Other* (none chosen counts as Other).
 2. An optional one-line comment (up to 300 characters).
-3. **Download draft** (the default, `eml`): a designed email downloads as a draft; opening it shows it in Outlook, ready to send. With `text`, **Open email** opens the user's email app with a plain-text message instead. Either way they read it, can edit it, and press Send.
+3. **Open email**: the user's email app opens with the message filled in: To, Subject and body. They read it, can edit it, and press Send.
+
+If no email app opens (none is set up, or only Outlook on the web is used), the notice under the button offers **Copy email text**. It copies the same email, and the notice then gives the address and subject to paste it under. If the clipboard is blocked as well, the notice gives the address and the short ref to quote.
 
 The app sends nothing itself and keeps no feedback store: the email is the channel. The thumbs up and down (Genie's own feedback, `POST /bi/feedback`) are unchanged.
 
 ## What the email contains
 
+The email is plain text, because that is all a `mailto:` link can carry. It is laid out for how Outlook shows plain text, in a proportional font: short headings in capitals, a blank line between sections, and one `Label: value` per line, with nothing that needs columns to line up.
+
 | Part | Content |
 |---|---|
 | Subject | `[Conversational BI] Feedback - ref <first 8 characters of the trace id>` |
-| My feedback | The six types, the chosen one marked, and the comment |
-| The exchange | The question and the answer, depending on `BI_FEEDBACK_CONTENT` |
-| References | Feedback ref, user ref, chat id, turn, time, app build and contract, Genie ids |
+| WHAT WAS WRONG | The chosen type, and the comment if there is one |
+| MY QUESTION, THE ANSWER I GOT | The question and the answer, depending on `BI_FEEDBACK_CONTENT`. Markdown is turned into plain text; a table becomes one row per line, cells separated by ` \| ` |
+| REFERENCES | Below a line: feedback ref, user ref, chat id, turn, time, app build and contract, Genie ids |
 
 Never in the email: the SQL, the user's name or email address, any token.
 
-The designed email (`eml`) is laid out like a branded notification:
-- a deep indigo header band with the app's mark and the short ref;
-- a greeting and short bold sections (What was wrong, with the six types as pills and the chosen one filled in violet; The question; The answer, with tables kept as tables; References);
-- a sign-off and a footer band.
-
-It uses no images or external fonts, so nothing is blocked or tracked.
-
-Examples, built from a made-up turn by `ui/scripts/feedback-example.ts`: [the HTML body](feedback-example/email.html) (open it in a browser), [the .eml draft](feedback-example/feedback-0f1e2d3c.eml), [the plain-text body](feedback-example/email-body.txt) and [the link](feedback-example/mailto-link.txt).
+Example, built from a made-up turn by `ui/scripts/feedback-example.ts`: [the body](feedback-example/email-body.txt) and [the link](feedback-example/mailto-link.txt).
 
 ## Which reference finds what
 
@@ -42,16 +39,11 @@ Examples, built from a made-up turn by `ui/scripts/feedback-example.ts`: [the HT
 | Turn | The position of the answer in the chat |
 | Genie ids | `<conversation id>/<message id>` per data source: the same exchange on the Genie side, in the Databricks workspace |
 
-## eml or text (`BI_FEEDBACK_FORMAT`)
+## Length (`BI_FEEDBACK_MAX_URL_CHARS`)
 
-| | `eml` (default) | `text` |
-|---|---|---|
-| How | The browser downloads a `.eml` draft; opening it shows an unsent message (`X-Unsent: 1`) | A `mailto:` link opens the default email app |
-| Body | The designed HTML email: header band, type pills, tables, the full question and answer | Plain text, laid out as a card |
-| Length | Up to 8,000 characters each for the question and the answer | The whole link is limited to `BI_FEEDBACK_MAX_URL_CHARS` (1900) **after URL encoding**; the answer is shortened to fit, marked `...[shortened]` |
-| Works with | Outlook desktop (and Apple Mail, Thunderbird). Outlook on the web and the new Outlook may open the file read-only | Any email app |
+Email apps and browsers cut `mailto:` links at roughly 2,000 characters, so the whole link is kept within `BI_FEEDBACK_MAX_URL_CHARS` (1900), counted **after URL encoding**. A space costs 3 characters there, a line break 6, and a character outside ASCII up to 12. The references always stay. The question gets about 300 characters first, then the answer gets what is left. Each is cut on a word boundary and marked `...[shortened]`. A long or non-English answer is shortened sooner. The example's link is 1,375 characters, with nothing shortened.
 
-`eml` is the default because only it can carry a designed email: a `mailto:` link can carry plain text only, and email apps and browsers cut links at roughly 2,000 characters. The limit counts the link after encoding. A space costs 3 characters there, a line break 6, and a character outside ASCII up to 12, so the fixed parts take about half the budget. A long or non-English answer is shortened sooner.
+The whole answer is always in the chat, and the feedback ref finds it in the logs. Copy email text has no such limit: it copies up to 8,000 characters each of the question and answer.
 
 ## What leaves the app (`BI_FEEDBACK_CONTENT`)
 
@@ -65,4 +57,8 @@ Examples, built from a made-up turn by `ui/scripts/feedback-example.ts`: [the HT
 
 ## What the service records
 
-`POST /bi/feedback/opened` logs `feedback.opened` with the trace id, user ref, turn, format and type, and nothing else. That gives counts of feedback by type even when an email is never sent. The comment, question and answer never reach the server through this route.
+`POST /bi/feedback/opened` logs `feedback.opened` with the trace id, user ref, turn and type, and nothing else. That gives counts of feedback by type even when an email is never sent. The comment, question and answer never reach the server through this route.
+
+## Why not a designed (HTML) email
+
+A web page cannot open an email app with an HTML email in it: `mailto:` carries plain text only. An HTML email would have to come as a downloaded `.eml` file that the user then opens, which is one step too many for everyday use. Sending it from the server would need a mail service and would take away the user's look at the email before it goes. Putting a draft into the user's mailbox through Microsoft 365 would need mailbox write access for the app. So the email is plain text, and it is laid out to read well.

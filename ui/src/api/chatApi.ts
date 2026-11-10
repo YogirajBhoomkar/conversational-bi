@@ -87,7 +87,7 @@ export async function getClientConfig(): Promise<import('../feedback/types').Cli
 }
 
 // Proposed: counts that a feedback email was opened, by type. Fire and forget: a failure is never shown.
-export function sendFeedbackOpened(body: { traceId: string; turn: number; format: 'text' | 'eml'; reason: string | null }): Promise<void> {
+export function sendFeedbackOpened(body: { traceId: string; turn: number; reason: string | null }): Promise<void> {
   return fetch('/bi/feedback/opened', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

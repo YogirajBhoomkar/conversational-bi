@@ -1,9 +1,7 @@
-// Writes docs/lift/feedback-example/ from a made-up turn: the plain-text body, the mailto link, the HTML body and the
-// .eml draft, exactly as the Send feedback button builds them. Run from ui/: npx tsx scripts/feedback-example.ts
+// Writes docs/lift/feedback-example/ from a made-up turn: the email body and the mailto link, exactly as the Send
+// feedback button builds them. Run from ui/: npx tsx scripts/feedback-example.ts
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { buildFeedbackEml } from '../src/feedback/eml';
-import { buildFeedbackHtml } from '../src/feedback/html';
 import { buildFeedbackMailto } from '../src/feedback/mailto';
 import type { FeedbackInput } from '../src/feedback/types';
 
@@ -39,7 +37,4 @@ mkdirSync(dir, { recursive: true });
 const mail = buildFeedbackMailto(example, 1900);
 writeFileSync(join(dir, 'email-body.txt'), mail.body.replace(/\r\n/g, '\n') + '\n');
 writeFileSync(join(dir, 'mailto-link.txt'), `${mail.url}\n\n(${mail.url.length} characters, budget 1900)\n`);
-writeFileSync(join(dir, 'email.html'), buildFeedbackHtml(example));
-const eml = buildFeedbackEml(example);
-writeFileSync(join(dir, eml.filename), eml.content);
 console.log(`Wrote ${dir}: mailto link ${mail.url.length} characters`);

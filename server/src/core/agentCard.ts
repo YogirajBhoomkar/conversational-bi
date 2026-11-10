@@ -25,10 +25,10 @@ export function buildAgentCard(args: { spaces: GenieSpace[]; feedback: FeedbackS
         {
           uri: FEEDBACK_EXTENSION,
           description: on
-            ? 'Send feedback: every answer offers a button that opens a prepared email (the type of problem, an optional comment and references to trace the answer) to the configured address.'
+            ? 'Send feedback: every answer offers a button that opens the email app of the user with a prepared plain-text email (the type of problem, an optional comment, the exchange and references to trace the answer) to the configured address. The app sends nothing itself.'
             : 'Send feedback email: switched off (BI_FEEDBACK_EMAIL is not set).',
           required: false,
-          params: { enabled: on, to: on ? feedback.to : [], format: feedback.format, content: feedback.content, ...(feedback.format === 'text' ? { maxUrlChars: feedback.maxUrlChars } : {}) },
+          params: { enabled: on, to: on ? feedback.to : [], channel: 'mailto', content: feedback.content, maxUrlChars: feedback.maxUrlChars },
         },
       ],
     },

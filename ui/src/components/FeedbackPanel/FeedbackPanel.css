@@ -115,6 +115,33 @@
 .fb__notice {
   margin-top: 6px;
   font-size: 13px;
+  line-height: 19px;
   color: #4b5563;
   overflow-wrap: anywhere;
+}
+
+.fb__notice strong {
+  color: #1f2937;
+  font-weight: 600;
+}
+
+.fb__copy.MuiButtonBase-root {
+  padding: 1px 8px;
+  border: 1px solid #b9a2ef;
+  border-radius: 6px;
+  background: #fff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: #5b2db8;
+  vertical-align: baseline;
+}
+
+.fb__copy.MuiButtonBase-root:hover {
+  background: #f4effd;
+}
+
+.fb__copy.MuiButtonBase-root.Mui-focusVisible {
+  outline: 2px solid #7b3fe4;
+  outline-offset: 2px;
 }
