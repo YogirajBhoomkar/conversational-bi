@@ -61,7 +61,7 @@ I listed these by searching the source for `process.env`. "Secret" means: do not
 | `BI_SCOPE_MESSAGE` | no | Reply to an off-topic question | built from the spaces | `core/agents/prompts.ts` (`scopeMessage`) |
 | `BI_FEEDBACK_EMAIL` | no | *Proposed.* Send feedback email addresses (1 to 5); unset hides the button | none | `edge/mastra/routes.ts` (client-config), `ui/src/feedback` |
 | `BI_FEEDBACK_CONTENT` | no | *Proposed.* Chat text in the email: full, question, ids | full | same |
-| `BI_FEEDBACK_FORMAT` | no | *Proposed.* text (mailto link) or eml (HTML draft) | text | same |
+| `BI_FEEDBACK_FORMAT` | no | *Proposed.* eml (designed HTML draft) or text (plain mailto link) | eml | same |
 | `BI_FEEDBACK_MAX_URL_CHARS` | no | *Proposed.* Longest mailto link, after encoding | 1900 | same |
 | `VITE_HISTORY_TURNS` | no | Earlier turns the UI sends (UI build time) | 6 | `ui/src/hooks/history.ts` |
 

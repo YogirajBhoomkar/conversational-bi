@@ -145,8 +145,8 @@ describe('feedback settings', () => {
     }
   };
 
-  it('defaults: no address (button hidden), full content, text format, 1900 characters', () => {
-    expect(load({})).toEqual({ to: null, content: 'full', format: 'text', maxUrlChars: 1900 });
+  it('defaults: no address (button hidden), full content, the designed HTML draft (eml), 1900 characters for text', () => {
+    expect(load({})).toEqual({ to: null, content: 'full', format: 'eml', maxUrlChars: 1900 });
   });
 
   it('takes up to 5 comma-separated addresses', () => {

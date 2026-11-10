@@ -127,14 +127,24 @@ describe('the plain-text email (mailto)', () => {
 });
 
 describe('the HTML email', () => {
-  it('shows the six types as pills, the chosen one filled, the exchange and every reference', () => {
+  it('is laid out as a branded email: header band, greeting, the six types as pills (the chosen one filled), the exchange, references, sign-off, footer band', () => {
     const html = buildFeedbackHtml(input());
-    expect(html).toContain('Conversational BI - Feedback');
+    expect(html).toContain('<title>Conversational BI - Feedback</title>');
+    expect(html).toContain('Feedback on an answer &middot; ref 0f1e2d3c');
+    expect(html).toContain('Hello team,');
     expect((html.match(/border-radius:999px/g) ?? []).length).toBe(6);
-    expect(html).toMatch(/background:#7b3fe4;color:#ffffff;[^"]*">Wrong numbers</);
+    expect(html).toMatch(/background:#7b3fe4;color:#ffffff;[^"]*">&#10003;&nbsp;Wrong numbers</);
     expect(html).toMatch(/color:#6b7280;[^"]*">Wrong data source</);
-    for (const s of ['0f1e2d3c-4b5a-4968-8776-655443322110', 'a1b2c3d4e5f6', 'chat-made-up-1', '2 in this chat', 'conv-a/msg-a', 'Please keep the references']) expect(html).toContain(s);
-    expect(html).not.toMatch(/<script|<img|<link|@import|url\(/i);
+    for (const s of ['What was wrong', 'The question', 'The answer', 'My comment', 'The 2024 total looks too high.', 'Regards,', 'Sent from Conversational BI']) expect(html).toContain(s);
+    for (const s of ['0f1e2d3c-4b5a-4968-8776-655443322110', 'a1b2c3d4e5f6', 'chat-made-up-1', '2 in this chat', 'conv-a/msg-a', 'Please keep these']) expect(html).toContain(s);
+    expect(html).not.toMatch(/<script|<img|<link|@import|url\(|<svg/i);
+  });
+
+  it('leaves out the exchange per BI_FEEDBACK_CONTENT, and the comment block without a comment', () => {
+    const ids = buildFeedbackHtml(input({ content: 'ids', comment: '' }));
+    expect(ids).not.toContain('The question');
+    expect(ids).not.toContain('My comment');
+    expect(buildFeedbackHtml(input({ content: 'question' }))).not.toContain('The answer');
   });
 
   it('renders a Markdown table in the answer as a real table', () => {

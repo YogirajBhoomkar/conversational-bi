@@ -170,7 +170,7 @@ Every finished answer gets a **Send feedback** button, including errors and decl
 |---|---|---|
 | `BI_FEEDBACK_EMAIL` | none (button hidden) | 1 to 5 addresses |
 | `BI_FEEDBACK_CONTENT` | full | `full`, `question` or `ids`: how much chat text goes into the email |
-| `BI_FEEDBACK_FORMAT` | text | `text` (mailto link) or `eml` (HTML draft for Outlook desktop) |
+| `BI_FEEDBACK_FORMAT` | eml | `eml` (designed HTML draft for Outlook desktop) or `text` (plain mailto link) |
 | `BI_FEEDBACK_MAX_URL_CHARS` | 1900 | Longest mailto link, after URL encoding |
 
 Server:
@@ -205,6 +205,11 @@ UI:
 - **The client's frame:** whether a `mailto:` click or a download is allowed inside it.
 - **Datadog:** a real search by trace id, user ref and chat id.
 - **The default mail app:** whether users have one configured at all. Without one the link does nothing, and the notice with the address and ref is the fallback.
+
+**Changed after review:**
+- **The email is now a designed HTML email, and `eml` is the default format.** The layout follows a branded notification: an indigo header band with the app's mark, a greeting, bold sections with type pills, the exchange in soft panels, references, a sign-off and a footer band. A `mailto:` link cannot carry HTML, so the designed email comes as a downloaded draft; `text` remains for setups where that does not work.
+- **Our own agent card** (`<prefix>/.well-known/agent-card.json`) now advertises the feedback setup as an extension.
+- **Not verified:** how the new layout renders in Outlook desktop (its Word engine ignores rounded corners and some spacing; the layout is built to degrade to square corners), in the new Outlook and on the web, where a `.eml` may open read-only.
 
 ## Security fix: Mastra's own API closed, 10 November 2026
 
