@@ -16,3 +16,16 @@ export function securityHeaders(frameAncestors: string) {
     for (const [name, value] of Object.entries(headers)) c.res.headers.set(name, value);
   };
 }
+
+// Mastra's server also serves its own API under /api: the agent list with every agent's full instructions, an "agent
+// card" per agent (the system prompt again), the tools, the workflows, and routes that RUN an agent directly. None of
+// them goes through our sign-in, limits, guards or logs, so all of /api answers 404. Our own routes stay reachable even
+// if a host puts BI_ROUTE_PREFIX under /api.
+export function closeMastraApi(routePrefix: string) {
+  const ours = routePrefix.replace(/\/+$/, '');
+  return async (c: RouteContext, next: () => Promise<void>) => {
+    const path = c.req.path;
+    if (ours && (path === ours || path.startsWith(`${ours}/`))) return next();
+    return new Response(JSON.stringify({ error: 'Not found' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
+  };
+}
