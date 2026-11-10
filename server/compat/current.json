@@ -1,5 +1,5 @@
 {
   "name": "current",
-  "description": "The versions in server/package.json, installed from the lockfile.",
+  "description": "The versions in server/package.json, installed from the lockfile: GC's set, Mastra 1.32.1 (run it on Node 22.13, GC's minimum).",
   "useLockfile": true
 }

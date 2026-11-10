@@ -62,7 +62,7 @@ export const SettingsSchema = z.object({
   // ---------------------------------------------------------------- Input guards
   BI_GUARD_INJECTION: setting(z.enum(['off', 'log', 'block']).default('off'), 'Prompt-injection check on each question. off: none. log: record a hit and answer anyway. block: refuse the question. When on, it adds one call to BI_GUARD_MODEL per question, before anything streams.', { group: 'Input guards' }),
   BI_GUARD_MODEL: setting(z.string().trim().min(1).optional(), 'Model for the prompt-injection check (required unless BI_GUARD_INJECTION=off): a small, cheap model on the same provider and endpoint as the main model.', { group: 'Input guards', example: 'claude-haiku-5-5' }),
-  BI_GUARD_FAIL_CLOSED: setting(flag().default(false), 'true: refuse the question when the guard model fails. false: answer anyway and log it. Honoured only on Mastra versions with errorStrategy; older ones always answer.', { group: 'Input guards' }),
+  BI_GUARD_FAIL_CLOSED: setting(flag().default(false), 'true: refuse the question when the guard model fails. false: answer anyway and log it. Has no effect on Mastra 1.32 (the version GC runs), which has no errorStrategy: there the question is always answered.', { group: 'Input guards' }),
 
   // ---------------------------------------------------------------- Service limits and safety
   BI_ENABLED: setting(flag().default(true), 'false switches chat and feedback off (503 with a friendly message) without taking the service down. Health checks keep answering.', { group: 'Service' }),
