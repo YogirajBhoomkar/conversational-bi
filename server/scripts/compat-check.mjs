@@ -201,6 +201,18 @@ async function bootChecks(label, nodeBin) {
       if (res.status !== 200) throw new Error(`status ${res.status}`);
       return JSON.stringify(await res.json());
     });
+    // Mastra's own API (agent instructions, agent cards, routes that run an agent) must not answer: it bypasses our
+    // sign-in, limits and guards (edge/mastra/security.ts, closeMastraApi).
+    await stepAsync(p("Mastra's built-in /api routes answer 404 (no agent list, no agent card, no direct agent run)"), async () => {
+      const probes = [['GET', '/api/agents'], ['GET', '/api/.well-known/bi_supervisor/agent-card.json'], ['GET', '/api/tools'], ['GET', '/api/workflows'], ['POST', '/api/agents/bi_supervisor/generate']];
+      const open = [];
+      for (const [method, path] of probes) {
+        const res = await fetch(`${base}${path}`, { method, headers: { 'Content-Type': 'application/json' }, ...(method === 'POST' ? { body: '{}' } : {}) });
+        if (res.status !== 404) open.push(`${method} ${path}: ${res.status}`);
+      }
+      if (open.length) throw new Error(`still open: ${open.join('; ')}`);
+      return `${probes.length} routes closed`;
+    });
     await stepAsync(p(`POST ${PREFIX}/chat streams the model trace first, and a friendly error for the failing model`), async () => {
       const res = await fetch(`${base}${PREFIX}/chat`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ threadId: 'compat', message: 'compatibility check' }), signal: AbortSignal.timeout(120_000) });
       if (res.status !== 200 || !res.headers.get('content-type')?.includes('text/event-stream')) throw new Error(`status ${res.status}, ${res.headers.get('content-type')}`);
