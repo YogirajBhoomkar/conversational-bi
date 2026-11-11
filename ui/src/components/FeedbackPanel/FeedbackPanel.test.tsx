@@ -75,12 +75,12 @@ describe('FeedbackPanel', () => {
     expect(box.value.length).toBe(MAX_COMMENT);
   });
 
-  it('Open email opens the mailto link and counts it by type, never sending the comment', () => {
+  it('Send email feedback opens the mailto link and counts it by type, never sending the comment', () => {
     render(<FeedbackPanel message={answered} config={config()} chatId="chat-1" />);
     fireEvent.click(screen.getByRole('button', { name: /Send feedback/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Wrong numbers' }));
     fireEvent.change(screen.getByLabelText('Add a comment (optional)'), { target: { value: 'secret remark' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Open email' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Send email feedback' }));
     expect(clicked).toHaveLength(1);
     expect(clicked[0]).toMatch(/^mailto:feedback@example\.invalid\?subject=/);
     const body = decodeURIComponent(clicked[0].split('&body=')[1]);
@@ -101,7 +101,7 @@ describe('FeedbackPanel', () => {
     vi.stubGlobal('navigator', { clipboard: { writeText } });
     render(<FeedbackPanel message={answered} config={config()} chatId="chat-1" />);
     fireEvent.click(screen.getByRole('button', { name: /Send feedback/ }));
-    fireEvent.click(screen.getByRole('button', { name: 'Open email' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Send email feedback' }));
     fireEvent.click(screen.getByRole('button', { name: 'Copy email text' }));
     await waitFor(() => expect(screen.getByRole('status').textContent).toContain('Copied. Paste it into a new email to feedback@example.invalid with the subject [Conversational BI] Feedback - ref trace-ma.'));
     expect(String(writeText.mock.calls[0][0])).toContain('Feedback ref: trace-made-up-123');
@@ -112,7 +112,7 @@ describe('FeedbackPanel', () => {
     document.execCommand = vi.fn(() => false);
     render(<FeedbackPanel message={answered} config={config()} chatId="chat-1" />);
     fireEvent.click(screen.getByRole('button', { name: /Send feedback/ }));
-    fireEvent.click(screen.getByRole('button', { name: 'Open email' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Send email feedback' }));
     fireEvent.click(screen.getByRole('button', { name: 'Copy email text' }));
     await waitFor(() => expect(screen.getByRole('status').textContent).toContain('Copying is blocked here. Write to feedback@example.invalid and quote ref trace-ma.'));
   });
@@ -121,7 +121,7 @@ describe('FeedbackPanel', () => {
     fetchMock.mockRejectedValue(new TypeError('fetch failed'));
     render(<FeedbackPanel message={failed} config={config()} chatId="chat-1" />);
     fireEvent.click(screen.getByRole('button', { name: /Send feedback/ }));
-    expect(() => fireEvent.click(screen.getByRole('button', { name: 'Open email' }))).not.toThrow();
+    expect(() => fireEvent.click(screen.getByRole('button', { name: 'Send email feedback' }))).not.toThrow();
     expect(clicked).toHaveLength(1);
     expect(screen.getByRole('status')).toBeTruthy();
   });

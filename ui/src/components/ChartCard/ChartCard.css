@@ -3,39 +3,54 @@
   position: relative;
 }
 
+/* The chart type switcher: one segmented control. The buttons are MUI ButtonBase, whose own reset (no border,
+   background or padding) is injected at runtime after this file, so every rule also matches .MuiButtonBase-root
+   to win, as in the other components. */
 .chart-seg {
-  display: flex;
-  border: 1px solid #cfd6e4;
-  border-radius: 6px;
-  overflow: hidden;
+  display: inline-flex;
   flex: none;
-}
-
-.chart-seg__btn {
-  border: 0;
-  background: #fff;
-  padding: 5px 12px;
-  font: inherit;
-  font-size: 12px;
-  color: #374151;
-  cursor: pointer;
-}
-
-.chart-seg__btn + .chart-seg__btn {
-  border-left: 1px solid #cfd6e4;
-}
-
-.chart-seg__btn:hover {
+  align-items: stretch;
+  padding: 2px;
+  gap: 2px;
+  border: 1px solid #d5dbe6;
+  border-radius: 8px;
   background: #f4f6fa;
 }
 
-.chart-seg__btn.is-on,
-.chart-seg__btn.is-on:hover {
+.chart-seg__btn.MuiButtonBase-root {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 11px;
+  border-radius: 6px;
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 18px;
+  color: #4b5563;
+  white-space: nowrap;
+  transition: background 0.12s, color 0.12s, box-shadow 0.12s;
+}
+
+.chart-seg__btn.MuiButtonBase-root:hover {
+  background: #e8ecf4;
+  color: #1f2937;
+}
+
+.chart-seg__btn.MuiButtonBase-root.is-on,
+.chart-seg__btn.MuiButtonBase-root.is-on:hover {
   background: #0b2a8a;
   color: #fff;
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(11, 42, 138, 0.25);
+}
+
+.chart-seg__btn.MuiButtonBase-root.Mui-focusVisible {
+  outline: 2px solid #0b2a8a;
+  outline-offset: 1px;
 }
 
 .chart-seg__caret.MuiSvgIcon-root {
   font-size: 16px;
-  margin: 0 -4px 0 2px;
+  margin: 0 -4px 0 1px;
 }

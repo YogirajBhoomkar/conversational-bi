@@ -89,7 +89,7 @@ export default function FeedbackPanel({ message, config, chatId }: { message: As
           />
           <div className="fb__actions">
             <Button className="fb__send" variant="contained" disableElevation onClick={send}>
-              Open email
+              Send email feedback
             </Button>
             <ButtonBase className="fb__cancel" onClick={() => setOpen(false)}>Cancel</ButtonBase>
           </div>
